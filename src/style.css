@@ -197,7 +197,9 @@ button.tab.active { background: #5533aa; border-color: #7755cc; }
 /* クラウドセーブ(引き継ぎ) */
 #cloud-panel { margin-top: 12px; }
 #cloud-panel .cloud-row { display: flex; gap: 8px; flex-wrap: wrap; margin: 8px 0; }
-#cloud-panel .cloud-row input { flex: 1 1 140px; min-width: 0; }
+#cloud-panel .cloud-row input { flex: 1 1 240px; min-width: 0; }
+/* 入力例だと分かるように薄く斜体で出す */
+#cloud-panel .cloud-row input::placeholder { color: #666688; font-style: italic; }
 #cloud-panel .cloud-h3 { font-size: 13px; color: #aaaacc; margin: 14px 0 4px; }
 #cloud-panel .note.warn { color: #ffbb88; }
 #cloud-status { min-height: 16px; color: #88bbaa; }
