@@ -1,4 +1,5 @@
-import { spellMagicValue } from '../shared/spellcraft';
+import { finalStats, spellMagicValue } from '../shared/spellcraft';
+import { ELEMENT_ORDER } from '../shared/data';
 import type { ElementId, GameState, Spell } from '../shared/types';
 
 const SAVE_KEY = 'magic_web_game_save_v1';
@@ -36,9 +37,23 @@ function load(): GameState {
       if (typeof (sp as { level?: unknown }).level !== 'number') sp.level = 0;
       if (typeof (sp as { rarity?: unknown }).rarity !== 'string') sp.rarity = 'normal';
     }
+    // 性能はレシピから必ず再計算する。
+    // (項目を増やしたバージョンアップ後も、古い魔法が欠損値=NaNにならない。
+    //  同時にバランス調整も既存の魔法へ反映される)
+    for (const sp of merged.spells) {
+      try {
+        sp.stats = finalStats(sp.recipe ?? {}, sp.level, sp.rarity);
+      } catch { /* レシピが壊れている場合は元の値のまま */ }
+    }
     if (typeof merged.nickname !== 'string') merged.nickname = '';
     if (!Array.isArray(merged.bossCleared)) merged.bossCleared = [];
     if (typeof merged.sortByPower !== 'boolean') merged.sortByPower = false;
+    // 素材庫の欠損も0で補う
+    for (const id of ELEMENT_ORDER) {
+      if (typeof merged.inventory[id] !== 'number' || !Number.isFinite(merged.inventory[id])) {
+        merged.inventory[id] = 0;
+      }
+    }
     return merged;
   } catch {
     return initialState();

@@ -168,7 +168,28 @@ export function spellCooldown(s: SpellStats): number {
 // ===== 魔導値(魔法の総合的な強さを1つの数値に) =====
 // 効果量を「1回の行動あたりの価値 ÷ 拘束時間」で評価し、MP効率と自傷で補正する。
 
-export function spellMagicValue(s: SpellStats): number {
+// 欠損した項目を0で埋める(古いセーブの魔法で計算がNaNにならないように)
+export function normalizeStats(raw: SpellStats): SpellStats {
+  const n = (x: unknown) => (typeof x === 'number' && Number.isFinite(x) ? x : 0);
+  return {
+    ...raw,
+    kind: raw?.kind ?? 'attack',
+    attr: raw?.attr ?? 'fire',
+    targetAll: !!raw?.targetAll,
+    quake: !!raw?.quake,
+    pierce: !!raw?.pierce,
+    barrier: n(raw?.barrier), healPower: n(raw?.healPower), hateGain: n(raw?.hateGain),
+    wardPct: n(raw?.wardPct), hpBoost: n(raw?.hpBoost), sealTime: n(raw?.sealTime),
+    atkBoost: n(raw?.atkBoost), dotDps: n(raw?.dotDps), dotTime: n(raw?.dotTime),
+    power: n(raw?.power), castTime: n(raw?.castTime), manaCost: n(raw?.manaCost),
+    projSpeed: n(raw?.projSpeed), radius: n(raw?.radius), chain: n(raw?.chain),
+    critRate: n(raw?.critRate), lifesteal: n(raw?.lifesteal), freeze: n(raw?.freeze),
+    slow: n(raw?.slow), selfDamage: n(raw?.selfDamage),
+  };
+}
+
+export function spellMagicValue(raw: SpellStats): number {
+  const s = normalizeStats(raw);
   const cycle = s.castTime + spellCooldown(s) * 0.6; // 1発に要する実時間
   let v = 0;
 
@@ -201,6 +222,7 @@ export function spellMagicValue(s: SpellStats): number {
 
   v *= 1 + Math.max(-0.25, (18 - s.manaCost) / 120); // MP効率
   v -= s.selfDamage * 1.8;
+  if (!Number.isFinite(v)) return 1;
   return Math.max(1, Math.round(v));
 }
 
