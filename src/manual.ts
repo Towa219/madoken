@@ -10,7 +10,8 @@ import {
   LIBRARY_BONUS_FULL_KINDS, LIBRARY_BONUS_MAX, LIBRARY_BONUS_PER_KIND,
   LIBRARY_BONUS_START, libraryBonus,
   PLAYER_MAX_HP, PLAYER_MAX_MP, RARITIES, RECIPES,
-  SLOT4_BOSS_STAGE, SLOT4_COST, SLOT5_BOSS_STAGE, SLOT5_COST,
+  SLOT3_COST, SLOT4_BOSS_STAGE, SLOT4_COST, SLOT5_BOSS_STAGE, SLOT5_COST,
+  START_SLOTS,
 } from '../shared/data';
 import { ENHANCE_MAX } from '../shared/spellcraft';
 import { NICK_MAX_FULL, NICK_MAX_WIDTH } from '../shared/nickname';
@@ -119,7 +120,7 @@ export function renderManual(): void {
     <li><b>共闘</b>は最大3人。全員が準備完了で開始し、<b>クリアすると自動で次のステージへ</b>進み続けます</li>
     <li>誰かが倒れても、ステージを越えればHP50%で復活します。<b>全滅すると終了</b>です</li>
     <li>戦闘中に誰かが退出すると、前のステージまでのクリア扱いで全員ロビーに戻ります</li>
-    <li><b>ボス戦(5の倍数)は2人以上の共闘専用</b>。ソロでは挑めません</li>
+    <li><b>ボス戦(5の倍数)はオンラインの共闘部屋から</b>挑みます。<b>1人でも挑戦できます</b>が、仲間がいるほど楽になります</li>
     <li><b>決闘</b>は1対1。HP${DUEL_MAX_HP}で、挑発は「構え」(被弾-20%)として働きます</li>
     <li><b>ランキング</b>はニックネームごとに自己ベスト1件。スコア = クリアステージ×10 + 与ダメージ÷20</li>
     <li>ニックネームは初回接続時に登録され、<b>初期化するまで変更できません</b>。
@@ -145,7 +146,10 @@ export function renderManual(): void {
 
 <section class="man-sec">
   <h3>調合スロットの解放</h3>
+  <p>最初は<b>${START_SLOTS}スロット</b>から始まります。2素材でも系統は成立しますが、
+  多くの系統は3素材以上を必要とします。</p>
   <ul>
+    <li>第3スロット: <b>研究P${SLOT3_COST}</b>のみ(最初の目標)</li>
     <li>第4スロット: <b>ステージ${SLOT4_BOSS_STAGE}のボス撃破</b> + 研究P${SLOT4_COST}</li>
     <li>第5スロット: <b>ステージ${SLOT5_BOSS_STAGE}のボス撃破</b> + 研究P${SLOT5_COST}</li>
   </ul>
@@ -155,11 +159,12 @@ export function renderManual(): void {
 <section class="man-sec">
   <h3>攻略のコツ</h3>
   <ul>
-    <li><b>まずは2〜3素材の安い魔法を数撃つ。</b>成功率100%の構成で系統を発見していくのが序盤の近道です</li>
+    <li><b>まずは第3スロット(研究P${SLOT3_COST})を目指す。</b>2素材だけでは作れる系統が限られます</li>
+    <li><b>安い魔法を数撃つ。</b>成功率100%の構成で系統を発見していくのが序盤の近道です</li>
     <li><b>水を混ぜると燃費が良くなります。</b>火や闇だけで固めるとMPが持ちません。「主砲1本+燃費の良い1本」の組み合わせが安定します</li>
     <li><b>使わない魔法は分解を。</b>素材が貴重なので、外れた魔法は抱えず分解して次の調合に回すのが効率的です</li>
     <li><b>強化はレシピを覚えている魔法に集中投資。</b>同じ構成を作り続ければ+${ENHANCE_MAX}まで伸び、魔導値(強さの目安)が大きく上がります</li>
-    <li><b>ボス前には仲間を集める。</b>ボスは2人以上必須です。ステージ${SLOT4_BOSS_STAGE}のボスを倒さないとスロットも増えません</li>
+    <li><b>ボスは共闘部屋から。1人でも挑めます</b>が、仲間がいるほど楽です。ステージ${SLOT4_BOSS_STAGE}のボスを倒さないと第4スロットも増えません</li>
     <li><b>共闘は役割分担で伸びます。</b>挑発+護盾で敵を引き受ける人、治癒や鼓舞で支える人、火力に専念する人。敵はヘイト(与ダメ・護盾・回復で増える)が高い人を狙います</li>
     <li><b>格上に挑むときは耐性と継続ダメージ。</b>敵の攻撃属性に合わせた護符で耐え、腐蝕や延焼でじわじわ削ると安定します</li>
     <li><b>行き詰まったら図鑑のヒントを読み直す。</b>未発見の系統は必ず何かの組み合わせで出ます。

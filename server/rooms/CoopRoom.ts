@@ -182,7 +182,7 @@ export class CoopRoom extends Room<CoopState> {
       announce(
         `⚔ ${p.name} がステージ${this.state.stage}`
         + `${boss ? 'の👑ボス戦' : ''}の共闘部屋を作った。参加者を募集中!`
-        + `${boss ? '(ボスは2人以上必要)' : ''}`,
+        + `${boss ? '(仲間がいると有利)' : ''}`,
       );
     } else if (this.state.phase === 'ready') {
       announce(
@@ -272,8 +272,7 @@ export class CoopRoom extends Room<CoopState> {
     const ps: PlayerS[] = [];
     this.state.players.forEach(p => ps.push(p));
     if (ps.length === 0) return;
-    // ボス戦は2人以上でないと開始できない
-    if (isBossStage(this.state.stage) && ps.length < 2) return;
+    // ボス戦も部屋さえ作れば1人で挑める(仲間がいれば当然有利)
     if (ps.every(p => p.ready)) this.startFight();
   }
 

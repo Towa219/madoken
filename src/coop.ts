@@ -618,17 +618,17 @@ export class CoopView {
       rows.push(`<div class="eq-row">${esc(p.name)} ${p.ready ? '— 準備完了!' : '— 待機中…'}</div>`);
     });
     const boss = Number(st.stage) % 5 === 0;
-    const needMore = boss && st.players.size < 2;
+    const solo = st.players.size < 2;
     const html =
       `<div class="result-box">` +
       `<h2>出撃準備 (ステージ ${st.stage}${boss ? ' 👑ボス戦' : ''})</h2>` +
       rows.join('') +
-      (needMore
-        ? `<p class="chance-mid" style="margin:10px 0">👑 ボス戦は2人以上でないと開始できない。仲間を待とう。</p>`
+      (boss && solo
+        ? `<p class="chance-mid" style="margin:10px 0">👑 1人でも挑めるが、ボスは手強い。仲間を待つのも手。</p>`
         : `<p class="note" style="margin:10px 0">全員が準備完了になると開始。最大3人まで途中参加できる。</p>`) +
       `<div style="display:flex; gap:8px; justify-content:center">` +
       `<button id="btn-coop-ready" ${me?.ready ? 'disabled' : ''}>` +
-      `${me?.ready ? (needMore ? '仲間を待っている…' : '開始を待っている…') : '準備完了!'}</button>` +
+      `${me?.ready ? '開始を待っている…' : '準備完了!'}</button>` +
       `<button id="btn-coop-leave">退出</button>` +
       `</div></div>`;
     if (html !== this.waitingHtml) {

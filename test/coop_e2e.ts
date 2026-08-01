@@ -196,16 +196,17 @@ async function main(): Promise<void> {
   if (!rejected) fail('未到達ステージの部屋に入れてしまった');
   void roomHigh.leave();
 
-  // ---- 7. ボス戦は2人以上でないと開始できない ----
+  // ---- 7. ボス戦は共闘部屋なら1人でも開始できる ----
   const bossRoom: Room = await clientA.create('coop', {
     name: NAME_A, spells: spellsA, stage: 5, maxStage: 5, nickToken: TOKEN_A,
   });
   bossRoom.send('ready');
-  await sleep(1200);
-  if ((bossRoom.state as any)?.phase !== 'ready') {
-    fail('ボス戦が1人で開始してしまった');
+  await sleep(1500);
+  const bossPhase = (bossRoom.state as any)?.phase;
+  if (bossPhase !== 'fight') {
+    fail(`ボス戦が1人で開始しなかった(phase=${String(bossPhase)})`);
   }
-  ok('ボスステージは1人では開始しない(phase=ready のまま)');
+  ok('ボスステージは共闘部屋なら1人でも開始する(phase=fight)');
   void bossRoom.leave();
   await sleep(300);
 

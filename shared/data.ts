@@ -541,6 +541,8 @@ export const stageAtkMul = (stage: number) => Math.pow(1.07, stage - 1);
 // 採取・スロット解放コスト
 export const GATHER_COST = 35;   // 採取は高価に(エレメントは貴重)
 export const GATHER_COUNT = 1;   // 1回の採取で得られる数(ランダム1個)
+export const START_SLOTS = 2;        // 最初は2スロット(調合は2素材から)
+export const SLOT3_COST = 40;        // 第3スロットは研究Pのみで解放
 export const SLOT4_COST = 120;
 export const SLOT5_COST = 400;
 export const SLOT4_BOSS_STAGE = 10;  // 第4スロットに必要なボス撃破ステージ

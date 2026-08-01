@@ -4,7 +4,7 @@ import {
   DISASSEMBLE_RATE, DISCOVERY_BONUS_RP, ELEMENTS, ELEMENT_ORDER,
   GATHER_COST, GATHER_COUNT, LIBRARY_BONUS_MAX, LIBRARY_BONUS_START,
   libraryBonus, RARITIES, rarityMultiplier, RECIPES, rollRarity,
-  SLOT4_BOSS_STAGE, SLOT4_COST, SLOT5_BOSS_STAGE, SLOT5_COST,
+  SLOT3_COST, SLOT4_BOSS_STAGE, SLOT4_COST, SLOT5_BOSS_STAGE, SLOT5_COST,
 } from '../shared/data';
 import {
   bestCompositionFor, computeSpell, ENHANCE_MAX, finalStats, spellDisplayName,
@@ -155,18 +155,21 @@ function renderSlots(): void {
 
   const unlock = $('#slot-unlock');
   unlock.innerHTML = '';
-  const spec = state.slots === 3
-    ? { next: 4, cost: SLOT4_COST, boss: SLOT4_BOSS_STAGE }
-    : state.slots === 4
-      ? { next: 5, cost: SLOT5_COST, boss: SLOT5_BOSS_STAGE }
-      : null;
+  // boss=0 は研究Pだけで解放できる(第3スロット)
+  const spec = state.slots === 2
+    ? { next: 3, cost: SLOT3_COST, boss: 0 }
+    : state.slots === 3
+      ? { next: 4, cost: SLOT4_COST, boss: SLOT4_BOSS_STAGE }
+      : state.slots === 4
+        ? { next: 5, cost: SLOT5_COST, boss: SLOT5_BOSS_STAGE }
+        : null;
   if (spec) {
-    const bossOk = hasBossCleared(spec.boss);
+    const bossOk = spec.boss === 0 || hasBossCleared(spec.boss);
     const b = document.createElement('button');
     b.textContent = `第${spec.next}スロット解放 (研究P${spec.cost})`;
     b.disabled = !bossOk || state.researchP < spec.cost;
     b.addEventListener('click', () => {
-      if (!hasBossCleared(spec.boss) || state.researchP < spec.cost) return;
+      if (!bossOk || state.researchP < spec.cost) return;
       state.researchP -= spec.cost;
       state.slots = spec.next;
       showToast(`第${spec.next}スロットを解放した!`);
@@ -175,9 +178,11 @@ function renderSlots(): void {
     unlock.appendChild(b);
     const cond = document.createElement('div');
     cond.className = bossOk ? 'note chance-high' : 'note chance-mid';
-    cond.textContent = bossOk
-      ? `条件クリア: ステージ${spec.boss}のボスを撃破済み`
-      : `条件: ステージ${spec.boss}のボス撃破が必要(ボスは共闘2人以上で挑戦)`;
+    cond.textContent = spec.boss === 0
+      ? '条件: 研究Pのみ(3素材の系統に手が届くようになる)'
+      : bossOk
+        ? `条件クリア: ステージ${spec.boss}のボスを撃破済み`
+        : `条件: ステージ${spec.boss}のボス撃破が必要(共闘部屋から挑戦。1人でも可)`;
     unlock.appendChild(cond);
   }
 }

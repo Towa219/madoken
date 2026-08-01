@@ -1,5 +1,5 @@
 import { finalStats, spellMagicValue } from '../shared/spellcraft';
-import { ELEMENT_ORDER } from '../shared/data';
+import { ELEMENT_ORDER, START_SLOTS } from '../shared/data';
 import type { ElementId, GameState, Spell } from '../shared/types';
 
 const SAVE_KEY = 'magic_web_game_save_v1';
@@ -23,7 +23,7 @@ function initialState(): GameState {
     spells: [],
     equipped: [],
     discovered: [],
-    slots: 3,
+    slots: START_SLOTS,
     maxStage: 1,
     bestStage: 0,
     bossCleared: [],

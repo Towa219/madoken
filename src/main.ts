@@ -85,14 +85,14 @@ function renderSetup(): void {
     if (boss) {
       b.className = 'boss';
       b.disabled = true;
-      b.title = 'ボス戦は共闘(2人以上)専用';
+      b.title = 'ボス戦はオンラインの共闘部屋から(1人でも可)';
     }
     b.addEventListener('click', () => startBattle(i));
     sel.appendChild(b);
   }
   const nextIsBoss = isBossStage(state.maxStage);
   $('#setup-msg').textContent = nextIsBoss
-    ? `👑 ステージ${state.maxStage}はボス戦。オンラインで2人以上の共闘でのみ挑戦できる。`
+    ? `👑 ステージ${state.maxStage}はボス戦。オンラインで共闘部屋を作れば1人でも挑戦できる。`
     : '';
 }
 
@@ -104,7 +104,7 @@ async function startBattle(stage: number): Promise<void> {
   }
   if (isBossStage(stage)) {
     $('#setup-msg').textContent =
-      'ボス戦はソロでは挑めない。オンラインで2人以上の共闘部屋を作ろう。';
+      'ボス戦はこの画面からは挑めない。オンラインで共闘部屋を作ろう(1人でも可)。';
     return;
   }
   lastStage = stage;
@@ -146,7 +146,7 @@ function onBattleEnd(r: BattleResult): void {
     (r.win && r.stage + 1 <= state.maxStage && !isBossStage(r.stage + 1)
       ? `<button id="btn-next">次のステージへ</button>` : '') +
     (r.win && isBossStage(r.stage + 1)
-      ? `<div class="note" style="margin-top:8px">次はボス戦。共闘(2人以上)で挑もう。</div>` : '') +
+      ? `<div class="note" style="margin-top:8px">次はボス戦。オンラインで共闘部屋を作って挑もう。</div>` : '') +
     `<button id="btn-back">準備画面へ</button>` +
     `</div></div>`;
   overlay.classList.remove('hidden');
