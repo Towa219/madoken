@@ -1,0 +1,43 @@
+<!-- BOOTHショップ背景画像(1920x1080想定)
+     商品や文字がこの上に載るので、暗く・低コントラストに保つ。
+     中央は特に静かにして、四隅にだけ魔法陣と光を置く。 -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" width="1920" height="1080">
+  <defs>
+    <radialGradient id="deep" cx="50%" cy="35%" r="80%">
+      <stop offset="0%" stop-color="#1b1636"/>
+      <stop offset="55%" stop-color="#12121f"/>
+      <stop offset="100%" stop-color="#0a0a12"/>
+    </radialGradient>
+    <filter id="soft" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="10"/>
+    </filter>
+  </defs>
+
+  <rect width="1920" height="1080" fill="url(#deep)"/>
+
+  <!-- 左上の魔法陣(うっすら) -->
+  <g opacity="0.13" stroke="#8877cc" fill="none">
+    <circle cx="150" cy="170" r="240" stroke-width="2"/>
+    <circle cx="150" cy="170" r="190" stroke-width="1.5"/>
+    <path d="M150 -70 L390 170 L150 410 L-90 170 Z" stroke-width="1.5"/>
+  </g>
+
+  <!-- 右下の魔法陣(うっすら) -->
+  <g opacity="0.13" stroke="#7788cc" fill="none">
+    <circle cx="1780" cy="930" r="270" stroke-width="2"/>
+    <circle cx="1780" cy="930" r="210" stroke-width="1.5"/>
+    <path d="M1780 660 L2050 930 L1780 1200 L1510 930 Z" stroke-width="1.5"/>
+  </g>
+
+  <!-- 舞う光(8エレメント。中央は避けて周辺だけ) -->
+  <g filter="url(#soft)" opacity="0.5">
+    <circle cx="120"  cy="640" r="10" fill="#ff6644"/>
+    <circle cx="330"  cy="880" r="8"  fill="#44aaff"/>
+    <circle cx="80"   cy="980" r="7"  fill="#88ffaa"/>
+    <circle cx="520"  cy="120" r="8"  fill="#cc9955"/>
+    <circle cx="1450" cy="90"  r="9"  fill="#ffdd44"/>
+    <circle cx="1700" cy="330" r="7"  fill="#aaeeff"/>
+    <circle cx="1850" cy="580" r="10" fill="#aa66ee"/>
+    <circle cx="1380" cy="1010" r="7" fill="#ffffcc"/>
+  </g>
+</svg>
