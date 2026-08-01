@@ -78,7 +78,7 @@ export class BattleManager {
   private hp = 120;
   private maxMp = 100;
   private mp = 100;
-  private mpRegen = 5;
+  private mpRegen = 3;
   private shield = 0;
   private shieldTimer = 0;
   // 属性耐性(ward): attr=null なら全属性

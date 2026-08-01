@@ -19,7 +19,7 @@ export function computeSpell(counts: ElementCounts): CraftResult {
   const s: SpellStats = {
     kind: 'attack', barrier: 0, healPower: 0, hateGain: 0, targetAll: false,
     quake: false, wardPct: 0,
-    power: 10, castTime: 1.3, manaCost: 12, projSpeed: 260,
+    power: 10, castTime: 1.3, manaCost: 20, projSpeed: 260,
     radius: 0, pierce: false, chain: 0, critRate: 5,
     lifesteal: 0, freeze: 0, slow: 0, selfDamage: 0,
     attr: 'fire',
@@ -29,7 +29,8 @@ export function computeSpell(counts: ElementCounts): CraftResult {
 
   s.power += 8 * c('fire') + 2 * c('water') + 5 * c('earth')
            + 3 * c('ice') + 2 * c('light') + 12 * c('dark');
-  s.manaCost += 4 * c('fire') - 5 * c('water') + 2 * c('earth') + 4 * c('dark');
+  s.manaCost += 6 * c('fire') - 4 * c('water') + 3 * c('earth')
+              + 6 * c('dark') + 2 * c('thunder') + 2 * c('light');
   s.castTime -= 0.2 * c('wind');
   s.projSpeed += 70 * c('wind') + 130 * c('thunder');
   s.critRate += 8 * c('thunder');

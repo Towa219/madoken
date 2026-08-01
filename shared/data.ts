@@ -15,14 +15,14 @@ export const ELEMENT_ORDER: ElementId[] = [
 ];
 
 export const ELEMENTS: Record<ElementId, ElementDef> = {
-  fire:    { name: '火', color: 0xff6644, cssColor: '#ff6644', desc: '威力+8 / 消費MP+4' },
-  water:   { name: '水', color: 0x44aaff, cssColor: '#44aaff', desc: '消費MP-5 / 威力+2' },
+  fire:    { name: '火', color: 0xff6644, cssColor: '#ff6644', desc: '威力+8 / 消費MP+6' },
+  water:   { name: '水', color: 0x44aaff, cssColor: '#44aaff', desc: '消費MP-4 / 威力+2' },
   wind:    { name: '風', color: 0x66dd99, cssColor: '#66dd99', desc: '詠唱-0.2秒 / 弾速+70' },
-  earth:   { name: '土', color: 0xcc9955, cssColor: '#cc9955', desc: '威力+5 / 消費MP+2' },
-  thunder: { name: '雷', color: 0xffdd44, cssColor: '#ffdd44', desc: '弾速+130 / 会心+8%' },
+  earth:   { name: '土', color: 0xcc9955, cssColor: '#cc9955', desc: '威力+5 / 消費MP+3' },
+  thunder: { name: '雷', color: 0xffdd44, cssColor: '#ffdd44', desc: '弾速+130 / 会心+8% / MP+2' },
   ice:     { name: '氷', color: 0x99eeff, cssColor: '#99eeff', desc: '威力+3 / 鈍化+12%' },
-  light:   { name: '光', color: 0xffffbb, cssColor: '#ffffbb', desc: '威力+2 / 吸収+8%' },
-  dark:    { name: '闇', color: 0xbb77ee, cssColor: '#bb77ee', desc: '威力+12 / 自傷+4' },
+  light:   { name: '光', color: 0xffffbb, cssColor: '#ffffbb', desc: '威力+2 / 吸収+8% / MP+2' },
+  dark:    { name: '闇', color: 0xbb77ee, cssColor: '#bb77ee', desc: '威力+12 / 自傷+4 / MP+6' },
 };
 
 // ===== 隠しレシピ(系統)定義 =====

@@ -281,7 +281,7 @@ export class CoopRoom extends Room<CoopState> {
     this.state.players.forEach((p, sid) => {
       const internal = this.internals.get(sid);
       if (!internal || !p.alive) return;
-      p.mp = Math.min(p.maxMp, p.mp + 5 * dt);
+      p.mp = Math.min(p.maxMp, p.mp + 3 * dt);
       for (let i = 0; i < internal.cooldowns.length; i++) {
         internal.cooldowns[i] = Math.max(0, internal.cooldowns[i] - dt);
       }
