@@ -1,7 +1,7 @@
 {
   "name": "magic-web-game",
   "private": true,
-  "version": "0.5.3",
+  "version": "0.5.4",
   "engines": { "node": ">=20" },
   "type": "module",
   "scripts": {

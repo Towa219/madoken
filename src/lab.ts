@@ -345,17 +345,51 @@ function resolveCraft(counts: ElementCounts, same: Spell | undefined): void {
 }
 
 // ---- 採取 ----
+let gathering = false;
+
 function renderGather(): void {
+  if (gathering) return; // 採取中はボタン表示を上書きしない
   const btn = $<HTMLButtonElement>('#btn-gather');
   const pity = totalInventory() === 0 && state.spells.length === 0;
   btn.textContent = pity ? '採取に出る (無料)' : `採取に出る (研究P${GATHER_COST})`;
   btn.disabled = !pity && state.researchP < GATHER_COST;
 }
 
+// 採取(調合と同じように進行バーが進んでから完了)
 function gather(): void {
+  if (gathering) return;
   const pity = totalInventory() === 0 && state.spells.length === 0;
+  if (!pity && state.researchP < GATHER_COST) return;
+
+  gathering = true;
+  const btn = $<HTMLButtonElement>('#btn-gather');
+  btn.disabled = true;
+  btn.textContent = '採取中…';
+  const bar = $('#gather-bar');
+  const fill = $('#gather-bar-fill');
+  bar.classList.remove('hidden');
+  fill.style.width = '0%';
+
+  const duration = 1600;
+  const start = performance.now();
+  const timer = window.setInterval(() => {
+    const p = Math.min(1, (performance.now() - start) / duration);
+    fill.style.width = `${Math.round(p * 100)}%`;
+    if (p >= 1) {
+      window.clearInterval(timer);
+      gathering = false;
+      bar.classList.add('hidden');
+      resolveGather(pity);
+    }
+  }, 30);
+}
+
+function resolveGather(pity: boolean): void {
   if (!pity) {
-    if (state.researchP < GATHER_COST) return;
+    if (state.researchP < GATHER_COST) {
+      renderGather();
+      return;
+    }
     state.researchP -= GATHER_COST;
   }
   // 希少な光・闇は出にくい
