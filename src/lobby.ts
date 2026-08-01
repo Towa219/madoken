@@ -37,7 +37,13 @@ export function initOnline(): void {
 
 // ---- 接続 ----
 
+let connecting = false;
+
 async function connect(): Promise<void> {
+  if (connecting || lobbyRoom) return; // 連打・二重接続ガード
+  connecting = true;
+  const connectBtn = $<HTMLButtonElement>('#btn-connect');
+  connectBtn.disabled = true;
   nick = $<HTMLInputElement>('#nick-input').value.trim().slice(0, 12) || '名無し';
   $('#online-msg').textContent = '接続中…';
   try {
@@ -59,6 +65,9 @@ async function connect(): Promise<void> {
     console.error(err);
     $('#online-msg').textContent =
       'サーバーに接続できない。サーバーが起動しているか確認してください。';
+  } finally {
+    connecting = false;
+    connectBtn.disabled = false;
   }
 }
 
