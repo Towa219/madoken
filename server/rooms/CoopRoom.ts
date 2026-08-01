@@ -100,6 +100,7 @@ export class CoopRoom extends Room<CoopState> {
   private eInternals: EInternal[] = [];
   private pending: { t: number; fn: () => void }[] = [];
   private ended = false;
+  private aborting = false;
 
   onCreate(options: { stage?: unknown }): void {
     this.setState(new CoopState());
@@ -157,11 +158,42 @@ export class CoopRoom extends Room<CoopState> {
     });
   }
 
+  // 到達済みステージのみ参加可(クライアント申告の maxStage を検証)
+  onAuth(_client: Client, options: { maxStage?: unknown }): boolean {
+    const myMax = Math.max(1, Math.floor(Number(options?.maxStage) || 1));
+    if (this.state.stage > myMax) {
+      throw new Error(`ステージ${this.state.stage}にはまだ到達していない`);
+    }
+    return true;
+  }
+
   onLeave(client: Client): void {
+    const leaverName = this.state.players.get(client.sessionId)?.name ?? '誰か';
     this.submitToRanking(client.sessionId); // 途中離脱でもスコアは記録
     this.state.players.delete(client.sessionId);
     this.internals.delete(client.sessionId);
-    if (this.state.phase === 'ready') this.checkStart();
+
+    if (this.state.phase === 'ready') {
+      this.checkStart();
+      return;
+    }
+    // 戦闘中の離脱: 前ステージまでのクリア扱いで全員ロビーへ
+    this.abortRun(leaverName);
+  }
+
+  private abortRun(leaverName: string): void {
+    if (this.aborting || this.ended) return;
+    this.aborting = true;
+    this.ended = true;
+    this.state.phase = 'done';
+    this.pending = [];
+    const clearedStage = this.state.stage - 1;
+    for (const client of this.clients) {
+      this.submitToRanking(client.sessionId);
+      client.send('aborted', { name: leaverName, clearedStage });
+    }
+    // メッセージ到達を待ってから全員切断
+    setTimeout(() => { void this.disconnect(); }, 600);
   }
 
   private submitToRanking(sid: string): void {

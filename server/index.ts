@@ -25,6 +25,21 @@ app.get('/api/ranking', (_req, res) => {
   res.json(topRanking(5));
 });
 
+// プレイ中人数: クライアントが定期的に叩く簡易ハートビート
+// (ロビー未接続でもページを開いていればカウントされる)
+const heartbeats = new Map<string, number>();
+const ALIVE_MS = 90_000;
+
+app.get('/api/heartbeat', (req, res) => {
+  const now = Date.now();
+  const id = String(req.query.id ?? '').slice(0, 40);
+  if (id) heartbeats.set(id, now);
+  for (const [k, t] of heartbeats) {
+    if (now - t > ALIVE_MS) heartbeats.delete(k);
+  }
+  res.json({ count: heartbeats.size });
+});
+
 // ビルド済みクライアントを配信
 const distPath = path.resolve(process.cwd(), 'dist');
 app.use(express.static(distPath));

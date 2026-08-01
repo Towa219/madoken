@@ -118,6 +118,41 @@ export function spellCooldown(s: SpellStats): number {
   return 1.2 + s.castTime * 0.5;
 }
 
+// ===== 魔導値(魔法の総合的な強さを1つの数値に) =====
+// 効果量を「1回の行動あたりの価値 ÷ 拘束時間」で評価し、MP効率と自傷で補正する。
+
+export function spellMagicValue(s: SpellStats): number {
+  const cycle = s.castTime + spellCooldown(s) * 0.6; // 1発に要する実時間
+  let v = 0;
+
+  if (s.kind === 'attack') {
+    let eff = s.power * (1 + s.critRate / 100);
+    if (s.quake) eff *= 2.2;              // 敵全体を巻き込む
+    if (s.radius > 0) eff *= 1.35;
+    if (s.pierce) eff *= 1.3;
+    eff *= 1 + s.chain * 0.25;
+    if (s.freeze > 0) eff *= 1 + s.freeze * 0.12;
+    if (s.slow > 0) eff *= 1 + s.slow / 250;
+    if (s.lifesteal > 0) eff *= 1 + s.lifesteal / 160;
+    v = (eff / cycle) * 12;
+  } else if (s.kind === 'shield') {
+    v = ((s.barrier * (s.targetAll ? 1.9 : 1)) / cycle) * 9;
+  } else if (s.kind === 'heal') {
+    v = ((s.healPower * (s.targetAll ? 1.9 : 1)) / cycle) * 9;
+  } else {
+    v = (s.hateGain / cycle) * 1.4 + 25;   // 挑発
+  }
+
+  v *= 1 + Math.max(-0.25, (18 - s.manaCost) / 120); // MP効率
+  v -= s.selfDamage * 1.8;
+  return Math.max(1, Math.round(v));
+}
+
+// 装備中の魔法の魔導値合計 = 戦闘力
+export function combatPower(spells: { stats: SpellStats }[]): number {
+  return spells.reduce((sum, sp) => sum + spellMagicValue(sp.stats), 0);
+}
+
 // 性能の表示用テキスト(研究室・戦闘の両方で使用)
 export function statsSummary(s: SpellStats): string {
   if (s.kind === 'shield') {

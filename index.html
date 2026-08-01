@@ -11,6 +11,8 @@
     <header id="topbar">
       <span id="game-title">魔導研究記 <small>Phase 0 試作</small></span>
       <span id="rp-display">研究P: 0</span>
+      <span id="power-display">戦闘力: 0</span>
+      <span id="online-count">🟢 プレイ中: -人</span>
       <nav>
         <button id="tab-lab" class="tab active">研究室</button>
         <button id="tab-battle" class="tab">戦闘</button>
@@ -73,10 +75,11 @@
       <div id="online-login" class="panel">
         <h2>オンラインロビー</h2>
         <p class="note">ニックネームを決めて接続。ロビーで仲間と合流し、共闘部屋でボスに挑もう。</p>
-        <div style="display:flex; gap:8px; max-width:420px">
+        <div id="nick-row">
           <input id="nick-input" maxlength="12" placeholder="ニックネーム">
           <button id="btn-connect">接続する</button>
         </div>
+        <div id="nick-note" class="note"></div>
         <div id="online-msg"></div>
       </div>
 
@@ -101,7 +104,10 @@
           <div id="room-list"></div>
           <div id="lobby-msg"></div>
           <h2>🏆 共闘ランキング TOP5</h2>
-          <p class="note">スコア = クリアステージ×10 + 与ダメージ/20 (サーバー再起動でリセット)</p>
+          <p class="note">
+            スコア = クリアステージ×10 + 与ダメージ/20。共闘の終了時(全滅・中断・退出)に記録。<br>
+            ※無料サーバーのため、バージョン更新やサーバー再起動でリセットされます。
+          </p>
           <div id="ranking-list"></div>
         </section>
       </div>
@@ -114,6 +120,8 @@
         <div id="coop-overlay" class="hidden"></div>
       </div>
     </main>
+
+    <footer id="app-footer"></footer>
   </div>
 
   <div id="toast" class="hidden"></div>

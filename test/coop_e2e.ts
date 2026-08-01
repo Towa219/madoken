@@ -50,13 +50,17 @@ async function main(): Promise<void> {
   const spellsA = [{ name: '炎の魔弾', recipe: { fire: 2, wind: 1 } }];
   const spellsB = [{ name: '雷の魔弾', recipe: { thunder: 1, wind: 2 } }];
 
-  const roomA: Room = await clientA.create('coop', { name: 'テストA', spells: spellsA, stage: 1 });
+  const roomA: Room = await clientA.create('coop', {
+    name: 'テストA', spells: spellsA, stage: 1, maxStage: 1,
+  });
   await sleep(300);
   const available = await clientB.getAvailableRooms('coop');
   if (available.length === 0) fail('部屋一覧に作成した部屋が出ない');
   ok(`部屋一覧取得: ${available.length}件 (stage=${(available[0].metadata as { stage?: number })?.stage})`);
 
-  const roomB: Room = await clientB.joinById(available[0].roomId, { name: 'テストB', spells: spellsB });
+  const roomB: Room = await clientB.joinById(available[0].roomId, {
+    name: 'テストB', spells: spellsB, maxStage: 1,
+  });
   ok('Bが部屋に参加');
 
   const events = {
@@ -135,10 +139,34 @@ async function main(): Promise<void> {
   }
   ok('ステージ2が自動開始され、全員生存状態で継続');
 
-  // ---- 5. 後片付け ----
+  // ---- 5. 離脱で全員ロビーへ ----
+  let abortedByB: { name: string; clearedStage: number } | null = null;
+  roomB.onMessage('aborted', (m: { name: string; clearedStage: number }) => { abortedByB = m; });
+  void roomA.leave();
+  await waitFor(() => abortedByB !== null, '離脱による中断通知(aborted)', 10_000);
+  {
+    const m = abortedByB as unknown as { name: string; clearedStage: number };
+    if (m.name !== 'テストA') fail(`離脱者名が違う: ${m.name}`);
+    ok(`Aの離脱でBに中断通知が届いた(クリア済みステージ${m.clearedStage})`);
+  }
+
+  // ---- 6. 未到達ステージの部屋には入れない ----
+  const roomHigh: Room = await clientA.create('coop', {
+    name: 'テストA', spells: spellsA, stage: 5, maxStage: 5,
+  });
+  let rejected = false;
+  try {
+    await clientB.joinById(roomHigh.roomId, { name: 'テストB', spells: spellsB, maxStage: 1 });
+  } catch (e) {
+    rejected = true;
+    ok(`未到達ステージ5の部屋への参加を拒否: ${(e as Error).message}`);
+  }
+  if (!rejected) fail('未到達ステージの部屋に入れてしまった');
+  void roomHigh.leave();
+
+  // ---- 7. 後片付け ----
   // leaveは投げっぱなし(本番のプロキシ経由では応答が返らず固まることがある)
   try {
-    void roomA.leave();
     void roomB.leave();
     void lobbyA.leave();
     void lobbyB.leave();

@@ -5,6 +5,7 @@ const SAVE_KEY = 'magic_web_game_save_v1';
 function initialState(): GameState {
   return {
     version: 1,
+    nickname: '',
     researchP: 30,
     inventory: {
       fire: 4, water: 4, wind: 3, earth: 3,
@@ -31,6 +32,7 @@ function load(): GameState {
     for (const sp of merged.spells) {
       if (typeof (sp as { level?: unknown }).level !== 'number') sp.level = 0;
     }
+    if (typeof merged.nickname !== 'string') merged.nickname = '';
     return merged;
   } catch {
     return initialState();

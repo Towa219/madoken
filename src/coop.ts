@@ -3,7 +3,7 @@
 import { Application, Container, Graphics, Text } from 'pixi.js';
 import type { Room } from 'colyseus.js';
 import {
-  affinitySymbol, BOSS, ELEMENTS, ELEMENT_ORDER, ENEMIES,
+  affinitySymbol, BOSS, ELEMENTS, ELEMENT_ORDER, ENEMIES, enemyTopY,
 } from '../shared/data';
 import type { AffinityGrade, EnemyDef } from '../shared/data';
 import { makeEnemySprite, makePlayerSprite, makeProjectileGfx } from './battle';
@@ -254,8 +254,12 @@ export class CoopView {
       const st: any = room.state;
       const e = st?.enemies?.[m.i];
       if (!e) return;
+      const eDef = DEF_BY_ID[e.defId];
       const color = m.crit ? 0xffdd44 : (m.note.includes('弱点') ? 0xff8855 : 0xffffff);
-      this.addPopup(e.x, GROUND_Y - 90, `${m.amount}${m.crit ? ' 会心!' : ''}${m.note}`, color);
+      this.addPopup(
+        e.x, GROUND_Y + (eDef ? enemyTopY(eDef) : -70) - 22,
+        `${m.amount}${m.crit ? ' 会心!' : ''}${m.note}`, color,
+      );
       // 着弾リング(属性色)
       const ring = new Graphics();
       ring.circle(0, 0, 10).stroke({ width: 3, color: ELEMENTS[m.attr]?.color ?? 0xffffff, alpha: 0.9 });
@@ -317,6 +321,19 @@ export class CoopView {
         ? m.drops.map(d => ELEMENTS[d].name).join('・')
         : 'なし';
       showToast(`⚔ ステージ${m.stage}クリア! 研究P+${m.rp} 素材:${dropStr} — まもなく次のステージ`);
+    });
+
+    // 誰かが離脱 → 前ステージまでのクリア扱いで全員ロビーへ
+    room.onMessage('aborted', (m: { name: string; clearedStage: number }) => {
+      const overlay = this.$('#coop-overlay');
+      overlay.innerHTML =
+        `<div class="result-box">` +
+        `<h2 class="lose">共闘中断</h2>` +
+        `<div>${esc(m.name)} が退出したため、この共闘は終了。</div>` +
+        `<div style="margin-top:6px">ステージ${Math.max(0, m.clearedStage)}までのクリアが記録された。</div>` +
+        `<div class="note" style="margin-top:10px">まもなくロビーに戻ります…</div>` +
+        `</div>`;
+      overlay.classList.remove('hidden');
     });
 
     room.onMessage('result', (m: { win: boolean; drops: ElementId[]; rp: number }) => {
@@ -490,7 +507,7 @@ export class CoopView {
         style: { fill: 0xccccdd, fontSize: 12, fontFamily: 'Meiryo, sans-serif' },
       });
       nameT.anchor.set(0.5);
-      nameT.position.set(0, -70 * def.size - 26);
+      nameT.position.set(0, enemyTopY(def) - 30);
       cont.addChild(nameT);
       this.entityLayer.addChild(cont);
       this.eViews.push({ cont, body });
@@ -612,7 +629,7 @@ export class CoopView {
     st.enemies.forEach((e: any) => {
       if (!e.alive) return;
       const def = DEF_BY_ID[e.defId];
-      const top = GROUND_Y - 70 * (def?.size ?? 1) - 12;
+      const top = GROUND_Y + (def ? enemyTopY(def) : -70) - 14;
       g.rect(e.x - 28, top, 56, 7).fill(0x222238);
       g.rect(e.x - 28, top, 56 * Math.max(0, e.hp / e.maxHp), 7).fill(0xdd5566);
     });

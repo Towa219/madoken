@@ -6,7 +6,7 @@
 import { Application, Container, Graphics, Text } from 'pixi.js';
 import {
   affinityMul, affinitySymbol, BOSS, ELEMENTS, ELEMENT_ORDER, ENEMIES,
-  stageAtkMul, stageHpMul,
+  enemyTopY, stageAtkMul, stageHpMul,
 } from '../shared/data';
 import type { AffinityGrade, EnemyDef } from '../shared/data';
 import { spellCooldown, spellDisplayName } from '../shared/spellcraft';
@@ -245,7 +245,7 @@ export class BattleManager {
         style: { fill: 0xccccdd, fontSize: 12, fontFamily: 'Meiryo, sans-serif' },
       });
       nameT.anchor.set(0.5);
-      nameT.position.set(0, -70 * def.size - 26);
+      nameT.position.set(0, enemyTopY(def) - 30);
       cont.addChild(nameT);
 
       const hpMul = stageHpMul(this.stage);
@@ -562,7 +562,7 @@ export class BattleManager {
   private fireEnemyProj(e: EnemyUnit): void {
     const attr = e.def.attackAttr;
     const g = makeProjectileGfx(attr, 14);
-    const y = GROUND_Y - 40 * e.def.size;
+    const y = GROUND_Y + enemyTopY(e.def) * 0.55;
     g.position.set(e.x - 20, y);
     this.projLayer.addChild(g);
     const dmg = Math.round(e.def.atk * stageAtkMul(this.stage) * (0.9 + Math.random() * 0.2));
@@ -638,7 +638,7 @@ export class BattleManager {
     this.fxs.push({ g: ring, life: 0.25, maxLife: 0.25, grow: true });
     const color = crit ? 0xffdd44 : (grade > 0 ? 0xff8855 : (grade < 0 ? 0x8899bb : 0xffffff));
     this.addPopup(
-      e.x, GROUND_Y - 70 * e.def.size - 10,
+      e.x, GROUND_Y + enemyTopY(e.def) - 22,
       `${final}${crit ? ' 会心!' : ''}${effNote}`, color,
     );
 
@@ -702,7 +702,7 @@ export class BattleManager {
 
   private drawEnemyHpBar(e: EnemyUnit): void {
     const w = 56;
-    const top = -70 * e.def.size - 12;
+    const top = enemyTopY(e.def) - 14;
     e.hpBar.clear();
     e.hpBar.rect(-w / 2, top, w, 7).fill(0x222238);
     e.hpBar.rect(-w / 2, top, w * (e.hp / e.maxHp), 7).fill(0xdd5566);

@@ -177,32 +177,36 @@ export interface EnemyDef {
   attackAttr: ElementId; // 敵の攻撃魔法の属性(弾の見た目に使用)
   color: number;
   size: number;        // 描画スケール
+  topY: number;        // 見た目の頭頂Y(スケール前・負値)。名前/HPバーの位置決めに使う
   drops: ElementId[];  // ドロップ候補
 }
+
+// 敵の頭上に置く要素のY(接地点からの相対値)
+export const enemyTopY = (def: EnemyDef) => def.topY * def.size;
 
 export const ENEMIES: EnemyDef[] = [
   {
     id: 'slime', name: 'スライム', hp: 26, atk: 7, interval: 3.2,
     affinity: { fire: 2, thunder: 1, ice: -1, water: -2 },
-    attackAttr: 'water', color: 0x55cc66, size: 1.0,
+    attackAttr: 'water', color: 0x55cc66, size: 1.0, topY: -33,
     drops: ['water', 'water', 'fire', 'wind'],
   },
   {
     id: 'imp', name: 'インプ', hp: 20, atk: 9, interval: 2.6,
     affinity: { light: 2, wind: 1, fire: -1, dark: -2 },
-    attackAttr: 'dark', color: 0xdd6688, size: 0.95,
+    attackAttr: 'dark', color: 0xdd6688, size: 0.95, topY: -46,
     drops: ['fire', 'dark', 'wind'],
   },
   {
     id: 'golem', name: 'ゴーレム', hp: 48, atk: 8, interval: 4.0,
     affinity: { thunder: 2, water: 1, fire: -1, earth: -2 },
-    attackAttr: 'earth', color: 0x998877, size: 1.25,
+    attackAttr: 'earth', color: 0x998877, size: 1.25, topY: -56,
     drops: ['earth', 'earth', 'thunder'],
   },
   {
     id: 'wisp', name: 'ウィスプ', hp: 16, atk: 7, interval: 2.2,
     affinity: { dark: 2, fire: 1, wind: -1, light: -2 },
-    attackAttr: 'light', color: 0xaaddff, size: 0.8,
+    attackAttr: 'light', color: 0xaaddff, size: 0.8, topY: -42,
     drops: ['light', 'ice', 'wind'],
   },
 ];
@@ -210,7 +214,7 @@ export const ENEMIES: EnemyDef[] = [
 export const BOSS: EnemyDef = {
   id: 'core', name: '魔導核', hp: 150, atk: 12, interval: 2.8,
   affinity: { light: 1, dark: 1 },
-  attackAttr: 'dark', color: 0xee66ff, size: 1.5,
+  attackAttr: 'dark', color: 0xee66ff, size: 1.5, topY: -64,
   drops: ['light', 'dark', 'thunder', 'ice'],
 };
 

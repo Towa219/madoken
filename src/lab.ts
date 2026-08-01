@@ -5,7 +5,8 @@ import {
   RECIPES, SLOT4_COST, SLOT5_COST,
 } from '../shared/data';
 import {
-  applyEnhance, computeSpell, ENHANCE_MAX, spellDisplayName, statsSummary,
+  applyEnhance, computeSpell, ENHANCE_MAX, spellDisplayName,
+  spellMagicValue, statsSummary,
 } from '../shared/spellcraft';
 import {
   addElements, addSpell, deleteSpell, notify, spendElements,
@@ -182,7 +183,8 @@ function renderPreview(): void {
     const ch = craftChance(counts, same.level);
     craftBtn.textContent = `強化する (+${same.level} → +${same.level + 1})`;
     box.innerHTML =
-      `<div class="pname">⚗ 強化: ${spellDisplayName(same)} → ${same.name} +${same.level + 1}</div>` +
+      `<div class="pname">⚗ 強化: ${spellDisplayName(same)} → ${same.name} +${same.level + 1}` +
+      ` <span class="mval">魔導値 ${spellMagicValue(same.stats)} → ${spellMagicValue(next)}</span></div>` +
       `<div>${statsSummary(next)}</div>` +
       `<div class="${chanceClass(ch)}">調合成功率: ${ch}%${ch < 100 ? ' (失敗すると素材の半分を失う)' : ''}</div>` +
       `<div class="precipe">同一レシピのため、新規作成ではなくこの魔法が強化される(威力+8%・詠唱-2%/段階)。</div>`;
@@ -196,7 +198,7 @@ function renderPreview(): void {
         state.discovered.includes(r.id) ? r.name : '???(未知の反応)').join('、')}</div>`
     : '';
   box.innerHTML =
-    `<div class="pname">${autoName}</div>` +
+    `<div class="pname">${autoName} <span class="mval">魔導値 ${spellMagicValue(stats)}</span></div>` +
     `<div>${statsSummary(stats)}</div>` +
     `<div class="${chanceClass(ch)}">調合成功率: ${ch}%${ch < 100 ? ' (失敗すると素材の半分を失う)' : ''}</div>` +
     recipeNote;
@@ -374,6 +376,7 @@ function renderSpellbook(): void {
       .map(([id, cnt]) => `${ELEMENTS[id].name}×${cnt}`).join(' ');
     card.innerHTML =
       `<div class="sname">${equipped ? '<span class="star">★</span> ' : ''}${spellDisplayName(sp)}` +
+      ` <span class="mval">魔導値 ${spellMagicValue(sp.stats)}</span>` +
       ` <small style="color:#777799">(${recipeStr})</small></div>` +
       `<div class="sstats">${statsSummary(sp.stats)}</div>`;
     const btns = document.createElement('div');

@@ -3,12 +3,15 @@
 import { BattleManager } from './battle';
 import { ELEMENTS } from '../shared/data';
 import { initLab, renderLab, showToast } from './lab';
-import { spellDisplayName, statsSummary } from '../shared/spellcraft';
+import { initOnline, coopTryCast, renderNickField } from './lobby';
+import {
+  combatPower, spellDisplayName, spellMagicValue, statsSummary,
+} from '../shared/spellcraft';
+import { BUILD_DATE, COPYRIGHT, VERSION } from '../shared/version';
 import {
   addElements, equippedSpells, notify, onChange, resetSave, state,
 } from './state';
 import type { BattleResult } from '../shared/types';
-import { initOnline, coopTryCast } from './lobby';
 
 const $ = <T extends HTMLElement = HTMLElement>(sel: string) =>
   document.querySelector(sel) as T;
@@ -51,7 +54,9 @@ function renderSetup(): void {
   } else {
     for (const sp of spells) {
       summary.innerHTML +=
-        `<div class="eq-row">★ ${spellDisplayName(sp)} <small>${statsSummary(sp.stats)}</small></div>`;
+        `<div class="eq-row">★ ${spellDisplayName(sp)} ` +
+        `<span class="mval">魔導値 ${spellMagicValue(sp.stats)}</span>` +
+        ` <small>${statsSummary(sp.stats)}</small></div>`;
     }
   }
 
@@ -130,6 +135,12 @@ function onBattleEnd(r: BattleResult): void {
 
 function updateTopbar(): void {
   $('#rp-display').textContent = `研究P: ${state.researchP}`;
+  $('#power-display').textContent = `⚔ 戦闘力: ${combatPower(equippedSpells())}`;
+}
+
+function renderFooter(): void {
+  $('#app-footer').innerHTML =
+    `<span class="fver">魔導研究記 v${VERSION}(${BUILD_DATE} 更新)</span><br>${COPYRIGHT}`;
 }
 
 function main(): void {
@@ -146,7 +157,8 @@ function main(): void {
       resetBtn.dataset.arm = '';
       resetBtn.textContent = '初期化';
       resetSave();
-      showToast('セーブデータを初期化した。');
+      renderNickField(); // ニックネームも再登録できるようになる
+      showToast('セーブデータを初期化した。ニックネームも再設定できる。');
     } else {
       resetBtn.dataset.arm = '1';
       resetBtn.textContent = '本当に初期化?';
@@ -173,6 +185,7 @@ function main(): void {
 
   updateTopbar();
   renderLab();
+  renderFooter();
 }
 
 main();

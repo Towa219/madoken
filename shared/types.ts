@@ -42,6 +42,7 @@ export interface Spell {
 
 export interface GameState {
   version: number;
+  nickname: string;        // 一度決めたら初期化まで変更不可
   researchP: number;
   inventory: Record<ElementId, number>;
   spells: Spell[];
