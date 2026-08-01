@@ -47,10 +47,12 @@ export function renderNickField(): void {
 
 // プレイ中人数のハートビート(ロビー未接続でもカウントされる)
 function startHeartbeat(): void {
-  let id = sessionStorage.getItem('madoken_hb_id');
+  // ブラウザ単位のID(localStorage)。同じブラウザで何タブ開いても1人と数える
+  let id: string | null = null;
+  try { id = localStorage.getItem('madoken_hb_id'); } catch { /* 無視 */ }
   if (!id) {
     id = `hb_${Date.now()}_${Math.floor(Math.random() * 100000)}`;
-    try { sessionStorage.setItem('madoken_hb_id', id); } catch { /* 無視 */ }
+    try { localStorage.setItem('madoken_hb_id', id); } catch { /* 無視 */ }
   }
   const beat = async () => {
     try {

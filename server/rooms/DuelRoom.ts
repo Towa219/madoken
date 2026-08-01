@@ -7,8 +7,10 @@ import colyseusPkg from 'colyseus';
 import { Schema, MapSchema, defineTypes } from '@colyseus/schema';
 import type { Client } from 'colyseus';
 import type { MapSchema as MapSchemaType } from '@colyseus/schema';
+import type { IncomingMessage } from 'node:http';
 import { spellCooldown } from '../../shared/spellcraft';
 import { parseSpells } from '../spellPayload';
+import { clientIp, logConnection } from '../connlog';
 import type { ServerSpell } from '../spellPayload';
 import type { ElementId, SpellStats } from '../../shared/types';
 
@@ -91,6 +93,11 @@ export class DuelRoom extends Room<DuelState> {
     this.setSimulationInterval(dtMs => this.update(dtMs / 1000), 50);
   }
 
+  // 接続元IPを控えて接続ログに使う
+  onAuth(_client: Client, _options: unknown, request?: IncomingMessage): { ip: string } {
+    return { ip: clientIp(request) };
+  }
+
   onJoin(client: Client, options: { name?: unknown; spells?: unknown }): void {
     const p = new DuelPlayer();
     p.name = String(options?.name ?? '名無し').slice(0, 12) || '名無し';
@@ -105,6 +112,7 @@ export class DuelRoom extends Room<DuelState> {
     p.slot = used.has(0) ? 1 : 0;
 
     this.state.players.set(client.sessionId, p);
+    logConnection('決闘', p.name, (client.auth as { ip?: string } | undefined)?.ip ?? '');
     this.internals.set(client.sessionId, {
       spells: parseSpells(options?.spells),
       cooldowns: [0, 0, 0, 0],

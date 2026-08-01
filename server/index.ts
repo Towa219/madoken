@@ -11,6 +11,7 @@ import { LobbyChatRoom } from './rooms/LobbyChatRoom';
 import { CoopRoom } from './rooms/CoopRoom';
 import { DuelRoom } from './rooms/DuelRoom';
 import { persistent, topRanking } from './ranking';
+import { recentConnections } from './connlog';
 
 const { Server } = colyseusPkg;
 const { WebSocketTransport } = wsTransportPkg;
@@ -26,6 +27,26 @@ app.get('/api/ranking', (_req, res) => {
   void topRanking(5)
     .then(entries => res.json({ persistent, entries }))
     .catch(() => res.json({ persistent, entries: [] }));
+});
+
+// 接続ログの閲覧(管理用)。ADMIN_KEY 環境変数を設定した場合のみ有効。
+// 設定しない場合でも、接続は標準出力に流れるのでRenderのログ画面で読める。
+app.get('/api/connlog', (req, res) => {
+  const adminKey = process.env.ADMIN_KEY;
+  if (!adminKey) {
+    res.status(403).json({
+      error: 'ADMIN_KEY未設定のため無効。Renderのログ画面で「[接続]」の行を確認してください。',
+    });
+    return;
+  }
+  if (String(req.query.key ?? '') !== adminKey) {
+    res.status(403).json({ error: 'キーが違います' });
+    return;
+  }
+  const n = Math.max(1, Math.min(200, Math.floor(Number(req.query.n) || 50)));
+  void recentConnections(n)
+    .then(entries => res.json({ entries }))
+    .catch(() => res.json({ entries: [] }));
 });
 
 // プレイ中人数: クライアントが定期的に叩く簡易ハートビート

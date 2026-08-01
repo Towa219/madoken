@@ -10,7 +10,9 @@ import type { Client } from 'colyseus';
 
 const { Room } = colyseusPkg;
 import { finalStats, spellCooldown } from '../../shared/spellcraft';
+import type { IncomingMessage } from 'node:http';
 import { parseSpells } from '../spellPayload';
+import { clientIp, logConnection } from '../connlog';
 import { submitScore } from '../ranking';
 import {
   affinityMul, battleRP, bossForStage, isBossStage, pickEnemiesForStage,
@@ -144,6 +146,10 @@ export class CoopRoom extends Room<CoopState> {
     p.slot = Math.min(slot, PLAYER_XS.length - 1);
 
     this.state.players.set(client.sessionId, p);
+    logConnection(
+      `共闘(ステージ${this.state.stage})`, p.name,
+      (client.auth as { ip?: string } | undefined)?.ip ?? '',
+    );
 
     // 魔法: レシピからサーバー側で再計算
     const spells = parseSpells(options?.spells);
@@ -155,12 +161,14 @@ export class CoopRoom extends Room<CoopState> {
   }
 
   // 到達済みステージのみ参加可(クライアント申告の maxStage を検証)
-  onAuth(_client: Client, options: { maxStage?: unknown }): boolean {
+  onAuth(
+    _client: Client, options: { maxStage?: unknown }, request?: IncomingMessage,
+  ): { ip: string } {
     const myMax = Math.max(1, Math.floor(Number(options?.maxStage) || 1));
     if (this.state.stage > myMax) {
       throw new Error(`ステージ${this.state.stage}にはまだ到達していない`);
     }
-    return true;
+    return { ip: clientIp(request) };
   }
 
   onLeave(client: Client): void {

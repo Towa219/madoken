@@ -9,6 +9,9 @@
 // 記録はニックネームごとに「自己ベスト1件」だけを保持する。
 
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { persistent, redis } from './upstash';
+
+export { persistent };
 
 export interface RankEntry {
   name: string;
@@ -17,30 +20,9 @@ export interface RankEntry {
   date: string;
 }
 
-const REST_URL = process.env.UPSTASH_REDIS_REST_URL;
-const REST_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN;
-export const persistent = Boolean(REST_URL && REST_TOKEN);
-
 const ZKEY = 'madoken:ranking:v1';   // sorted set: member=ニックネーム, score=スコア
 const HKEY = 'madoken:rankmeta:v1';  // hash: ニックネーム → {spells,date}
 const KEEP = 20;
-
-// ---- Upstash REST ----
-
-async function redis(cmd: (string | number)[]): Promise<unknown> {
-  const res = await fetch(REST_URL!, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${REST_TOKEN}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(cmd),
-  });
-  if (!res.ok) throw new Error(`Upstash応答エラー ${res.status}`);
-  const data = await res.json() as { result?: unknown; error?: string };
-  if (data.error) throw new Error(`Upstashエラー: ${data.error}`);
-  return data.result;
-}
 
 // ---- ファイル/メモリ(フォールバック) ----
 
