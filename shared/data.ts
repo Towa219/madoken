@@ -40,6 +40,29 @@ export interface RecipeDef {
 const n = (c: ElementCounts, id: ElementId) => c[id] ?? 0;
 
 export const RECIPES: RecipeDef[] = [
+  // --- 基本系統(2素材で成立。最初のスロット数でも発見できる入門枠) ---
+  {
+    id: 'shakunetsu', name: '灼熱系', spellNoun: '灼熱弾',
+    hint: '同じ炎を二つ重ねれば、熱はさらに高まる (火×2以上)',
+    desc: '炎が凝縮して威力が1.15倍になる。最初に出会う基本の系統。',
+    check: c => n(c, 'fire') >= 2,
+    apply: s => { s.power *= 1.15; },
+  },
+  {
+    id: 'shippu', name: '疾風系', spellNoun: '疾風弾',
+    hint: '風を二つ重ねれば、術は速さを得る (風×2以上)',
+    desc: '詠唱が0.15秒短くなり、弾速が1.4倍になる。手数で押す型の基本。',
+    check: c => n(c, 'wind') >= 2,
+    apply: s => { s.castTime -= 0.15; s.projSpeed *= 1.4; },
+  },
+  {
+    id: 'seisui', name: '静水系', spellNoun: '水流弾',
+    hint: '水を二つ重ねれば、力は静かに流れる (水×2以上)',
+    desc: '消費MPが5減り、長く撃ち続けられる。燃費を支える基本の系統。',
+    check: c => n(c, 'water') >= 2,
+    apply: s => { s.manaCost -= 5; },
+  },
+  // --- ここから先は条件の厳しい系統(後のものが上書きする) ---
   {
     id: 'bakuretsu', name: '爆裂系', spellNoun: '爆裂弾',
     hint: '火を極めし者に訪れる (火×3以上)',
