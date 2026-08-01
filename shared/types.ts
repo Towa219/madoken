@@ -6,7 +6,8 @@ export type ElementId =
 
 export type ElementCounts = Partial<Record<ElementId, number>>;
 
-export type SpellKind = 'attack' | 'shield' | 'heal' | 'taunt' | 'ward';
+export type SpellKind =
+  | 'attack' | 'shield' | 'heal' | 'taunt' | 'ward' | 'vigor' | 'seal' | 'empower';
 
 // 調合時にごく稀に生まれる品質
 export type Rarity = 'normal' | 'rare' | 'epic' | 'legend';
@@ -20,6 +21,11 @@ export interface SpellStats {
   targetAll: boolean; // true=パーティ全体対象(shield/heal)
   quake: boolean;     // true=地震(弾を飛ばさず敵全体に威力75%・画面が揺れる)
   wardPct: number;    // 属性耐性(%)。kind=ward で使用
+  hpBoost: number;    // 最大HP上昇量。kind=vigor で使用
+  sealTime: number;   // 行動不能にする秒数。kind=seal で使用
+  atkBoost: number;   // 与ダメージ上昇(%)。kind=empower で使用
+  dotDps: number;     // 継続ダメージ(毎秒)
+  dotTime: number;    // 継続ダメージの持続秒数
   power: number;      // 威力
   castTime: number;   // 詠唱時間(秒)
   manaCost: number;   // 消費MP

@@ -15,8 +15,8 @@ import { parseSpells } from '../spellPayload';
 import { clientIp, logConnection } from '../connlog';
 import { submitScore } from '../ranking';
 import {
-  affinityMul, battleRP, bossForStage, isBossStage, pickEnemiesForStage,
-  stageAtkMul, stageHpMul,
+  affinityMul, battleRP, bossForStage, ENEMY_ATK_MUL, ENEMY_HP_MUL, isBossStage,
+  pickEnemiesForStage, PLAYER_MAX_HP, PLAYER_MAX_MP, stageAtkMul, stageHpMul,
 } from '../../shared/data';
 import type { AffinityGrade, EnemyDef } from '../../shared/data';
 import type { ElementCounts, ElementId, SpellStats } from '../../shared/types';
@@ -88,6 +88,10 @@ interface PInternal {
   wardAttr: ElementId | null; // 耐性の対象属性(nullなら全属性)
   wardPct: number;
   wardT: number;
+  atkBoost: number;   // 与ダメージ上昇(%)
+  atkBoostT: number;
+  vigorBonus: number; // 最大HP上昇
+  vigorT: number;
   score: number;     // 戦闘スコア(クリアステージ×10+与ダメ/20)
   submitted: boolean; // ランキング送信済みか(二重送信防止)
 }
@@ -98,6 +102,11 @@ interface EInternal {
   frozenT: number;
   slowPct: number;
   slowT: number;
+  dotDps: number;   // 継続ダメージ
+  dotT: number;
+  dotTick: number;
+  dotOwner: string; // 継続ダメージの所有者(スコア加算用)
+  sealedT: number;  // 封印の残り
 }
 
 export class CoopRoom extends Room<CoopState> {
@@ -132,8 +141,8 @@ export class CoopRoom extends Room<CoopState> {
   onJoin(client: Client, options: { name?: unknown; spells?: unknown }): void {
     const p = new PlayerS();
     p.name = String(options?.name ?? '名無し').slice(0, 12) || '名無し';
-    p.maxHp = 120; p.hp = 120;
-    p.maxMp = 100; p.mp = 100;
+    p.maxHp = PLAYER_MAX_HP; p.hp = PLAYER_MAX_HP;
+    p.maxMp = PLAYER_MAX_MP; p.mp = PLAYER_MAX_MP;
     p.shield = 0;
     p.hate = 0;
     p.alive = true; p.ready = false;
@@ -156,6 +165,7 @@ export class CoopRoom extends Room<CoopState> {
     this.internals.set(client.sessionId, {
       spells, cooldowns: [0, 0, 0, 0], shieldT: 0, hate: 0,
       wardAttr: null, wardPct: 0, wardT: 0,
+      atkBoost: 0, atkBoostT: 0, vigorBonus: 0, vigorT: 0,
       score: 0, submitted: false,
     });
   }
@@ -235,7 +245,7 @@ export class CoopRoom extends Room<CoopState> {
 
     // 人数に応じて敵HPを増強(1人=等倍, 2人=1.5倍, 3人=2倍)
     const playerCount = this.state.players.size;
-    const hpMul = stageHpMul(stage) * (0.5 + 0.5 * playerCount);
+    const hpMul = stageHpMul(stage) * ENEMY_HP_MUL * (0.5 + 0.5 * playerCount);
 
     defs.forEach((def, i) => {
       const e = new EnemyS();
@@ -250,6 +260,7 @@ export class CoopRoom extends Room<CoopState> {
       this.eInternals.push({
         def, atkTimer: Math.random() * def.interval * 0.7,
         frozenT: 0, slowPct: 0, slowT: 0,
+        dotDps: 0, dotT: 0, dotTick: 0, dotOwner: '', sealedT: 0,
       });
     });
   }
@@ -301,6 +312,18 @@ export class CoopRoom extends Room<CoopState> {
         internal.wardT -= dt;
         if (internal.wardT <= 0) internal.wardPct = 0;
       }
+      if (internal.atkBoostT > 0) {
+        internal.atkBoostT -= dt;
+        if (internal.atkBoostT <= 0) internal.atkBoost = 0;
+      }
+      if (internal.vigorT > 0) {
+        internal.vigorT -= dt;
+        if (internal.vigorT <= 0) {
+          p.maxHp -= internal.vigorBonus;
+          internal.vigorBonus = 0;
+          p.hp = Math.max(1, Math.min(p.hp, p.maxHp)); // バフ切れでは死なない
+        }
+      }
       // ヘイト減衰(毎秒5%)と同期
       internal.hate = Math.max(0, internal.hate * (1 - 0.05 * dt));
       p.hate = Math.round(internal.hate);
@@ -321,6 +344,31 @@ export class CoopRoom extends Room<CoopState> {
     this.state.enemies.forEach((e, i) => {
       if (!e.alive) return;
       const ei = this.eInternals[i];
+
+      // 継続ダメージ(1秒ごと)
+      if (ei.dotT > 0) {
+        ei.dotT -= dt;
+        ei.dotTick += dt;
+        if (ei.dotTick >= 1) {
+          ei.dotTick -= 1;
+          const d = Math.max(1, Math.round(ei.dotDps));
+          e.hp = Math.max(0, e.hp - d);
+          const owner = this.internals.get(ei.dotOwner);
+          if (owner) owner.score += d / 20;
+          this.broadcast('dot', { i, amount: d });
+          if (e.hp <= 0) { e.alive = false; return; }
+        }
+        if (ei.dotT <= 0) ei.dotDps = 0;
+      }
+
+      // 封印(行動不能)
+      if (ei.sealedT > 0) {
+        ei.sealedT -= dt;
+        e.frozen = true;
+        if (ei.sealedT > 0) return;
+        e.frozen = ei.frozenT > 0;
+      }
+
       if (ei.frozenT > 0) {
         ei.frozenT -= dt;
         e.frozen = ei.frozenT > 0;
@@ -355,6 +403,52 @@ export class CoopRoom extends Room<CoopState> {
     if (st.selfDamage > 0) this.damagePlayer(sid, st.selfDamage);
 
     const casterInternal = this.internals.get(sid);
+
+    // 封印: 敵全体を一定時間行動不能に
+    if (st.kind === 'seal') {
+      this.eInternals.forEach((ei, i) => {
+        if (this.state.enemies[i]?.alive) {
+          ei.sealedT = Math.max(ei.sealedT, st.sealTime);
+        }
+      });
+      this.broadcast('seal', { sid, sec: st.sealTime });
+      if (casterInternal) casterInternal.hate += st.sealTime * 40;
+      return;
+    }
+
+    // 闘気/戦鼓: 与ダメージ上昇
+    if (st.kind === 'empower') {
+      const apply = (qsid: string) => {
+        const qi = this.internals.get(qsid);
+        if (!qi) return;
+        qi.atkBoost = st.atkBoost;
+        qi.atkBoostT = 20;
+        this.broadcast('empower', { sid: qsid, pct: st.atkBoost });
+      };
+      if (st.targetAll) this.state.players.forEach((q, qsid) => { if (q.alive) apply(qsid); });
+      else apply(sid);
+      return;
+    }
+
+    // 活力/鼓舞: 最大HPを一時的に増やす
+    if (st.kind === 'vigor') {
+      const apply = (qsid: string) => {
+        const q = this.state.players.get(qsid);
+        const qi = this.internals.get(qsid);
+        if (!q || !qi) return;
+        q.maxHp -= qi.vigorBonus;            // 掛け直しは上書き
+        q.hp = Math.min(q.hp, q.maxHp);
+        qi.vigorBonus = st.hpBoost;
+        qi.vigorT = 25;
+        q.maxHp += qi.vigorBonus;
+        q.hp += qi.vigorBonus;
+        this.broadcast('vigor', { sid: qsid, amount: st.hpBoost });
+      };
+      if (st.targetAll) this.state.players.forEach((q, qsid) => { if (q.alive) apply(qsid); });
+      else apply(sid);
+      if (casterInternal) casterInternal.hate += st.hpBoost * 1.5;
+      return;
+    }
 
     // 護符: 属性耐性を付与(全属性版はパーティ全員)
     if (st.kind === 'ward') {
@@ -515,7 +609,16 @@ export class CoopRoom extends Room<CoopState> {
     const ei = this.eInternals[idx];
     if (!e || !e.alive) return;
 
-    let dmg = st.power * mul * (0.9 + Math.random() * 0.2);
+    const atkInternalPre = this.internals.get(sid);
+    const boost = 1 + (atkInternalPre?.atkBoost ?? 0) / 100;
+    let dmg = st.power * mul * (0.9 + Math.random() * 0.2) * boost;
+    // 継続ダメージを付与(上書き)
+    if (st.dotTime > 0 && st.dotDps > 0) {
+      ei.dotDps = st.dotDps * boost;
+      ei.dotT = st.dotTime;
+      ei.dotTick = 0;
+      ei.dotOwner = sid;
+    }
     const grade = (ei.def.affinity[st.attr] ?? 0) as AffinityGrade;
     dmg *= affinityMul(grade);
     const crit = Math.random() * 100 < st.critRate;
@@ -575,7 +678,7 @@ export class CoopRoom extends Room<CoopState> {
     const delayMs = 500;
     this.broadcast('eproj', { i: idx, targetSid: target.sid, delayMs });
     const dmg = Math.round(
-      ei.def.atk * stageAtkMul(this.state.stage) * (0.9 + Math.random() * 0.2),
+      ei.def.atk * ENEMY_ATK_MUL * stageAtkMul(this.state.stage) * (0.9 + Math.random() * 0.2),
     );
     this.pending.push({
       t: delayMs / 1000,
@@ -663,6 +766,10 @@ export class CoopRoom extends Room<CoopState> {
       if (internal) {
         internal.cooldowns = internal.cooldowns.map(() => 0);
         internal.shieldT = 0;
+        internal.atkBoost = 0; internal.atkBoostT = 0;
+        internal.wardPct = 0; internal.wardT = 0;
+        p.maxHp -= internal.vigorBonus; // バフはステージ間で解除
+        internal.vigorBonus = 0; internal.vigorT = 0;
       }
       if (!p.alive) {
         p.alive = true;

@@ -322,6 +322,27 @@ export class CoopView {
       if (p) this.addPopup(PLAYER_XS[p.slot] ?? 110, GROUND_Y - 128, `耐性 -${m.amount}`, 0x88ffcc);
     });
 
+    room.onMessage('seal', (m: { sec: number }) => {
+      this.addPopup(W / 2, GROUND_Y - 150, `封印! ${m.sec.toFixed(1)}秒`, 0xbb77ee);
+    });
+    room.onMessage('empower', (m: { sid: string; pct: number }) => {
+      const st: any = room.state;
+      const p = st?.players?.get(m.sid);
+      if (p) this.addPopup(PLAYER_XS[p.slot] ?? 110, GROUND_Y - 136, `与ダメ+${m.pct}%`, 0xff8844);
+    });
+    room.onMessage('vigor', (m: { sid: string; amount: number }) => {
+      const st: any = room.state;
+      const p = st?.players?.get(m.sid);
+      if (p) this.addPopup(PLAYER_XS[p.slot] ?? 110, GROUND_Y - 122, `最大HP+${m.amount}`, 0xffcc66);
+    });
+    room.onMessage('dot', (m: { i: number; amount: number }) => {
+      const st: any = room.state;
+      const e = st?.enemies?.[m.i];
+      if (!e) return;
+      const eDef = DEF_BY_ID[e.defId];
+      this.addPopup(e.x, GROUND_Y + (eDef ? enemyTopY(eDef) : -70) - 6, `${m.amount}`, 0x99ee66);
+    });
+
     room.onMessage('shieldhit', (m: { sid: string; amount: number }) => {
       const st: any = room.state;
       const p = st?.players?.get(m.sid);

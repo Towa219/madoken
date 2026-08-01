@@ -6,7 +6,8 @@
 import { Application, Container, Graphics, Text } from 'pixi.js';
 import {
   affinityMul, affinitySymbol, battleRP, bossForStage, ELEMENTS, ELEMENT_ORDER,
-  enemyTopY, isBossStage, pickEnemiesForStage, stageAtkMul, stageHpMul,
+  ENEMY_ATK_MUL, ENEMY_HP_MUL, enemyTopY, isBossStage, pickEnemiesForStage,
+  PLAYER_MAX_HP, PLAYER_MAX_MP, stageAtkMul, stageHpMul,
 } from '../shared/data';
 import type { AffinityGrade, EnemyDef } from '../shared/data';
 import { spellCooldown, spellDisplayName } from '../shared/spellcraft';
@@ -33,6 +34,10 @@ interface EnemyUnit {
   alive: boolean;
   flash: number;
   bobPhase: number;
+  dotDps: number;   // 継続ダメージ
+  dotT: number;
+  dotTick: number;
+  sealed: number;   // 封印(行動不能)の残り秒
 }
 
 interface Proj {
@@ -74,15 +79,21 @@ export class BattleManager {
   private spells: Spell[] = [];
   private onEnd: ((r: BattleResult) => void) | null = null;
 
-  private maxHp = 120;
-  private hp = 120;
-  private maxMp = 100;
-  private mp = 100;
+  private maxHp = PLAYER_MAX_HP;
+  private hp = PLAYER_MAX_HP;
+  private maxMp = PLAYER_MAX_MP;
+  private mp = PLAYER_MAX_MP;
   private mpRegen = 3;
   private shield = 0;
   private shieldTimer = 0;
   // 属性耐性(ward): attr=null なら全属性
   private ward: { attr: ElementId | null; pct: number; timer: number } | null = null;
+  // 最大HP上昇(vigor)
+  private vigorBonus = 0;
+  private vigorTimer = 0;
+  // 与ダメージ上昇(empower)
+  private atkBoost = 0;
+  private atkBoostTimer = 0;
 
   private casting: { spell: Spell; t: number } | null = null;
   private cooldowns = new Map<string, number>();
@@ -124,6 +135,11 @@ export class BattleManager {
     this.spells = spells;
     this.onEnd = onEnd;
 
+    this.maxHp = PLAYER_MAX_HP;
+    this.vigorBonus = 0;
+    this.vigorTimer = 0;
+    this.atkBoost = 0;
+    this.atkBoostTimer = 0;
     this.hp = this.maxHp;
     this.mp = this.maxMp;
     this.shield = 0;
@@ -257,7 +273,7 @@ export class BattleManager {
       nameT.position.set(0, enemyTopY(def) - 30);
       cont.addChild(nameT);
 
-      const hpMul = stageHpMul(this.stage);
+      const hpMul = stageHpMul(this.stage) * ENEMY_HP_MUL;
       const unit: EnemyUnit = {
         def,
         hp: Math.round(def.hp * hpMul),
@@ -269,6 +285,7 @@ export class BattleManager {
         frozen: 0, slowPct: 0, slowTimer: 0,
         alive: true, flash: 0,
         bobPhase: Math.random() * Math.PI * 2,
+        dotDps: 0, dotT: 0, dotTick: 0, sealed: 0,
       };
       this.drawEnemyHpBar(unit);
       this.enemies.push(unit);
@@ -425,6 +442,24 @@ export class BattleManager {
           const heal = st.healPower;
           this.hp = Math.min(this.maxHp, this.hp + heal);
           this.addPopup(PLAYER_X, GROUND_Y - 115, `+${heal}`, 0x88ddaa);
+        } else if (st.kind === 'seal') {
+          for (const e of this.enemies) {
+            if (e.alive) { e.sealed = Math.max(e.sealed, st.sealTime); e.frozen = 0; }
+          }
+          this.addPopup(W / 2, GROUND_Y - 150, `封印! ${st.sealTime.toFixed(1)}秒`, 0xbb77ee);
+        } else if (st.kind === 'empower') {
+          this.atkBoost = st.atkBoost;
+          this.atkBoostTimer = 20;
+          this.addPopup(PLAYER_X, GROUND_Y - 130, `与ダメ+${st.atkBoost}%`, 0xff8844);
+        } else if (st.kind === 'vigor') {
+          // 掛け直しは上書き(重ねがけで無限に増えないように)
+          this.maxHp -= this.vigorBonus;
+          this.hp = Math.min(this.hp, this.maxHp);
+          this.vigorBonus = st.hpBoost;
+          this.vigorTimer = 25;
+          this.maxHp += this.vigorBonus;
+          this.hp += this.vigorBonus;
+          this.addPopup(PLAYER_X, GROUND_Y - 122, `最大HP+${st.hpBoost}`, 0xffcc66);
         } else if (st.kind === 'ward') {
           this.ward = {
             attr: st.targetAll ? null : st.attr,
@@ -454,12 +489,52 @@ export class BattleManager {
       this.ward.timer -= dt;
       if (this.ward.timer <= 0) this.ward = null;
     }
+    if (this.atkBoostTimer > 0) {
+      this.atkBoostTimer -= dt;
+      if (this.atkBoostTimer <= 0) this.atkBoost = 0;
+    }
+    if (this.vigorTimer > 0) {
+      this.vigorTimer -= dt;
+      if (this.vigorTimer <= 0) {
+        this.maxHp -= this.vigorBonus;
+        this.vigorBonus = 0;
+        this.hp = Math.min(this.hp, this.maxHp);
+        if (this.hp <= 0) { this.hp = 1; } // バフ切れでは死なない
+      }
+    }
 
     // 敵の行動
     for (const e of this.enemies) {
       if (!e.alive) continue;
       // 浮遊アニメ
       e.cont.y = GROUND_Y + Math.sin(this.time * 2.2 + e.bobPhase) * 3;
+
+      // 継続ダメージ(1秒ごと)
+      if (e.dotT > 0) {
+        e.dotT -= dt;
+        e.dotTick += dt;
+        if (e.dotTick >= 1) {
+          e.dotTick -= 1;
+          const d = Math.max(1, Math.round(e.dotDps));
+          e.hp -= d;
+          this.addPopup(e.x, GROUND_Y + enemyTopY(e.def) - 6, `${d}`, 0x99ee66);
+          if (e.hp <= 0) {
+            e.alive = false; e.hp = 0;
+            this.defeated.push(e.def);
+            e.cont.alpha = 0.25; e.hpBar.clear();
+            continue;
+          }
+          this.drawEnemyHpBar(e);
+        }
+        if (e.dotT <= 0) e.dotDps = 0;
+      }
+
+      // 封印(闇の行動不能)
+      if (e.sealed > 0) {
+        e.sealed -= dt;
+        e.body.tint = 0x8855bb;
+        continue;
+      }
       if (e.flash > 0) {
         e.flash -= dt;
         e.body.alpha = 0.45;
@@ -610,7 +685,9 @@ export class BattleManager {
     const y = GROUND_Y + enemyTopY(e.def) * 0.55;
     g.position.set(e.x - 20, y);
     this.projLayer.addChild(g);
-    const dmg = Math.round(e.def.atk * stageAtkMul(this.stage) * (0.9 + Math.random() * 0.2));
+    const dmg = Math.round(
+      e.def.atk * ENEMY_ATK_MUL * stageAtkMul(this.stage) * (0.9 + Math.random() * 0.2),
+    );
     this.projs.push({
       g, x: e.x - 20, y, speed: -230,
       from: 'enemy', dmg, attr, r: 6, trailT: 0,
@@ -661,7 +738,13 @@ export class BattleManager {
   }
 
   private dealDamage(e: EnemyUnit, st: SpellStats, mul: number): void {
-    let dmg = st.power * mul * (0.9 + Math.random() * 0.2);
+    let dmg = st.power * mul * (0.9 + Math.random() * 0.2) * (1 + this.atkBoost / 100);
+    // 継続ダメージを付与(上書き)
+    if (st.dotTime > 0 && st.dotDps > 0) {
+      e.dotDps = st.dotDps * (1 + this.atkBoost / 100);
+      e.dotT = st.dotTime;
+      e.dotTick = 0;
+    }
     const grade = (e.def.affinity[st.attr] ?? 0) as AffinityGrade;
     dmg *= affinityMul(grade);
     let effNote = '';

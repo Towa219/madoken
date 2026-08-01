@@ -20,8 +20,19 @@ body {
 #topbar-info {
   display: flex; align-items: baseline; gap: 4px 14px; flex-wrap: wrap;
 }
-#game-title { font-size: 18px; font-weight: bold; color: #bb99ff; }
-#game-title small { font-size: 11px; color: #8888aa; margin-left: 6px; }
+#game-title {
+  font-size: 30px; font-weight: bold; letter-spacing: 1px;
+  background: linear-gradient(135deg, #ddbbff, #8866ee 55%, #66ddff);
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent; color: #bb99ff;
+  text-shadow: 0 0 18px rgba(136,102,238,0.25);
+  width: 100%;
+}
+#game-title small {
+  font-size: 12px; color: #8888aa; margin-left: 8px;
+  -webkit-text-fill-color: #8888aa;
+  letter-spacing: 0;
+}
 #rp-display { color: #ffdd66; font-weight: bold; }
 #power-display { color: #ff9977; font-weight: bold; }
 #online-count { font-size: 12px; color: #88ddaa; }
@@ -297,6 +308,30 @@ button.tab.active { background: #5533aa; border-color: #7755cc; }
   display: flex; justify-content: space-between; align-items: center;
   background: #1d1d35; border: 1px solid #333355; border-radius: 6px; padding: 8px 10px;
 }
+/* 説明書 */
+#manual-body { font-size: 13px; line-height: 1.8; }
+.man-sec { margin-bottom: 18px; }
+.man-sec h3 {
+  font-size: 15px; color: #bb99ff; margin-bottom: 6px;
+  border-left: 3px solid #5533aa; padding-left: 8px;
+}
+.man-sec h3 small { font-size: 11px; color: #8888aa; margin-left: 6px; }
+.man-sec ul, .man-sec ol { margin: 6px 0 6px 20px; }
+.man-sec li { margin-bottom: 4px; }
+.man-note {
+  font-size: 12px; color: #9999bb; background: #16162a;
+  border-left: 3px solid #33335a; padding: 8px 10px; margin-top: 8px;
+}
+.man-table {
+  border-collapse: collapse; width: 100%; margin: 8px 0; font-size: 12px;
+}
+.man-table th, .man-table td {
+  border: 1px solid #2a2a45; padding: 4px 8px; text-align: left;
+}
+.man-table th { background: #1d1d35; color: #aaaacc; }
+.man-recipes { columns: 1; }
+.man-foot { font-size: 11px; color: #777799; margin-top: 16px; text-align: right; }
+
 /* ランキング */
 #ranking-list { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
 .rank-row {
@@ -363,10 +398,11 @@ button.tab.active { background: #5533aa; border-color: #7755cc; }
   #app { padding: 6px; }
   #topbar { flex-direction: column; align-items: stretch; gap: 8px; }
   #topbar-info { justify-content: center; font-size: 12px; }
-  #game-title { font-size: 15px; width: 100%; text-align: center; }
+  #game-title { font-size: 24px; width: 100%; text-align: center; }
   #topbar nav { margin-left: 0; width: 100%; justify-content: center; }
+  /* ボタンは3個ずつ2段に折り返す(6個あるため) */
   #topbar nav button {
-    flex: 1 1 0; min-width: 0; padding: 7px 4px; font-size: 12px;
+    flex: 1 1 30%; min-width: 0; padding: 7px 4px; font-size: 12px;
   }
   #btn-reset { font-size: 12px; opacity: 0.7; }
 

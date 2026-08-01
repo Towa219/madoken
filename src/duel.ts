@@ -236,6 +236,26 @@ export class DuelView {
       const p = st?.players?.get(m.sid);
       if (p) this.addPopup(XS[p.slot] ?? 140, GROUND_Y - 132, `耐性 -${m.amount}`, 0x88ffcc);
     });
+    room.onMessage('dseal', (m: { sid: string; sec: number }) => {
+      const st: any = room.state;
+      const p = st?.players?.get(m.sid);
+      if (p) this.addPopup(XS[p.slot] ?? 140, GROUND_Y - 145, `封印! ${m.sec.toFixed(1)}秒`, 0xbb77ee);
+    });
+    room.onMessage('dempower', (m: { sid: string; pct: number }) => {
+      const st: any = room.state;
+      const p = st?.players?.get(m.sid);
+      if (p) this.addPopup(XS[p.slot] ?? 140, GROUND_Y - 145, `与ダメ+${m.pct}%`, 0xff8844);
+    });
+    room.onMessage('dvigor', (m: { sid: string; amount: number }) => {
+      const st: any = room.state;
+      const p = st?.players?.get(m.sid);
+      if (p) this.addPopup(XS[p.slot] ?? 140, GROUND_Y - 145, `最大HP+${m.amount}`, 0xffcc66);
+    });
+    room.onMessage('ddot', (m: { sid: string; amount: number }) => {
+      const st: any = room.state;
+      const p = st?.players?.get(m.sid);
+      if (p) this.addPopup(XS[p.slot] ?? 140, GROUND_Y - 95, `${m.amount}`, 0x99ee66);
+    });
 
     room.onMessage('duelend', (m: { win: boolean; reason: string }) => {
       const overlay = this.$('#duel-overlay');

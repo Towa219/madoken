@@ -3,6 +3,7 @@
 import { BattleManager } from './battle';
 import { ELEMENTS, isBossStage } from '../shared/data';
 import { initLab, renderLab, showToast } from './lab';
+import { renderManual } from './manual';
 import { initOnline, coopTryCast, duelTryCast, renderNickField } from './lobby';
 import {
   combatPower, spellDisplayName, spellMagicValue, statsSummary,
@@ -21,17 +22,20 @@ let lastStage = 1;
 
 // ===== タブ切替 =====
 
-type Tab = 'lab' | 'book' | 'battle' | 'online';
+type Tab = 'lab' | 'book' | 'battle' | 'online' | 'manual';
 
 function switchTab(tab: Tab): void {
   $('#lab-screen').classList.toggle('hidden', tab !== 'lab');
   $('#book-screen').classList.toggle('hidden', tab !== 'book');
   $('#battle-screen').classList.toggle('hidden', tab !== 'battle');
   $('#online-screen').classList.toggle('hidden', tab !== 'online');
+  $('#manual-screen').classList.toggle('hidden', tab !== 'manual');
   $('#tab-lab').classList.toggle('active', tab === 'lab');
   $('#tab-book').classList.toggle('active', tab === 'book');
   $('#tab-battle').classList.toggle('active', tab === 'battle');
   $('#tab-online').classList.toggle('active', tab === 'online');
+  $('#tab-manual').classList.toggle('active', tab === 'manual');
+  if (tab === 'manual') renderManual();
   if (tab === 'battle' && !battle.isActive()) {
     showSetup();
   }
@@ -166,6 +170,7 @@ function main(): void {
 
   $('#tab-lab').addEventListener('click', () => switchTab('lab'));
   $('#tab-book').addEventListener('click', () => switchTab('book'));
+  $('#tab-manual').addEventListener('click', () => switchTab('manual'));
   $('#tab-battle').addEventListener('click', () => switchTab('battle'));
   $('#tab-online').addEventListener('click', () => switchTab('online'));
   const resetBtn = $('#btn-reset');

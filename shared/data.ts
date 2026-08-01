@@ -104,6 +104,20 @@ export const RECIPES: RecipeDef[] = [
     apply: s => { s.kind = 'shield'; s.targetAll = true; },
   },
   {
+    id: 'katsuryoku', name: '活力系', spellNoun: '活力',
+    hint: '大地の力を光が引き出すとき、体は強くなる (土×2+光×1以上)',
+    desc: '最大HPを一時的に増やし、その分だけHPも回復する(25秒・自分)。',
+    check: c => n(c, 'earth') >= 2 && n(c, 'light') >= 1,
+    apply: s => { s.kind = 'vigor'; },
+  },
+  {
+    id: 'koubu', name: '鼓舞系', spellNoun: '鼓舞',
+    hint: '活力に風が加われば、力は仲間にも渡る (土×2+光×1+風×1以上)',
+    desc: 'パーティ全員の最大HPを一時的に増やす(25秒・効果は単体版の70%)。',
+    check: c => n(c, 'earth') >= 2 && n(c, 'light') >= 1 && n(c, 'wind') >= 1,
+    apply: s => { s.kind = 'vigor'; s.targetAll = true; },
+  },
+  {
     id: 'shugo', name: '守護系', spellNoun: '護符',
     hint: '水を重ね氷で封じれば、その力は身を弾く (水×2+氷×1以上)',
     desc: 'この魔法の属性に対する耐性を自分に付与(12秒)。敵の攻撃属性を見て選ぼう。',
@@ -130,6 +144,41 @@ export const RECIPES: RecipeDef[] = [
     desc: 'パーティ全員を回復する(各自に回復量の60%)。ソロでは自分を回復。',
     check: c => n(c, 'light') >= 3 && n(c, 'water') >= 1,
     apply: s => { s.kind = 'heal'; s.targetAll = true; },
+  },
+  {
+    id: 'fushoku', name: '腐蝕系', spellNoun: '腐蝕弾',
+    hint: '闇を水に溶かせば、じわじわと蝕む毒になる (闇×2+水×1以上)',
+    desc: '命中した敵を10秒間むしばみ、毎秒ダメージを与え続ける(重ねがけは上書き)。',
+    check: c => n(c, 'dark') >= 2 && n(c, 'water') >= 1,
+    apply: s => { s.dotTime = 10; },
+  },
+  {
+    id: 'enjou', name: '延焼系', spellNoun: '延焼弾',
+    hint: '火に風を送り続ければ、燃え広がって消えない (火×2+風×2以上)',
+    desc: '命中した敵を8秒間燃やし続ける。腐蝕より短いが火力は高い。',
+    check: c => n(c, 'fire') >= 2 && n(c, 'wind') >= 2,
+    apply: s => { s.dotTime = 8; s.dotDps = 1; }, // dotDps>0 は「強めの継続」の目印
+  },
+  {
+    id: 'touki', name: '闘気系', spellNoun: '闘気',
+    hint: '火に雷を通わせると、闘気が身に宿る (火×2+雷×1以上)',
+    desc: '一定時間、自分の与えるダメージが上がる(20秒)。',
+    check: c => n(c, 'fire') >= 2 && n(c, 'thunder') >= 1,
+    apply: s => { s.kind = 'empower'; },
+  },
+  {
+    id: 'senko', name: '戦鼓系', spellNoun: '戦鼓',
+    hint: '闘気を風に乗せれば、仲間全員が奮い立つ (火×2+雷×1+風×1以上)',
+    desc: 'パーティ全員の与えるダメージが上がる(20秒・効果は単体版の70%)。',
+    check: c => n(c, 'fire') >= 2 && n(c, 'thunder') >= 1 && n(c, 'wind') >= 1,
+    apply: s => { s.kind = 'empower'; s.targetAll = true; },
+  },
+  {
+    id: 'fuuin', name: '封印系', spellNoun: '封印',
+    hint: '闇を三つ束ねると、相手の力そのものを縛れる (闇×3以上)',
+    desc: '攻撃せず、敵全体を一定時間だけ行動不能にする。決闘では相手の詠唱を封じる。',
+    check: c => n(c, 'dark') >= 3,
+    apply: s => { s.kind = 'seal'; },
   },
   {
     id: 'konton', name: '混沌系', spellNoun: '混沌撃',
@@ -451,9 +500,19 @@ export function pickEnemiesForStage(stage: number): EnemyDef[] {
 // 全ての敵(図鑑・描画辞書用)
 export const ALL_ENEMIES: EnemyDef[] = [...ENEMIES, ...BOSSES];
 
+// ===== 戦闘バランス =====
+// 戦闘が一瞬で終わらないよう、両者のHPを厚くし敵の攻撃力は控えめにする
+
+export const PLAYER_MAX_HP = 260;
+export const PLAYER_MAX_MP = 120;
+export const DUEL_MAX_HP = 300;   // 決闘は読み合いのぶんさらに長め
+export const DUEL_MAX_MP = 140;
+export const ENEMY_HP_MUL = 3.5;  // 敵HPの全体倍率
+export const ENEMY_ATK_MUL = 0.8; // 敵攻撃力の全体倍率
+
 // ステージ補正(tier別の基礎値で強さを表すため、伸びは緩やかに)
-export const stageHpMul = (stage: number) => Math.pow(1.20, stage - 1);
-export const stageAtkMul = (stage: number) => Math.pow(1.09, stage - 1);
+export const stageHpMul = (stage: number) => Math.pow(1.15, stage - 1);
+export const stageAtkMul = (stage: number) => Math.pow(1.07, stage - 1);
 
 // 採取・スロット解放コスト
 export const GATHER_COST = 35;   // 採取は高価に(エレメントは貴重)

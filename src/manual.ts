@@ -1,0 +1,145 @@
+// 説明書(取説+攻略)
+//
+// 数値や系統一覧は shared/data.ts の定義から組み立てるので、
+// バランスを変更すれば説明書の記述も自動的に追従する。
+
+import {
+  DISASSEMBLE_RATE, DISCOVERY_BONUS_RP, ELEMENTS, ELEMENT_ORDER, ENEMIES,
+  ENEMY_HP_MUL, BOSSES, DUEL_MAX_HP, GATHER_COST, GATHER_COUNT,
+  PLAYER_MAX_HP, PLAYER_MAX_MP, RARITIES, RECIPES,
+  SLOT4_BOSS_STAGE, SLOT4_COST, SLOT5_BOSS_STAGE, SLOT5_COST,
+} from '../shared/data';
+import { ENHANCE_MAX } from '../shared/spellcraft';
+import { BUILD_DATE, VERSION } from '../shared/version';
+import { state } from './state';
+import type { Rarity } from '../shared/types';
+
+const $ = <T extends HTMLElement = HTMLElement>(sel: string) =>
+  document.querySelector(sel) as T;
+
+function elementTable(): string {
+  const rows = ELEMENT_ORDER.map(id => {
+    const e = ELEMENTS[id];
+    return `<tr><td style="color:${e.cssColor}">${e.name}</td><td>${e.desc}</td></tr>`;
+  }).join('');
+  return `<table class="man-table"><thead><tr><th>エレメント</th><th>1個あたりの効果</th></tr></thead>`
+    + `<tbody>${rows}</tbody></table>`;
+}
+
+function rarityTable(): string {
+  const order: Rarity[] = ['rare', 'epic', 'legend'];
+  const rows = order.map(r => {
+    const d = RARITIES[r];
+    return `<tr><td style="color:${d.cssColor}">${d.name}</td>`
+      + `<td>性能 ×${d.mul}</td>`
+      + `<td>基礎 ${(d.chance * 100).toFixed(2)}%</td></tr>`;
+  }).join('');
+  return `<table class="man-table"><thead><tr><th>品質</th><th>効果</th><th>出現率</th></tr></thead>`
+    + `<tbody>${rows}</tbody></table>`;
+}
+
+// 発見済みは効果を、未発見はヒントだけを表示(ネタバレ防止)
+function recipeList(): string {
+  return RECIPES.map(r => {
+    const found = state.discovered.includes(r.id);
+    return found
+      ? `<li><b style="color:#88ddaa">${r.name}</b> — ${r.desc}</li>`
+      : `<li><b style="color:#777799">???</b> — ヒント: ${r.hint}</li>`;
+  }).join('');
+}
+
+export function renderManual(): void {
+  const found = RECIPES.filter(r => state.discovered.includes(r.id)).length;
+  $('#manual-body').innerHTML = `
+<section class="man-sec">
+  <h3>この世界でやること</h3>
+  <p>あなたは魔法研究者です。<b>エレメントを調合して自分だけの魔法を作り</b>、
+  それを装備して戦い、素材を集めてさらに強い魔法を研究します。
+  用意された魔法を覚えるのではなく、<b>魔法そのものを発明していく</b>のがこのゲームの中心です。</p>
+  <ol>
+    <li><b>研究室</b>で採取・調合して魔法を作る</li>
+    <li><b>魔導書</b>で最大4つ装備する(★印)</li>
+    <li><b>戦闘</b>や<b>オンライン共闘</b>で戦い、研究Pと素材を得る</li>
+    <li>より深い調合へ ― の繰り返し</li>
+  </ol>
+</section>
+
+<section class="man-sec">
+  <h3>エレメント</h3>
+  <p>全${ELEMENT_ORDER.length}種類。組み合わせと個数で魔法の性能が決まります。</p>
+  ${elementTable()}
+  <p class="man-note">入手方法は3つだけです。<br>
+  ① <b>採取</b>(研究P${GATHER_COST}でランダム${GATHER_COUNT}個。光・闇は出にくい)<br>
+  ② <b>ボス撃破</b>(共闘のみ。まとまった数が手に入る)<br>
+  ③ <b>魔法の分解</b>(素材1個につき約${Math.round(DISASSEMBLE_RATE * 100)}%で回収。強化・品質が高いほど戻りやすい)<br>
+  通常ステージのクリアでは素材は手に入らず、研究Pだけが増えます。</p>
+</section>
+
+<section class="man-sec">
+  <h3>調合のしくみ</h3>
+  <ul>
+    <li>スロットにエレメントを置いて「調合する」。バーが100%になると完成します</li>
+    <li><b>成功率</b>は素材が多いほど、光・闇を使うほど下がります(下限40%)。失敗すると素材の半分を失います</li>
+    <li>特定の組み合わせで<b>系統</b>が成立します。初めて出した系統は「発見」となり研究P+${DISCOVERY_BONUS_RP}</li>
+    <li><b>同じ構成をもう一度調合すると強化</b>になります(最大+${ENHANCE_MAX}。1段階ごとに威力+8%・詠唱-2%)</li>
+    <li>ごく稀に上位<b>品質</b>で生まれます。素材が多く光・闇を含むほど確率が上がります</li>
+  </ul>
+  ${rarityTable()}
+  <p class="man-note">魔法名の末尾〈火2風〉はレシピそのものです。名前を見れば作り方が分かります。</p>
+</section>
+
+<section class="man-sec">
+  <h3>系統一覧 <small>(${found} / ${RECIPES.length} 発見済み)</small></h3>
+  <ul class="man-recipes">${recipeList()}</ul>
+</section>
+
+<section class="man-sec">
+  <h3>戦闘</h3>
+  <ul>
+    <li>3→2→1のカウントダウン後に開始。キー<b>1〜4</b>かボタンで詠唱します(順番は魔導書の並び順)</li>
+    <li>自分はHP${PLAYER_MAX_HP} / MP${PLAYER_MAX_MP}。MPは毎秒3回復するので、撃ち続けると息切れします</li>
+    <li>敵には<b>5段階の属性相性</b>があります: ◎2.0倍 / ○1.5倍 / −等倍 / △0.6倍 / ✕0.25倍</li>
+    <li>敵カードの<b>攻撃属性</b>を見て、その属性の耐性(護符)を張ると被害を抑えられます</li>
+    <li>敵は通常${ENEMIES.length}種+ボス${BOSSES.length}種。ステージが上がるほど強い種類が出ます(敵HPは基礎の${ENEMY_HP_MUL}倍から、さらにステージ補正)</li>
+  </ul>
+</section>
+
+<section class="man-sec">
+  <h3>オンライン</h3>
+  <ul>
+    <li><b>共闘</b>は最大3人。全員が準備完了で開始し、<b>クリアすると自動で次のステージへ</b>進み続けます</li>
+    <li>誰かが倒れても、ステージを越えればHP50%で復活します。<b>全滅すると終了</b>です</li>
+    <li>戦闘中に誰かが退出すると、前のステージまでのクリア扱いで全員ロビーに戻ります</li>
+    <li><b>ボス戦(5の倍数)は2人以上の共闘専用</b>。ソロでは挑めません</li>
+    <li><b>決闘</b>は1対1。HP${DUEL_MAX_HP}で、挑発は「構え」(被弾-20%)として働きます</li>
+    <li><b>ランキング</b>はニックネームごとに自己ベスト1件。スコア = クリアステージ×10 + 与ダメージ÷20</li>
+    <li>ニックネームは初回接続時に登録され、<b>初期化するまで変更できません</b></li>
+  </ul>
+</section>
+
+<section class="man-sec">
+  <h3>調合スロットの解放</h3>
+  <ul>
+    <li>第4スロット: <b>ステージ${SLOT4_BOSS_STAGE}のボス撃破</b> + 研究P${SLOT4_COST}</li>
+    <li>第5スロット: <b>ステージ${SLOT5_BOSS_STAGE}のボス撃破</b> + 研究P${SLOT5_COST}</li>
+  </ul>
+  <p class="man-note">スロットが増えるほど複雑な系統に手が届きますが、成功率は下がります。</p>
+</section>
+
+<section class="man-sec">
+  <h3>攻略のコツ</h3>
+  <ul>
+    <li><b>まずは2〜3素材の安い魔法を数撃つ。</b>成功率100%の構成で系統を発見していくのが序盤の近道です</li>
+    <li><b>水を混ぜると燃費が良くなります。</b>火や闇だけで固めるとMPが持ちません。「主砲1本+燃費の良い1本」の組み合わせが安定します</li>
+    <li><b>使わない魔法は分解を。</b>素材が貴重なので、外れた魔法は抱えず分解して次の調合に回すのが効率的です</li>
+    <li><b>強化はレシピを覚えている魔法に集中投資。</b>同じ構成を作り続ければ+${ENHANCE_MAX}まで伸び、魔導値(強さの目安)が大きく上がります</li>
+    <li><b>ボス前には仲間を集める。</b>ボスは2人以上必須です。ステージ${SLOT4_BOSS_STAGE}のボスを倒さないとスロットも増えません</li>
+    <li><b>共闘は役割分担で伸びます。</b>挑発+護盾で敵を引き受ける人、治癒や鼓舞で支える人、火力に専念する人。敵はヘイト(与ダメ・護盾・回復で増える)が高い人を狙います</li>
+    <li><b>格上に挑むときは耐性と継続ダメージ。</b>敵の攻撃属性に合わせた護符で耐え、腐蝕や延焼でじわじわ削ると安定します</li>
+    <li><b>行き詰まったら図鑑のヒントを読み直す。</b>未発見の系統は必ず何かの組み合わせで出ます</li>
+  </ul>
+</section>
+
+<p class="man-foot">この説明書はゲームの設定値から自動生成されています(v${VERSION} / ${BUILD_DATE} 時点)。</p>
+`;
+}

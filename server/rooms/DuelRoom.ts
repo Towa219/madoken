@@ -8,6 +8,7 @@ import { Schema, MapSchema, defineTypes } from '@colyseus/schema';
 import type { Client } from 'colyseus';
 import type { MapSchema as MapSchemaType } from '@colyseus/schema';
 import type { IncomingMessage } from 'node:http';
+import { DUEL_MAX_HP, DUEL_MAX_MP } from '../../shared/data';
 import { spellCooldown } from '../../shared/spellcraft';
 import { parseSpells } from '../spellPayload';
 import { clientIp, logConnection } from '../connlog';
@@ -65,6 +66,14 @@ interface DInternal {
   wardAttr: ElementId | null;
   wardPct: number;
   wardT: number;
+  atkBoost: number;
+  atkBoostT: number;
+  vigorBonus: number;
+  vigorT: number;
+  sealedT: number;   // 封印されている残り秒(詠唱不可)
+  dotDps: number;
+  dotT: number;
+  dotTick: number;
 }
 
 export class DuelRoom extends Room<DuelState> {
@@ -101,8 +110,8 @@ export class DuelRoom extends Room<DuelState> {
   onJoin(client: Client, options: { name?: unknown; spells?: unknown }): void {
     const p = new DuelPlayer();
     p.name = String(options?.name ?? '名無し').slice(0, 12) || '名無し';
-    p.maxHp = 150; p.hp = 150;   // 決闘は少し長めの読み合いにする
-    p.maxMp = 110; p.mp = 110;
+    p.maxHp = DUEL_MAX_HP; p.hp = DUEL_MAX_HP;   // 決闘は長めの読み合いにする
+    p.maxMp = DUEL_MAX_MP; p.mp = DUEL_MAX_MP;
     p.shield = 0; p.guard = 0;
     p.alive = true; p.ready = false;
     p.castingIdx = -1; p.castT = 0; p.castTotal = 0;
@@ -118,6 +127,8 @@ export class DuelRoom extends Room<DuelState> {
       cooldowns: [0, 0, 0, 0],
       shieldT: 0, guardT: 0,
       wardAttr: null, wardPct: 0, wardT: 0,
+      atkBoost: 0, atkBoostT: 0, vigorBonus: 0, vigorT: 0,
+      sealedT: 0, dotDps: 0, dotT: 0, dotTick: 0,
     });
   }
 
@@ -158,6 +169,7 @@ export class DuelRoom extends Room<DuelState> {
     const sp = internal.spells[idx];
     if (!sp) return;
     if (p.castingIdx >= 0) return;
+    if (internal.sealedT > 0) return; // 封印中は詠唱できない
     if (internal.cooldowns[idx] > 0) return;
     if (p.mp < sp.stats.manaCost) return;
     p.mp -= sp.stats.manaCost;
@@ -207,6 +219,34 @@ export class DuelRoom extends Room<DuelState> {
         internal.wardT -= dt;
         if (internal.wardT <= 0) internal.wardPct = 0;
       }
+      if (internal.atkBoostT > 0) {
+        internal.atkBoostT -= dt;
+        if (internal.atkBoostT <= 0) internal.atkBoost = 0;
+      }
+      if (internal.vigorT > 0) {
+        internal.vigorT -= dt;
+        if (internal.vigorT <= 0) {
+          p.maxHp -= internal.vigorBonus;
+          internal.vigorBonus = 0;
+          p.hp = Math.max(1, Math.min(p.hp, p.maxHp));
+        }
+      }
+      if (internal.sealedT > 0) {
+        internal.sealedT -= dt;
+        if (internal.sealedT > 0) p.castingIdx = -1;
+      }
+      // 継続ダメージ(1秒ごと)
+      if (internal.dotT > 0) {
+        internal.dotT -= dt;
+        internal.dotTick += dt;
+        if (internal.dotTick >= 1) {
+          internal.dotTick -= 1;
+          const d = Math.max(1, Math.round(internal.dotDps));
+          this.broadcast('ddot', { sid, amount: d });
+          this.damage(sid, d, true); // 継続分は護盾・軽減を通さない
+        }
+        if (internal.dotT <= 0) internal.dotDps = 0;
+      }
       if (p.castingIdx >= 0) {
         p.castT += dt;
         const sp = internal.spells[p.castingIdx];
@@ -251,6 +291,34 @@ export class DuelRoom extends Room<DuelState> {
       this.broadcast('dguard', { sid });
       return;
     }
+    if (st.kind === 'seal') {
+      const foe0 = this.opponentOf(sid);
+      if (foe0) {
+        const fi = this.internals.get(foe0.sid);
+        if (fi) {
+          fi.sealedT = Math.max(fi.sealedT, st.sealTime * 0.6); // 対人では短め
+          foe0.p.castingIdx = -1;
+          this.broadcast('dseal', { sid: foe0.sid, sec: fi.sealedT });
+        }
+      }
+      return;
+    }
+    if (st.kind === 'empower') {
+      internal.atkBoost = st.atkBoost;
+      internal.atkBoostT = 20;
+      this.broadcast('dempower', { sid, pct: st.atkBoost });
+      return;
+    }
+    if (st.kind === 'vigor') {
+      p.maxHp -= internal.vigorBonus;
+      p.hp = Math.min(p.hp, p.maxHp);
+      internal.vigorBonus = st.hpBoost;
+      internal.vigorT = 25;
+      p.maxHp += internal.vigorBonus;
+      p.hp += internal.vigorBonus;
+      this.broadcast('dvigor', { sid, amount: st.hpBoost });
+      return;
+    }
     if (st.kind === 'ward') {
       internal.wardAttr = st.targetAll ? null : st.attr;
       internal.wardPct = st.wardPct;
@@ -281,11 +349,23 @@ export class DuelRoom extends Room<DuelState> {
     const target = this.state.players.get(toSid);
     if (!target || !target.alive) return;
 
-    let dmg = st.power * (0.9 + Math.random() * 0.2);
+    const atkI = this.internals.get(fromSid);
+    const boost = 1 + (atkI?.atkBoost ?? 0) / 100;
+    let dmg = st.power * (0.9 + Math.random() * 0.2) * boost;
     const crit = Math.random() * 100 < st.critRate;
     if (crit) dmg *= 2;
     if (st.quake) dmg *= 0.75;      // 全体攻撃は対人では威力控えめ
     const final = Math.max(1, Math.round(dmg));
+
+    // 継続ダメージを付与(上書き)
+    if (st.dotTime > 0 && st.dotDps > 0) {
+      const ti = this.internals.get(toSid);
+      if (ti) {
+        ti.dotDps = st.dotDps * boost;
+        ti.dotT = st.dotTime;
+        ti.dotTick = 0;
+      }
+    }
 
     this.broadcast('dhit', {
       sid: toSid, amount: final, crit, attr: st.attr, radius: st.radius,

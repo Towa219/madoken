@@ -18,7 +18,8 @@ export interface CraftResult {
 export function computeSpell(counts: ElementCounts): CraftResult {
   const s: SpellStats = {
     kind: 'attack', barrier: 0, healPower: 0, hateGain: 0, targetAll: false,
-    quake: false, wardPct: 0,
+    quake: false, wardPct: 0, hpBoost: 0, sealTime: 0, atkBoost: 0,
+    dotDps: 0, dotTime: 0,
     power: 10, castTime: 1.3, manaCost: 20, projSpeed: 260,
     radius: 0, pierce: false, chain: 0, critRate: 5,
     lifesteal: 0, freeze: 0, slow: 0, selfDamage: 0,
@@ -110,7 +111,29 @@ export function finalStats(
   if (s.kind === 'heal') s.healPower = Math.round(s.power * 1.8 + 10);
   if (s.kind === 'taunt') s.hateGain = Math.round(s.power * 10);
   if (s.kind === 'ward') s.wardPct = wardPctOf(s);
+  if (s.kind === 'vigor') s.hpBoost = hpBoostOf(s);
+  if (s.kind === 'seal') s.sealTime = sealTimeOf(s);
+  if (s.kind === 'empower') s.atkBoost = atkBoostOf(s);
+  // 継続ダメージ: 延焼(dotDpsの目印あり)は強め
+  if (s.dotTime > 0) s.dotDps = Math.max(1, Math.round(s.power * (s.dotDps > 0 ? 0.28 : 0.18)));
   return s;
+}
+
+// 与ダメージ上昇(%)。上限60%、全体版は7割
+export function atkBoostOf(s: SpellStats): number {
+  const base = Math.min(60, 15 + s.power / 4);
+  return Math.round(s.targetAll ? base * 0.7 : base);
+}
+
+// 行動不能にする秒数(威力から換算・上限6秒)
+export function sealTimeOf(s: SpellStats): number {
+  return Math.round(Math.min(6, 2.5 + s.power / 40) * 10) / 10;
+}
+
+// 最大HP上昇量(威力から換算。全体版は7割)
+export function hpBoostOf(s: SpellStats): number {
+  const base = s.power * 2.2 + 20;
+  return Math.round(s.targetAll ? base * 0.7 : base);
 }
 
 // 耐性値(威力から換算・上限70%。全属性版は7割の効き)
@@ -135,6 +158,9 @@ export function spellCooldown(s: SpellStats): number {
   if (s.kind === 'heal') return 5;
   if (s.kind === 'taunt') return 8;
   if (s.kind === 'ward') return 10;
+  if (s.kind === 'vigor') return 14;
+  if (s.kind === 'seal') return 16;
+  if (s.kind === 'empower') return 14;
   if (s.quake) return 7;
   return 1.2 + s.castTime * 0.5;
 }
@@ -155,6 +181,7 @@ export function spellMagicValue(s: SpellStats): number {
     if (s.freeze > 0) eff *= 1 + s.freeze * 0.12;
     if (s.slow > 0) eff *= 1 + s.slow / 250;
     if (s.lifesteal > 0) eff *= 1 + s.lifesteal / 160;
+    eff += s.dotDps * s.dotTime * 0.8; // 継続ダメージ分
     v = (eff / cycle) * 12;
   } else if (s.kind === 'shield') {
     v = ((s.barrier * (s.targetAll ? 1.9 : 1)) / cycle) * 9;
@@ -162,6 +189,12 @@ export function spellMagicValue(s: SpellStats): number {
     v = ((s.healPower * (s.targetAll ? 1.9 : 1)) / cycle) * 9;
   } else if (s.kind === 'ward') {
     v = s.wardPct * (s.targetAll ? 2.6 : 1.6);
+  } else if (s.kind === 'vigor') {
+    v = s.hpBoost * (s.targetAll ? 1.5 : 0.9);
+  } else if (s.kind === 'seal') {
+    v = s.sealTime * 26;
+  } else if (s.kind === 'empower') {
+    v = s.atkBoost * (s.targetAll ? 3.2 : 2.0);
   } else {
     v = (s.hateGain / cycle) * 1.4 + 25;   // 挑発
   }
@@ -202,6 +235,37 @@ export function statsSummary(s: SpellStats): string {
     parts.push(`属性:${ELEMENTS[s.attr].name}`);
     return parts.join(' / ');
   }
+  if (s.kind === 'empower') {
+    const parts = [
+      s.targetAll
+        ? `【戦鼓】全員の与ダメ+${s.atkBoost}%`
+        : `【闘気】与ダメ+${s.atkBoost}%`,
+      '20秒',
+      `詠唱${s.castTime.toFixed(2)}秒`, `MP${s.manaCost}`, '再使用14秒',
+    ];
+    if (s.selfDamage > 0) parts.push(`自傷${s.selfDamage}`);
+    return parts.join(' / ');
+  }
+  if (s.kind === 'seal') {
+    const parts = [
+      `【封印】敵全体を${s.sealTime.toFixed(1)}秒 行動不能`,
+      '決闘では相手の詠唱を封じる',
+      `詠唱${s.castTime.toFixed(2)}秒`, `MP${s.manaCost}`, '再使用16秒',
+    ];
+    if (s.selfDamage > 0) parts.push(`自傷${s.selfDamage}`);
+    return parts.join(' / ');
+  }
+  if (s.kind === 'vigor') {
+    const parts = [
+      s.targetAll
+        ? `【鼓舞】全員の最大HP+${s.hpBoost}`
+        : `【活力】最大HP+${s.hpBoost}`,
+      '25秒・同量を回復',
+      `詠唱${s.castTime.toFixed(2)}秒`, `MP${s.manaCost}`, '再使用14秒',
+    ];
+    if (s.selfDamage > 0) parts.push(`自傷${s.selfDamage}`);
+    return parts.join(' / ');
+  }
   if (s.kind === 'ward') {
     const parts = [
       s.targetAll
@@ -231,6 +295,7 @@ export function statsSummary(s: SpellStats): string {
         `威力${s.power}`, `詠唱${s.castTime.toFixed(2)}秒`,
         `MP${s.manaCost}`, `弾速${s.projSpeed}`,
       ];
+  if (s.dotTime > 0) parts.push(`継続${s.dotDps}/秒×${s.dotTime}秒`);
   if (s.radius > 0) parts.push(`爆発${Math.round(s.radius)}`);
   if (s.pierce) parts.push('貫通');
   if (s.chain > 0) parts.push(`連鎖${s.chain}`);
