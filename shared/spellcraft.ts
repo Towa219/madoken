@@ -80,7 +80,13 @@ export function computeSpell(counts: ElementCounts): CraftResult {
   else if (s.power >= 55) rank = '・極';
   else if (s.power >= 30) rank = '・改';
 
-  const autoName = `${prefix}${noun}${rank}`;
+  // 素材合計数をローマ数字で付与(3個以上)。火3と火4のような構成違いを名前で区別する
+  let total = 0;
+  for (const id of ELEMENT_ORDER) total += c(id);
+  const NUMERALS = ['', '', '', 'Ⅲ', 'Ⅳ', 'Ⅴ'];
+  const numeral = NUMERALS[total] ?? 'Ⅴ';
+
+  const autoName = `${prefix}${noun}${numeral}${rank}`;
 
   return { stats: s, matched, autoName };
 }
