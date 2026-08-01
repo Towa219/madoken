@@ -15,6 +15,7 @@ import { clientIp, logConnection } from '../connlog';
 import { clearRoomPresence, setRoomPresence } from '../presence';
 import { claimName } from '../names';
 import { announce } from '../lobbyfeed';
+import { clampNickname } from '../../shared/nickname';
 import type { ServerSpell } from '../spellPayload';
 import type { ElementId, SpellStats } from '../../shared/types';
 
@@ -118,7 +119,7 @@ export class DuelRoom extends Room<DuelState> {
 
   onJoin(client: Client, options: { name?: unknown; spells?: unknown }): void {
     const p = new DuelPlayer();
-    p.name = String(options?.name ?? '名無し').slice(0, 12) || '名無し';
+    p.name = clampNickname(options?.name) || '名無し';
     p.maxHp = DUEL_MAX_HP; p.hp = DUEL_MAX_HP;   // 決闘は長めの読み合いにする
     p.maxMp = DUEL_MAX_MP; p.mp = DUEL_MAX_MP;
     p.shield = 0; p.guard = 0;

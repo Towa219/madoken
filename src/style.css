@@ -186,6 +186,51 @@ button.tab.active { background: #5533aa; border-color: #7755cc; }
 .recipe-row.unfound { border-left: 3px solid #444466; color: #8888aa; }
 .recipe-row .rname { font-weight: bold; color: #88ddaa; }
 
+/* 本日のTips(流れる帯) */
+#tips-bar {
+  overflow: hidden; white-space: nowrap;
+  background: linear-gradient(90deg, #1a1630, #241c3c, #1a1630);
+  border-top: 1px solid #3a3060; border-bottom: 1px solid #3a3060;
+  color: #ddccff; font-size: 12px; padding: 5px 0;
+}
+#tips-bar .tips-track {
+  display: inline-block; white-space: nowrap;
+  animation: tips-scroll 42s linear infinite;
+}
+#tips-bar .tips-track span { padding-right: 80px; }
+#tips-bar:hover .tips-track { animation-play-state: paused; }
+@keyframes tips-scroll {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  #tips-bar .tips-track { animation: none; }
+  #tips-bar { white-space: normal; }
+}
+
+/* サーバー起動待ちの案内 */
+#wake-banner {
+  background: #2a2418; border-bottom: 1px solid #ccaa55;
+  color: #ffdd99; font-size: 12px; padding: 8px 12px; line-height: 1.6;
+}
+#wake-banner.hidden { display: none; }
+
+/* 最初の起動でニックネームを決める画面 */
+#welcome-overlay {
+  position: fixed; inset: 0; z-index: 50;
+  background: rgba(8, 8, 18, 0.94);
+  display: flex; align-items: center; justify-content: center; padding: 16px;
+}
+#welcome-overlay.hidden { display: none; }
+.welcome-box {
+  background: #16162a; border: 1px solid #3a3060; border-radius: 10px;
+  padding: 20px; max-width: 420px; width: 100%;
+}
+.welcome-box h2 { margin: 0 0 10px; font-size: 18px; color: #ddccff; }
+.welcome-box p { font-size: 12px; color: #aaaacc; line-height: 1.7; margin: 6px 0; }
+.welcome-box input { width: 100%; box-sizing: border-box; margin: 10px 0; }
+#welcome-msg { color: #ff9977; font-size: 12px; min-height: 16px; }
+
 /* 設定画面 */
 #reset-panel { margin-top: 12px; }
 #reset-panel .danger {

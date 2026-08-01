@@ -12,7 +12,7 @@ import {
   SLOT4_BOSS_STAGE, SLOT4_COST, SLOT5_BOSS_STAGE, SLOT5_COST,
 } from '../shared/data';
 import { ENHANCE_MAX } from '../shared/spellcraft';
-import { NICK_MAX } from '../shared/nickname';
+import { NICK_MAX_FULL, NICK_MAX_WIDTH } from '../shared/nickname';
 import type { Rarity } from '../shared/types';
 
 const $ = <T extends HTMLElement = HTMLElement>(sel: string) =>
@@ -118,7 +118,8 @@ export function renderManual(): void {
     <li><b>決闘</b>は1対1。HP${DUEL_MAX_HP}で、挑発は「構え」(被弾-20%)として働きます</li>
     <li><b>ランキング</b>はニックネームごとに自己ベスト1件。スコア = クリアステージ×10 + 与ダメージ÷20</li>
     <li>ニックネームは初回接続時に登録され、<b>初期化するまで変更できません</b>。
-    ${NICK_MAX}文字まで・使えるのは<b>ひらがな/カタカナ/漢字/英数字</b>だけで、
+    全角${NICK_MAX_FULL}文字(半角${NICK_MAX_WIDTH}文字)まで・
+    使えるのは<b>ひらがな/カタカナ/漢字/英数字</b>だけで、
     <b>スペースと記号は半角・全角とも使用不可</b>・
     <b>他の人が使用中の名前は登録できません</b>(初期化すると解放され、他の人が使えるようになります)</li>
   </ul>

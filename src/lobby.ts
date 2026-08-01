@@ -5,7 +5,9 @@ import type { Room } from 'colyseus.js';
 import { CoopView } from './coop';
 import { DuelView } from './duel';
 import { spellDisplayName } from '../shared/spellcraft';
-import { NICK_MAX, normalizeNickname, validateNickname } from '../shared/nickname';
+import {
+  NICK_MAX_FULL, NICK_MAX_WIDTH, normalizeNickname, validateNickname,
+} from '../shared/nickname';
 import { equippedSpells, notify, state } from './state';
 import { pushCloudSave } from './cloudsave';
 import type { SpellPayload } from '../shared/protocol';
@@ -45,7 +47,8 @@ export function renderNickField(): void {
     input.disabled = false;
     note.textContent =
       `最初に接続したときのニックネームが登録され、以後は変更できない。`
-      + `${NICK_MAX}文字まで・使えるのはひらがな/カタカナ/漢字/英数字だけ`
+      + `全角${NICK_MAX_FULL}文字(半角${NICK_MAX_WIDTH}文字)まで・`
+      + `使えるのはひらがな/カタカナ/漢字/英数字だけ`
       + `(スペースと記号は半角・全角とも不可)。`
       + `他の人が使っている名前は登録できない。`;
   }

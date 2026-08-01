@@ -17,6 +17,7 @@ import { clearRoomPresence, setRoomPresence } from '../presence';
 import { submitScore } from '../ranking';
 import { claimName } from '../names';
 import { announce } from '../lobbyfeed';
+import { clampNickname } from '../../shared/nickname';
 import {
   affinityMul, battleRP, bossForStage, ENEMY_ATK_MUL, ENEMY_HP_MUL, isBossStage,
   pickEnemiesForStage, PLAYER_MAX_HP, PLAYER_MAX_MP, stageAtkMul, stageHpMul,
@@ -143,7 +144,7 @@ export class CoopRoom extends Room<CoopState> {
 
   onJoin(client: Client, options: { name?: unknown; spells?: unknown }): void {
     const p = new PlayerS();
-    p.name = String(options?.name ?? '名無し').slice(0, 12) || '名無し';
+    p.name = clampNickname(options?.name) || '名無し';
     p.maxHp = PLAYER_MAX_HP; p.hp = PLAYER_MAX_HP;
     p.maxMp = PLAYER_MAX_MP; p.mp = PLAYER_MAX_MP;
     p.shield = 0;

@@ -10,6 +10,7 @@
 
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { persistent, redis } from './upstash';
+import { clampNickname } from '../shared/nickname';
 
 export { persistent };
 
@@ -63,7 +64,7 @@ export function submitScore(name: string, score: number, spells: string[]): void
   const s = Math.round(score);
   if (s <= 0) return;
   const entry: RankEntry = {
-    name: name.slice(0, 12),
+    name: clampNickname(name),
     score: s,
     spells: spells.slice(0, 4).map(x => x.slice(0, 24)),
     date: new Date().toISOString().slice(0, 10),
@@ -92,7 +93,7 @@ export function submitScore(name: string, score: number, spells: string[]): void
 // 記録を消す(キャラ初期化でニックネームを手放したとき)。
 // 消さないと、その名前を次に取った人のスコアとして残ってしまう。
 export async function removeScore(name: string): Promise<void> {
-  const key = name.slice(0, 12);
+  const key = clampNickname(name);
   const idx = local.findIndex(e => e.name === key);
   if (idx >= 0) {
     local.splice(idx, 1);

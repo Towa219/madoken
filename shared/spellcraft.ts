@@ -88,6 +88,78 @@ export function computeSpell(counts: ElementCounts): CraftResult {
   return { stats: s, matched, autoName };
 }
 
+// ===== 上位品質の真名(カタカナ) =====
+//
+// エピック・レジェンドの魔法には、通常の和名ではなく異国風の「真名」を与える。
+// レシピから決まるので、同じ構成なら毎回同じ名前になる。
+
+const TRUE_ROOT: Record<ElementId, string[]> = {
+  fire:    ['イグニス', 'フランマ', 'サラマンド'],
+  water:   ['アクア', 'ウンディーネ', 'マリス'],
+  wind:    ['ヴェント', 'ゼファー', 'シルフィード'],
+  earth:   ['テラ', 'ガイア', 'グランド'],
+  thunder: ['フルグル', 'トニトルス', 'ライゼン'],
+  ice:     ['グラキエス', 'ニヴィス', 'フロスト'],
+  light:   ['ルクス', 'ソレイユ', 'ラディア'],
+  dark:    ['ノクス', 'アビス', 'ウンブラ'],
+};
+
+// 二つ名(レジェンドのみ付く)
+const TRUE_EPITHET = [
+  'エターナル', 'カタストロフ', 'オーバーロード', 'ジェネシス', 'ラグナロク',
+  'インフィニート', 'アポカリプス', 'ヴァルハラ', 'エンドレス', 'ゼニス',
+];
+
+// 文字列から安定した数値を作る(同じレシピなら常に同じ名前にするため)
+function hashOf(s: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return Math.abs(h);
+}
+
+// 品質に応じた最終的な魔法名。
+// エピック/レジェンドは真名(カタカナ)+構成タグ、それ以外は通常の和名。
+export function spellNameFor(counts: ElementCounts, rarity: Rarity): string {
+  const tn = trueName(counts, rarity);
+  if (!tn) return computeSpell(counts).autoName;
+  let comp = '';
+  for (const id of ELEMENT_ORDER) {
+    const k = counts[id] ?? 0;
+    if (k > 0) comp += ATTR_CHAR[id] + (k > 1 ? String(k) : '');
+  }
+  return `${tn}〈${comp}〉`;
+}
+
+// エピック/レジェンドの真名を作る。normalとレアは null(通常の和名を使う)
+export function trueName(counts: ElementCounts, rarity: Rarity): string | null {
+  if (rarity !== 'epic' && rarity !== 'legend') return null;
+
+  // 構成を多い順に並べ、上位2属性を語幹にする
+  const used = ELEMENT_ORDER
+    .map(id => ({ id, n: counts[id] ?? 0 }))
+    .filter(e => e.n > 0)
+    .sort((a, b) => b.n - a.n || ELEMENT_ORDER.indexOf(a.id) - ELEMENT_ORDER.indexOf(b.id));
+  if (used.length === 0) return null;
+
+  const seed = hashOf(
+    ELEMENT_ORDER.map(id => `${id}${counts[id] ?? 0}`).join('') + rarity,
+  );
+
+  const first = TRUE_ROOT[used[0].id][seed % TRUE_ROOT[used[0].id].length];
+  const second = used[1]
+    ? TRUE_ROOT[used[1].id][(seed >> 3) % TRUE_ROOT[used[1].id].length]
+    : '';
+
+  const base = second ? `${first}・${second}` : first;
+  if (rarity === 'epic') return base;
+
+  const epithet = TRUE_EPITHET[(seed >> 7) % TRUE_EPITHET.length];
+  return `${base}・${epithet}`;
+}
+
 // 指定した系統が成立する構成のうち、最も魔導値が高いものを探す。
 // (発見図鑑コンプリート報酬など、「その系統の代表的な1本」を作るのに使う)
 export function bestCompositionFor(

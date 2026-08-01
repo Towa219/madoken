@@ -10,6 +10,8 @@ import {
 import {
   deleteCloudSave, initCloudUI, renderCloudStatus, scheduleCloudSave,
 } from './cloudsave';
+import { initWelcome, waitForServer } from './boot';
+import { renderTips } from './tips';
 import {
   combatPower, spellDisplayName, spellMagicValue, statsSummary,
 } from '../shared/spellcraft';
@@ -174,7 +176,23 @@ function renderFooter(): void {
 
 function main(): void {
   initLab();
-  initOnline();
+
+  // サーバーの起床を待ちつつ、初回なら名前を決めてもらう。
+  // (名前が決まってからオンラインを初期化 = そのまま自動接続される)
+  renderTips();
+  let onlineReady = false;
+  const startOnline = (): void => {
+    renderNickField();
+    if (!onlineReady) {
+      onlineReady = true;
+      initOnline();
+    }
+  };
+  void waitForServer().then(ok => {
+    // サーバーが落ちている時でもソロは遊べるようにする(名前は後から登録)
+    if (ok) initWelcome(startOnline);
+    else startOnline();
+  });
 
   $('#tab-lab').addEventListener('click', () => switchTab('lab'));
   $('#tab-book').addEventListener('click', () => switchTab('book'));
@@ -195,7 +213,8 @@ function main(): void {
       renderNickField(); // ニックネームも再登録できるようになる
       $('#reset-msg').textContent =
         '初期化した。ニックネームとランキングの記録も解放された。';
-      showToast('セーブデータを初期化した。ニックネームも解放され、再設定できる。');
+      showToast('セーブデータを初期化した。新しい名前を決めよう。');
+      initWelcome(startOnline); // 名前を決め直してもらう
     } else {
       resetBtn.dataset.arm = '1';
       resetBtn.textContent = '本当に初期化する? (取り消せない)';

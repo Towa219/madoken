@@ -9,7 +9,7 @@ import { clientIp, logConnection } from '../connlog';
 import { setRoomPresence } from '../presence';
 import { claimName } from '../names';
 import { addLobbySink } from '../lobbyfeed';
-import { normalizeNickname } from '../../shared/nickname';
+import { clampNickname, normalizeNickname } from '../../shared/nickname';
 
 const { Room } = colyseusPkg;
 
@@ -65,7 +65,7 @@ export class LobbyChatRoom extends Room<LobbyState> {
   onJoin(client: Client, options: { name?: unknown }): void {
     const auth = client.auth as { name?: string } | undefined;
     const p = new LobbyPlayer();
-    p.name = (auth?.name || String(options?.name ?? '')).slice(0, 12) || '名無し';
+    p.name = clampNickname(auth?.name || options?.name) || '名無し';
     this.state.players.set(client.sessionId, p);
     logConnection('ロビー', p.name, (client.auth as { ip?: string } | undefined)?.ip ?? '');
     this.syncPresence();

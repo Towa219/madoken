@@ -8,7 +8,7 @@ import {
 } from '../shared/data';
 import {
   bestCompositionFor, computeSpell, ENHANCE_MAX, finalStats, spellDisplayName,
-  spellMagicValue, statsSummary,
+  spellMagicValue, spellNameFor, statsSummary,
 } from '../shared/spellcraft';
 import {
   addElements, addSpell, deleteSpell, hasBossCleared, notify, save,
@@ -356,10 +356,11 @@ function resolveCraft(counts: ElementCounts, same: Spell | undefined): void {
     return;
   }
 
-  const { matched, autoName } = computeSpell(counts);
+  const { matched } = computeSpell(counts);
   const rarity = rollRarity(counts, spellKindCount());
   const stats = finalStats(counts, 0, rarity);
-  const name = autoName;
+  // エピック/レジェンドはカタカナの真名になる
+  const name = spellNameFor(counts, rarity);
 
   // 新発見チェック
   let bonus = 0;
@@ -555,10 +556,11 @@ function grantCodexRewardIfDue(): void {
   const counts = bestCompositionFor(def.id, Math.max(3, state.slots));
   if (!counts) { save(); return; }
 
-  const { autoName, matched } = computeSpell(counts);
+  const { matched } = computeSpell(counts);
+  const rewardName = spellNameFor(counts, 'epic'); // カタカナの真名
   const spell: Spell = {
     id: `sp_codex_${Date.now()}`,
-    name: autoName,
+    name: rewardName,
     recipe: counts,
     stats: finalStats(counts, 0, 'epic'),
     discoveries: matched.map(r => r.id),
@@ -567,7 +569,7 @@ function grantCodexRewardIfDue(): void {
   };
   addSpell(spell);
   save();
-  showToast(`📚 発見図鑑コンプリート! 【${RARITIES.epic.name}】「${autoName}」を授かった!`);
+  showToast(`📚 発見図鑑コンプリート! 【${RARITIES.epic.name}】「${rewardName}」を授かった!`);
 }
 
 function renderRecipes(): void {

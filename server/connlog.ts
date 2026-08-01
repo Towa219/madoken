@@ -9,6 +9,7 @@
 
 import type { IncomingMessage } from 'node:http';
 import { persistent, redis } from './upstash';
+import { clampNickname } from '../shared/nickname';
 
 const LIST_KEY = 'madoken:connlog:v1';
 const KEEP = 200;
@@ -74,7 +75,7 @@ export function logConnection(where: string, name: string, ip: string): void {
     const entry: ConnEntry = {
       at: new Date().toISOString(),
       where,
-      name: name.slice(0, 12),
+      name: clampNickname(name),
       ip,
       region: geo.region,
       isp: geo.isp,

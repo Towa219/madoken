@@ -25,6 +25,12 @@
       </nav>
     </header>
 
+    <!-- サーバー起動待ちの案内 -->
+    <div id="wake-banner" class="hidden"></div>
+
+    <!-- 本日のTips(流れる帯) -->
+    <div id="tips-bar"></div>
+
     <!-- ===== 研究室 ===== -->
     <main id="lab-screen">
       <section id="panel-inventory" class="panel">
@@ -196,6 +202,20 @@
   </div>
 
   <div id="toast" class="hidden"></div>
+
+  <!-- 最初の起動: 研究者の名を決める -->
+  <div id="welcome-overlay" class="hidden">
+    <div class="welcome-box">
+      <h2>ようこそ、魔導研究記へ</h2>
+      <p>あなたは魔法を<b>発明する</b>研究者です。まずは名を決めてください。</p>
+      <p>この名前でランキングに載り、共闘や決闘の相手に表示されます。
+      <b>一度決めると初期化するまで変更できません。</b></p>
+      <input id="welcome-nick" maxlength="20" placeholder="研究者の名前">
+      <p class="note" id="welcome-rule"></p>
+      <div id="welcome-msg"></div>
+      <button id="btn-welcome-ok">この名前で始める</button>
+    </div>
+  </div>
   <script type="module" src="/src/main.ts"></script>
 </body>
 </html>
