@@ -14,6 +14,7 @@ import { parseSpells } from '../spellPayload';
 import { clientIp, logConnection } from '../connlog';
 import { clearRoomPresence, setRoomPresence } from '../presence';
 import { claimName } from '../names';
+import { announce } from '../lobbyfeed';
 import type { ServerSpell } from '../spellPayload';
 import type { ElementId, SpellStats } from '../../shared/types';
 
@@ -131,6 +132,15 @@ export class DuelRoom extends Room<DuelState> {
     this.state.players.set(client.sessionId, p);
     logConnection('決闘', p.name, (client.auth as { ip?: string } | undefined)?.ip ?? '');
     this.syncPresence();
+
+    // ロビーへ募集を知らせる
+    if (this.state.players.size === 1) {
+      announce(`⚔ ${p.name} が決闘を求めている。相手を募集中!`);
+    } else {
+      const names: string[] = [];
+      this.state.players.forEach(q => names.push(q.name));
+      announce(`⚔ 決闘成立: ${names.join(' vs ')}`);
+    }
     this.internals.set(client.sessionId, {
       spells: parseSpells(options?.spells),
       cooldowns: [0, 0, 0, 0],
@@ -438,6 +448,14 @@ export class DuelRoom extends Room<DuelState> {
     let winnerSid = '';
     this.state.players.forEach((p, sid) => { if (p.alive) winnerSid = sid; });
     this.state.winner = winnerSid;
+
+    // 結果をロビーへ
+    const win = this.state.players.get(winnerSid)?.name;
+    const names: string[] = [];
+    this.state.players.forEach(p => names.push(p.name));
+    announce(win
+      ? `🏆 決闘の決着: ${win} の勝利 (${names.join(' vs ')})`
+      : `🤝 決闘は引き分け (${names.join(' vs ')})`);
 
     for (const client of this.clients) {
       client.send('duelend', {

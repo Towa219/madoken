@@ -16,6 +16,7 @@ import { clientIp, logConnection } from '../connlog';
 import { clearRoomPresence, setRoomPresence } from '../presence';
 import { submitScore } from '../ranking';
 import { claimName } from '../names';
+import { announce } from '../lobbyfeed';
 import {
   affinityMul, battleRP, bossForStage, ENEMY_ATK_MUL, ENEMY_HP_MUL, isBossStage,
   pickEnemiesForStage, PLAYER_MAX_HP, PLAYER_MAX_MP, stageAtkMul, stageHpMul,
@@ -164,6 +165,21 @@ export class CoopRoom extends Room<CoopState> {
 
     this.syncPresence();
 
+    // 最初の1人 = 部屋を立てた人。ロビーに募集を知らせる
+    if (this.state.players.size === 1 && this.state.phase === 'ready') {
+      const boss = isBossStage(this.state.stage);
+      announce(
+        `⚔ ${p.name} がステージ${this.state.stage}`
+        + `${boss ? 'の👑ボス戦' : ''}の共闘部屋を作った。参加者を募集中!`
+        + `${boss ? '(ボスは2人以上必要)' : ''}`,
+      );
+    } else if (this.state.phase === 'ready') {
+      announce(
+        `👥 ステージ${this.state.stage}の部屋に ${p.name} が参加`
+        + `(現在${this.state.players.size}人)`,
+      );
+    }
+
     // 魔法: レシピからサーバー側で再計算
     const spells = parseSpells(options?.spells);
     this.internals.set(client.sessionId, {
@@ -253,6 +269,12 @@ export class CoopRoom extends Room<CoopState> {
   private startFight(): void {
     this.state.phase = 'fight';
     this.lock(); // 開始後の途中参加は不可
+    const names: string[] = [];
+    this.state.players.forEach(p => names.push(p.name));
+    announce(
+      `🔥 ステージ${this.state.stage}の共闘が始まった(${names.join('・')})。`
+      + 'この部屋はもう参加できない。',
+    );
     this.spawnEnemies();
   }
 

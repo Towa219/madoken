@@ -8,6 +8,7 @@ import type { IncomingMessage } from 'node:http';
 import { clientIp, logConnection } from '../connlog';
 import { setRoomPresence } from '../presence';
 import { claimName } from '../names';
+import { addLobbySink } from '../lobbyfeed';
 import { normalizeNickname } from '../../shared/nickname';
 
 const { Room } = colyseusPkg;
@@ -29,9 +30,16 @@ defineTypes(LobbyState, { players: { map: LobbyPlayer } });
 export class LobbyChatRoom extends Room<LobbyState> {
   maxClients = 50;
 
+  private unsubFeed?: () => void;
+
   onCreate(): void {
     this.autoDispose = false; // 誰もいなくてもロビーは維持
     this.setState(new LobbyState());
+
+    // 共闘部屋の作成や決闘の募集をロビーへ流す
+    this.unsubFeed = addLobbySink(text => {
+      this.broadcast('chat', { name: 'お知らせ', text });
+    });
 
     this.onMessage('chat', (client: Client, text: unknown) => {
       const p = this.state.players.get(client.sessionId);
@@ -71,6 +79,10 @@ export class LobbyChatRoom extends Room<LobbyState> {
     }
     this.state.players.delete(client.sessionId);
     this.syncPresence();
+  }
+
+  onDispose(): void {
+    this.unsubFeed?.();
   }
 
   private syncPresence(): void {

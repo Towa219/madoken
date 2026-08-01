@@ -279,7 +279,9 @@ function sendChat(): void {
 function addChatLine(name: string, text: string): void {
   const log = $('#chat-log');
   const row = document.createElement('div');
-  row.className = 'chat-row' + (name === 'システム' ? ' chat-sys' : '');
+  row.className = 'chat-row'
+    + (name === 'システム' ? ' chat-sys' : '')
+    + (name === 'お知らせ' ? ' chat-notice' : '');
   const nameEl = document.createElement('span');
   nameEl.className = 'chat-name';
   nameEl.textContent = name;

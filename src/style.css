@@ -333,6 +333,12 @@ button.tab.active { background: #5533aa; border-color: #7755cc; }
 .chat-row .chat-name { color: #bb99ff; font-weight: bold; margin-right: 8px; }
 .chat-row.chat-sys { color: #8888aa; font-size: 12px; }
 .chat-row.chat-sys .chat-name { color: #8888aa; }
+/* 募集などのお知らせは目立たせる */
+.chat-row.chat-notice {
+  color: #ffdd99; background: #2a2418; border-left: 3px solid #ccaa55;
+  border-radius: 4px; padding: 3px 6px; margin: 3px 0;
+}
+.chat-row.chat-notice .chat-name { color: #ccaa55; }
 #coop-stage {
   background: #101020; color: #ddddee; border: 1px solid #44446a;
   border-radius: 6px; padding: 5px 8px; font-family: inherit;
