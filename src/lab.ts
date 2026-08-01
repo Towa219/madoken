@@ -155,7 +155,9 @@ function renderPreview(): void {
   const used = Object.values(counts).reduce((a, b) => a + (b ?? 0), 0);
   if (used < 2) {
     box.classList.add('hidden');
-    $('#btn-craft').setAttribute('disabled', 'true');
+    const b = $<HTMLButtonElement>('#btn-craft');
+    b.setAttribute('disabled', 'true');
+    b.textContent = '調合する'; // 「調合中…」のまま残らないように戻す
     return;
   }
   box.classList.remove('hidden');
