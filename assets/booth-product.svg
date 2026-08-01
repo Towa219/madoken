@@ -1,0 +1,58 @@
+<!-- BOOTH商品画像(1000x1000想定)
+     金額の部分だけ書き換えれば、価格違いの商品画像に流用できる。 -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000" width="1000" height="1000">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="40%" r="75%">
+      <stop offset="0%" stop-color="#2a2450"/>
+      <stop offset="60%" stop-color="#16162a"/>
+      <stop offset="100%" stop-color="#0c0c16"/>
+    </radialGradient>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="8" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <rect width="1000" height="1000" fill="url(#bg)"/>
+
+  <!-- 魔法陣 -->
+  <g opacity="0.5" stroke="#6a5aa8" fill="none">
+    <circle cx="500" cy="430" r="250" stroke-width="3"/>
+    <circle cx="500" cy="430" r="205" stroke-width="2"/>
+    <path d="M500 180 L750 430 L500 680 L250 430 Z" stroke-width="2"/>
+    <path d="M677 253 L677 607 L323 607 L323 253 Z" stroke-width="2"/>
+  </g>
+
+  <!-- 8エレメントの光 -->
+  <g filter="url(#glow)">
+    <circle cx="500" cy="180" r="17" fill="#ff6644"/>
+    <circle cx="677" cy="253" r="17" fill="#44aaff"/>
+    <circle cx="750" cy="430" r="17" fill="#88ffaa"/>
+    <circle cx="677" cy="607" r="17" fill="#cc9955"/>
+    <circle cx="500" cy="680" r="17" fill="#ffdd44"/>
+    <circle cx="323" cy="607" r="17" fill="#aaeeff"/>
+    <circle cx="250" cy="430" r="17" fill="#ffffcc"/>
+    <circle cx="323" cy="253" r="17" fill="#aa66ee"/>
+  </g>
+
+  <!-- 中央の「魔」 -->
+  <text x="500" y="432" text-anchor="middle" dominant-baseline="central"
+        font-family="Yu Mincho, Hiragino Mincho ProN, serif" font-size="230"
+        fill="#f0e6ff" filter="url(#glow)">魔</text>
+
+  <!-- 見出し -->
+  <text x="500" y="790" text-anchor="middle"
+        font-family="Yu Mincho, Hiragino Mincho ProN, serif" font-size="62" font-weight="bold"
+        fill="#f0e6ff" letter-spacing="6">開発支援チケット</text>
+  <text x="500" y="845" text-anchor="middle"
+        font-family="Yu Gothic, Meiryo, sans-serif" font-size="30"
+        fill="#ccbbff" letter-spacing="3">魔導研究記《まどけん》</text>
+
+  <!-- 注意書き(ここが購入判断でいちばん大事) -->
+  <text x="500" y="905" text-anchor="middle"
+        font-family="Yu Gothic, Meiryo, sans-serif" font-size="24"
+        fill="#9999bb">ゲーム内で有利になる効果はありません</text>
+  <text x="500" y="950" text-anchor="middle"
+        font-family="Consolas, monospace" font-size="24"
+        fill="#88bbdd">madoken.onrender.com</text>
+</svg>
