@@ -3,7 +3,7 @@
 import { Application, Container, Graphics, Sprite, Text } from 'pixi.js';
 import type { Room } from 'colyseus.js';
 import {
-  affinitySymbol, ALL_ENEMIES, ELEMENTS, ELEMENT_ORDER, enemyTopY,
+  affinitySymbol, ALL_ENEMIES, ELEMENTS, ELEMENT_ORDER, enemyTopY, SPRITE_SCALE,
 } from '../shared/data';
 import type { AffinityGrade, EnemyDef } from '../shared/data';
 import { makeEnemySprite, makePlayerSprite, makeProjectileGfx } from './battle';
@@ -15,7 +15,11 @@ import type { ElementId, Spell } from '../shared/types';
 const W = 960;
 const H = 540;
 const GROUND_Y = 460;
-const PLAYER_XS = [110, 165, 220];
+
+// キャラまわりの座標は SPRITE_SCALE と一緒に動かす(battle.ts と同じ考え方)。
+const cy = (n: number) => GROUND_Y - n * SPRITE_SCALE;
+const cs = (n: number) => n * SPRITE_SCALE;
+const PLAYER_XS = [95, 195, 295];
 
 const DEF_BY_ID: Record<string, EnemyDef> = {};
 for (const d of ALL_ENEMIES) DEF_BY_ID[d.id] = d;
@@ -223,7 +227,7 @@ export class CoopView {
       const g = makeProjectileGfx(m.attr, m.power);
       this.projLayer.addChild(g);
       this.anims.push({
-        g, x0: m.x0, y0: GROUND_Y - 64, x1: m.targetX, y1: GROUND_Y - 40,
+        g, x0: m.x0, y0: cy(64), x1: m.targetX, y1: cy(40),
         t: 0, dur: m.delayMs / 1000, attr: m.attr, r, trailT: 0,
       });
     });
@@ -237,7 +241,7 @@ export class CoopView {
       const g = makeProjectileGfx(attr, 14);
       this.projLayer.addChild(g);
       this.anims.push({
-        g, x0: e.x - 20, y0: GROUND_Y - 40, x1: PLAYER_XS[p.slot] ?? 110, y1: GROUND_Y - 50,
+        g, x0: e.x - 20, y0: cy(40), x1: PLAYER_XS[p.slot] ?? 110, y1: cy(50),
         t: 0, dur: m.delayMs / 1000, attr, r: 6, trailT: 0,
       });
     });
@@ -268,13 +272,13 @@ export class CoopView {
       // 着弾リング(属性色)
       const ring = new Graphics();
       ring.circle(0, 0, 10).stroke({ width: 3, color: ELEMENTS[m.attr]?.color ?? 0xffffff, alpha: 0.9 });
-      ring.position.set(e.x, GROUND_Y - 40);
+      ring.position.set(e.x, cy(40));
       this.fxLayer.addChild(ring);
       this.fxs.push({ g: ring, life: 0.25, maxLife: 0.25, grow: true });
       if (m.radius > 0) {
         const fx = new Graphics();
         fx.circle(0, 0, m.radius).fill({ color: ELEMENTS[m.attr]?.color ?? 0xffffff, alpha: 0.4 });
-        fx.position.set(e.x, GROUND_Y - 30);
+        fx.position.set(e.x, cy(30));
         this.fxLayer.addChild(fx);
         this.fxs.push({ g: fx, life: 0.35, maxLife: 0.35 });
       }
@@ -284,28 +288,28 @@ export class CoopView {
       const st: any = room.state;
       const p = st?.players?.get(m.sid);
       if (!p) return;
-      this.addPopup(PLAYER_XS[p.slot] ?? 110, GROUND_Y - 100, `-${m.amount}`, 0xff7755);
+      this.addPopup(PLAYER_XS[p.slot] ?? 110, cy(100), `-${m.amount}`, 0xff7755);
     });
 
     room.onMessage('heal', (m: { sid: string; amount: number }) => {
       const st: any = room.state;
       const p = st?.players?.get(m.sid);
       if (!p) return;
-      this.addPopup(PLAYER_XS[p.slot] ?? 110, GROUND_Y - 110, `+${m.amount}`, 0x88ddaa);
+      this.addPopup(PLAYER_XS[p.slot] ?? 110, cy(110), `+${m.amount}`, 0x88ddaa);
     });
 
     room.onMessage('shieldup', (m: { sid: string; amount: number }) => {
       const st: any = room.state;
       const p = st?.players?.get(m.sid);
       if (!p) return;
-      this.addPopup(PLAYER_XS[p.slot] ?? 110, GROUND_Y - 115, `護盾+${m.amount}`, 0x88ccff);
+      this.addPopup(PLAYER_XS[p.slot] ?? 110, cy(115), `護盾+${m.amount}`, 0x88ccff);
     });
 
     room.onMessage('taunt', (m: { sid: string; amount: number }) => {
       const st: any = room.state;
       const p = st?.players?.get(m.sid);
       if (!p) return;
-      this.addPopup(PLAYER_XS[p.slot] ?? 110, GROUND_Y - 120, `咆哮! ヘイト+${m.amount}`, 0xffaa66);
+      this.addPopup(PLAYER_XS[p.slot] ?? 110, cy(120), `咆哮! ヘイト+${m.amount}`, 0xffaa66);
     });
 
     room.onMessage('ward', (m: { sid: string; pct: number; attr: string }) => {
@@ -315,27 +319,27 @@ export class CoopView {
       const label = m.attr
         ? `${ELEMENTS[m.attr as ElementId]?.name ?? ''}耐性${m.pct}%`
         : `全属性耐性${m.pct}%`;
-      this.addPopup(PLAYER_XS[p.slot] ?? 110, GROUND_Y - 128, label, 0x88ffcc);
+      this.addPopup(PLAYER_XS[p.slot] ?? 110, cy(128), label, 0x88ffcc);
     });
 
     room.onMessage('wardhit', (m: { sid: string; amount: number }) => {
       const st: any = room.state;
       const p = st?.players?.get(m.sid);
-      if (p) this.addPopup(PLAYER_XS[p.slot] ?? 110, GROUND_Y - 128, `耐性 -${m.amount}`, 0x88ffcc);
+      if (p) this.addPopup(PLAYER_XS[p.slot] ?? 110, cy(128), `耐性 -${m.amount}`, 0x88ffcc);
     });
 
     room.onMessage('seal', (m: { sec: number }) => {
-      this.addPopup(W / 2, GROUND_Y - 150, `封印! ${m.sec.toFixed(1)}秒`, 0xbb77ee);
+      this.addPopup(W / 2, cy(150), `封印! ${m.sec.toFixed(1)}秒`, 0xbb77ee);
     });
     room.onMessage('empower', (m: { sid: string; pct: number }) => {
       const st: any = room.state;
       const p = st?.players?.get(m.sid);
-      if (p) this.addPopup(PLAYER_XS[p.slot] ?? 110, GROUND_Y - 136, `与ダメ+${m.pct}%`, 0xff8844);
+      if (p) this.addPopup(PLAYER_XS[p.slot] ?? 110, cy(136), `与ダメ+${m.pct}%`, 0xff8844);
     });
     room.onMessage('vigor', (m: { sid: string; amount: number }) => {
       const st: any = room.state;
       const p = st?.players?.get(m.sid);
-      if (p) this.addPopup(PLAYER_XS[p.slot] ?? 110, GROUND_Y - 122, `最大HP+${m.amount}`, 0xffcc66);
+      if (p) this.addPopup(PLAYER_XS[p.slot] ?? 110, cy(122), `最大HP+${m.amount}`, 0xffcc66);
     });
     room.onMessage('dot', (m: { i: number; amount: number }) => {
       const st: any = room.state;
@@ -349,7 +353,7 @@ export class CoopView {
       const st: any = room.state;
       const p = st?.players?.get(m.sid);
       if (!p) return;
-      this.addPopup(PLAYER_XS[p.slot] ?? 110, GROUND_Y - 115, `盾-${m.amount}`, 0x88ccff);
+      this.addPopup(PLAYER_XS[p.slot] ?? 110, cy(115), `盾-${m.amount}`, 0x88ccff);
     });
 
     // ステージクリア: 報酬を受け取り、自動で次ステージへ(サーバー主導)
@@ -510,7 +514,7 @@ export class CoopView {
         const cont = new Container();
         if (sid === this.mySid) {
           const ring = new Graphics();
-          ring.ellipse(0, 2, 26, 7).stroke({ width: 2, color: 0xffdd66, alpha: 0.9 });
+          ring.ellipse(0, 2, cs(26), cs(7)).stroke({ width: 2, color: 0xffdd66, alpha: 0.9 });
           cont.addChild(ring);
         }
         cont.addChild(makePlayerSprite());
@@ -519,7 +523,7 @@ export class CoopView {
           style: { fill: sid === this.mySid ? 0xffdd66 : 0xccccdd, fontSize: 12, fontFamily: 'Meiryo, sans-serif' },
         });
         nameT.anchor.set(0.5);
-        nameT.position.set(0, -118);
+        nameT.position.set(0, -cs(118));
         cont.addChild(nameT);
         // 詠唱中の魔法名(味方全員に見える)
         const castT = new Text({
@@ -527,7 +531,7 @@ export class CoopView {
           style: { fill: 0xffdd66, fontSize: 11, fontFamily: 'Meiryo, sans-serif' },
         });
         castT.anchor.set(0.5);
-        castT.position.set(0, -132);
+        castT.position.set(0, -cs(132));
         cont.addChild(castT);
         // かかっている効果(護盾・耐性・攻撃上昇・HP上昇)
         const buffT = new Text({
@@ -535,7 +539,7 @@ export class CoopView {
           style: { fill: 0x88ffcc, fontSize: 10, fontFamily: 'Meiryo, sans-serif' },
         });
         buffT.anchor.set(0.5);
-        buffT.position.set(0, -105);
+        buffT.position.set(0, -cs(105));
         cont.addChild(buffT);
         this.entityLayer.addChild(cont);
         v = { cont, nameT, castT, buffT };
@@ -690,29 +694,29 @@ export class CoopView {
     st.players.forEach((p: any, sid: string) => {
       const x = PLAYER_XS[p.slot] ?? 110;
       if (sid === topSid && st.phase === 'fight') {
-        g.poly([x - 7, GROUND_Y - 132, x + 7, GROUND_Y - 132, x, GROUND_Y - 121])
+        g.poly([x - cs(7), cy(132), x + cs(7), cy(132), x, cy(121)])
           .fill(0xff8844);
       }
-      g.rect(x - 26, GROUND_Y - 108, 52, 6).fill(0x222238);
-      g.rect(x - 26, GROUND_Y - 108, 52 * Math.max(0, p.hp / p.maxHp), 6).fill(0x55cc66);
+      g.rect(x - cs(26), cy(108), cs(52), 6).fill(0x222238);
+      g.rect(x - cs(26), cy(108), cs(52) * Math.max(0, p.hp / p.maxHp), 6).fill(0x55cc66);
       // 仲間のMPも見えるようにする(誰が息切れしているか分かる)
-      g.rect(x - 26, GROUND_Y - 101, 52, 3).fill(0x222238);
-      g.rect(x - 26, GROUND_Y - 101, 52 * Math.max(0, p.mp / p.maxMp), 3).fill(0x5588ee);
+      g.rect(x - cs(26), cy(101), cs(52), 3).fill(0x222238);
+      g.rect(x - cs(26), cy(101), cs(52) * Math.max(0, p.mp / p.maxMp), 3).fill(0x5588ee);
       if (p.shield > 0) {
-        g.rect(x - 26, GROUND_Y - 113, 52 * Math.min(1, p.shield / p.maxHp), 3).fill(0x88ccff);
-        g.circle(x, GROUND_Y - 50, 46).stroke({ width: 2, color: 0x88ccff, alpha: 0.4 });
+        g.rect(x - cs(26), cy(113), cs(52) * Math.min(1, p.shield / p.maxHp), 3).fill(0x88ccff);
+        g.circle(x, cy(50), cs(46)).stroke({ width: 2, color: 0x88ccff, alpha: 0.4 });
       }
       // 耐性・攻撃上昇がかかっている間は足元の輪で示す(全員に見える)
       if (p.wardPct > 0) {
-        g.circle(x, GROUND_Y - 50, 52).stroke({ width: 2, color: 0x88ffcc, alpha: 0.35 });
+        g.circle(x, cy(50), cs(52)).stroke({ width: 2, color: 0x88ffcc, alpha: 0.35 });
       }
       if (p.atkBoost > 0) {
-        g.circle(x, GROUND_Y - 50, 40).stroke({ width: 2, color: 0xff8844, alpha: 0.4 });
+        g.circle(x, cy(50), cs(40)).stroke({ width: 2, color: 0xff8844, alpha: 0.4 });
       }
       if (p.castingIdx >= 0 && p.castTotal > 0) {
         const k = Math.min(1, p.castT / p.castTotal);
-        g.rect(x - 26, GROUND_Y - 96, 52, 5).fill(0x222238);
-        g.rect(x - 26, GROUND_Y - 96, 52 * k, 5).fill(0xffdd66);
+        g.rect(x - cs(26), cy(96), cs(52), 5).fill(0x222238);
+        g.rect(x - cs(26), cy(96), cs(52) * k, 5).fill(0xffdd66);
       }
     });
 

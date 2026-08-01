@@ -7,9 +7,8 @@ import { Application, Container, Graphics, Sprite, Text } from 'pixi.js';
 import {
   affinityMul, affinitySymbol, battleRP, bossForStage, ELEMENTS, ELEMENT_ORDER,
   ENEMY_ATK_MUL, ENEMY_HP_MUL, enemyTopY, isBossStage, pickEnemiesForStage,
-  PLAYER_MAX_HP, PLAYER_MAX_MP, stageAtkMul, stageHpMul,
+  PLAYER_MAX_HP, PLAYER_MAX_MP, SPRITE_SCALE, stageAtkMul, stageHpMul,
 } from '../shared/data';
-import { SHAPE_TOP } from '../shared/data';
 import type { AffinityGrade, EnemyDef } from '../shared/data';
 import { backgroundArt, enemyArt, playerArt, projectileArt } from './artwork';
 import { spellCooldown, spellDisplayName } from '../shared/spellcraft';
@@ -19,6 +18,11 @@ const W = 960;
 const H = 540;
 const GROUND_Y = 460;
 const PLAYER_X = 140;
+
+// プレイヤーまわりの座標は SPRITE_SCALE と一緒に動かす。
+// cy(n) = 地面からn(拡大前)だけ上、cs(n) = 長さnを拡大した値。
+const cy = (n: number) => GROUND_Y - n * SPRITE_SCALE;
+const cs = (n: number) => n * SPRITE_SCALE;
 
 interface EnemyUnit {
   def: EnemyDef;
@@ -432,31 +436,31 @@ export class BattleManager {
         this.cooldowns.set(sp.id, spellCooldown(sp.stats));
         if (st.selfDamage > 0) {
           this.hp -= st.selfDamage;
-          this.addPopup(PLAYER_X, GROUND_Y - 100, `-${st.selfDamage}`, 0xbb77ee);
+          this.addPopup(PLAYER_X, cy(100), `-${st.selfDamage}`, 0xbb77ee);
         }
         if (st.kind === 'taunt') {
           // ソロでは挑発は小さな護盾に変わる
           const small = Math.round(st.power * 1.2);
           this.shield = Math.max(this.shield, small);
           this.shieldTimer = 5;
-          this.addPopup(PLAYER_X, GROUND_Y - 115, `咆哮! 護盾+${small}`, 0xffaa66);
+          this.addPopup(PLAYER_X, cy(115), `咆哮! 護盾+${small}`, 0xffaa66);
         } else if (st.kind === 'shield') {
           this.shield = Math.max(this.shield, st.barrier);
           this.shieldTimer = 10;
-          this.addPopup(PLAYER_X, GROUND_Y - 115, `護盾+${st.barrier}`, 0x88ccff);
+          this.addPopup(PLAYER_X, cy(115), `護盾+${st.barrier}`, 0x88ccff);
         } else if (st.kind === 'heal') {
           const heal = st.healPower;
           this.hp = Math.min(this.maxHp, this.hp + heal);
-          this.addPopup(PLAYER_X, GROUND_Y - 115, `+${heal}`, 0x88ddaa);
+          this.addPopup(PLAYER_X, cy(115), `+${heal}`, 0x88ddaa);
         } else if (st.kind === 'seal') {
           for (const e of this.enemies) {
             if (e.alive) { e.sealed = Math.max(e.sealed, st.sealTime); e.frozen = 0; }
           }
-          this.addPopup(W / 2, GROUND_Y - 150, `封印! ${st.sealTime.toFixed(1)}秒`, 0xbb77ee);
+          this.addPopup(W / 2, cy(150), `封印! ${st.sealTime.toFixed(1)}秒`, 0xbb77ee);
         } else if (st.kind === 'empower') {
           this.atkBoost = st.atkBoost;
           this.atkBoostTimer = 20;
-          this.addPopup(PLAYER_X, GROUND_Y - 130, `与ダメ+${st.atkBoost}%`, 0xff8844);
+          this.addPopup(PLAYER_X, cy(130), `与ダメ+${st.atkBoost}%`, 0xff8844);
         } else if (st.kind === 'vigor') {
           // 掛け直しは上書き(重ねがけで無限に増えないように)
           this.maxHp -= this.vigorBonus;
@@ -465,7 +469,7 @@ export class BattleManager {
           this.vigorTimer = 25;
           this.maxHp += this.vigorBonus;
           this.hp += this.vigorBonus;
-          this.addPopup(PLAYER_X, GROUND_Y - 122, `最大HP+${st.hpBoost}`, 0xffcc66);
+          this.addPopup(PLAYER_X, cy(122), `最大HP+${st.hpBoost}`, 0xffcc66);
         } else if (st.kind === 'ward') {
           this.ward = {
             attr: st.targetAll ? null : st.attr,
@@ -473,7 +477,7 @@ export class BattleManager {
             timer: 12,
           };
           this.addPopup(
-            PLAYER_X, GROUND_Y - 115,
+            PLAYER_X, cy(115),
             st.targetAll ? `全属性耐性${st.wardPct}%` : `${ELEMENTS[st.attr].name}耐性${st.wardPct}%`,
             0x88ffcc,
           );
@@ -593,7 +597,7 @@ export class BattleManager {
         }
         if (p.x > W + 40) p.dead = true;
       } else {
-        if (p.x <= PLAYER_X + 12) {
+        if (p.x <= PLAYER_X + cs(12)) {
           p.dead = true;
           this.onPlayerHit(p.dmg!, p.attr);
         }
@@ -659,11 +663,11 @@ export class BattleManager {
   private firePlayerProj(st: SpellStats): void {
     const r = 5 + Math.min(10, st.power / 25);
     const g = makeProjectileGfx(st.attr, st.power);
-    const y = GROUND_Y - 64;
-    g.position.set(PLAYER_X + 34, y);
+    const y = cy(64);
+    g.position.set(PLAYER_X + cs(34), y);
     this.projLayer.addChild(g);
     this.projs.push({
-      g, x: PLAYER_X + 34, y, speed: st.projSpeed,
+      g, x: PLAYER_X + cs(34), y, speed: st.projSpeed,
       from: 'player', spell: st, attr: st.attr, r, trailT: 0,
       hit: new Set(), dead: false,
     });
@@ -709,7 +713,7 @@ export class BattleManager {
     if (st.radius > 0) {
       const fx = new Graphics();
       fx.circle(0, 0, st.radius).fill({ color: ELEMENTS[st.attr].color, alpha: 0.4 });
-      fx.position.set(target.x, GROUND_Y - 30);
+      fx.position.set(target.x, cy(30));
       this.fxLayer.addChild(fx);
       this.fxs.push({ g: fx, life: 0.35, maxLife: 0.35 });
       for (const e of this.enemies) {
@@ -728,12 +732,12 @@ export class BattleManager {
         .sort((a, b) => Math.abs(a.x - target.x) - Math.abs(b.x - target.x))
         .slice(0, st.chain);
       let fromX = target.x;
-      const fromY = GROUND_Y - 40;
+      const fromY = cy(40);
       for (const e of others) {
         const zap = new Graphics();
         zap.moveTo(fromX, fromY)
           .lineTo((fromX + e.x) / 2, fromY - 30)
-          .lineTo(e.x, GROUND_Y - 40)
+          .lineTo(e.x, cy(40))
           .stroke({ width: 3, color: 0xffee66 });
         this.fxLayer.addChild(zap);
         this.fxs.push({ g: zap, life: 0.25, maxLife: 0.25 });
@@ -767,7 +771,7 @@ export class BattleManager {
     // 着弾リング(属性色)
     const ring = new Graphics();
     ring.circle(0, 0, 10).stroke({ width: 3, color: ELEMENTS[st.attr].color, alpha: 0.9 });
-    ring.position.set(e.x, GROUND_Y - 40 * e.def.size);
+    ring.position.set(e.x, cy(40 * e.def.size));
     this.fxLayer.addChild(ring);
     this.fxs.push({ g: ring, life: 0.25, maxLife: 0.25, grow: true });
     const color = crit ? 0xffdd44 : (grade > 0 ? 0xff8855 : (grade < 0 ? 0x8899bb : 0xffffff));
@@ -783,7 +787,7 @@ export class BattleManager {
       const heal = Math.round(final * st.lifesteal / 100);
       if (heal > 0) {
         this.hp = Math.min(this.maxHp, this.hp + heal);
-        this.addPopup(PLAYER_X, GROUND_Y - 110, `+${heal}`, 0x88ddaa);
+        this.addPopup(PLAYER_X, cy(110), `+${heal}`, 0x88ddaa);
       }
     }
 
@@ -805,7 +809,7 @@ export class BattleManager {
       const before = dmg;
       dmg = Math.max(1, Math.round(dmg * (1 - this.ward.pct / 100)));
       if (before > dmg) {
-        this.addPopup(PLAYER_X, GROUND_Y - 128, `耐性 -${before - dmg}`, 0x88ffcc);
+        this.addPopup(PLAYER_X, cy(128), `耐性 -${before - dmg}`, 0x88ffcc);
       }
     }
     // 護盾が先にダメージを受け止める
@@ -813,13 +817,13 @@ export class BattleManager {
       const absorbed = Math.min(this.shield, dmg);
       this.shield -= absorbed;
       dmg -= absorbed;
-      this.addPopup(PLAYER_X, GROUND_Y - 115, `盾-${absorbed}`, 0x88ccff);
+      this.addPopup(PLAYER_X, cy(115), `盾-${absorbed}`, 0x88ccff);
       if (dmg <= 0) { this.shake = 3; return; }
     }
     this.hp -= dmg;
     this.shake = 8;
     this.hitFlash = 0.2;
-    this.addPopup(PLAYER_X, GROUND_Y - 100, `-${dmg}`, 0xff7755);
+    this.addPopup(PLAYER_X, cy(100), `-${dmg}`, 0xff7755);
     if (this.hp <= 0) {
       this.hp = 0;
       this.beginEnd(false, false);
@@ -862,16 +866,16 @@ export class BattleManager {
     // 護盾(HPバーの上に水色の細バー+プレイヤーを囲む障壁)
     if (this.shield > 0) {
       g.rect(16, 10, 220 * Math.min(1, this.shield / this.maxHp), 4).fill(0x88ccff);
-      g.circle(PLAYER_X, GROUND_Y - 50, 52)
+      g.circle(PLAYER_X, cy(50), cs(52))
         .stroke({ width: 3, color: 0x88ccff, alpha: 0.35 + 0.15 * Math.sin(this.time * 6) });
     }
     // 詠唱バー+杖先の属性グロー
     if (this.casting) {
       const st = this.casting.spell.stats;
       const p = Math.min(1, this.casting.t / st.castTime);
-      g.rect(PLAYER_X - 40, GROUND_Y - 130, 80, 8).fill(0x222238);
-      g.rect(PLAYER_X - 40, GROUND_Y - 130, 80 * p, 8).fill(0xffdd66);
-      g.circle(PLAYER_X + 29, GROUND_Y - 67, 4 + p * 11)
+      g.rect(PLAYER_X - cs(40), cy(130), cs(80), 8).fill(0x222238);
+      g.rect(PLAYER_X - cs(40), cy(130), cs(80) * p, 8).fill(0xffdd66);
+      g.circle(PLAYER_X + cs(29), cy(67), cs(4 + p * 11))
         .fill({ color: ELEMENTS[st.attr].color, alpha: 0.5 });
     }
     // 被弾フラッシュ
@@ -962,7 +966,7 @@ export function makeProjectileGfx(attr: ElementId, power: number): Container {
 export function makePlayerSprite(): Container {
   const c = new Container();
   // 画像素材があればそれを使う(無ければ従来の図形)
-  const art = playerArt(100);
+  const art = playerArt(cs(100));
   if (art) {
     c.addChild(art);
     return c;
@@ -979,6 +983,7 @@ export function makePlayerSprite(): Container {
   g.moveTo(15, -8).lineTo(28, -62).stroke({ width: 3, color: 0xaa8855 });
   g.circle(29, -67, 6).fill(0x88eeff);
   g.circle(29, -67, 9).fill({ color: 0x88eeff, alpha: 0.25 });
+  g.scale.set(SPRITE_SCALE); // 図形描画のときも画像と同じ大きさに揃える
   c.addChild(g);
   return c;
 }
@@ -986,7 +991,7 @@ export function makePlayerSprite(): Container {
 export function makeEnemySprite(def: EnemyDef): { cont: Container; body: Graphics | Sprite } {
   const cont = new Container();
   // 画像素材があればそれを使う(bodyは凍結時に色を変える対象。Spriteでもtintが効く)
-  const art = enemyArt(def.shape, Math.abs(SHAPE_TOP[def.shape]) * def.size);
+  const art = enemyArt(def.shape, Math.abs(enemyTopY(def)));
   if (art) {
     cont.addChild(art);
     return { cont, body: art };
@@ -1106,7 +1111,7 @@ export function makeEnemySprite(def: EnemyDef): { cont: Container; body: Graphic
       body.circle(-11, -23, 1.5).fill(0x110011);
       break;
   }
-  body.scale.set(def.size);
+  body.scale.set(def.size * SPRITE_SCALE); // 図形描画も画像と同じ大きさに揃える
   cont.addChild(body);
   return { cont, body };
 }

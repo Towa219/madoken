@@ -338,8 +338,13 @@ export interface EnemyDef {
   drops: ElementId[];  // ボス撃破時の報酬候補
 }
 
+// キャラクターの表示倍率。見た目だけの調整で、性能や当たり判定の計算には影響しない。
+// プレイヤー・敵・頭上のバーや名前が、まとめてこの倍率で拡大される。
+export const SPRITE_SCALE = 1.5;
+
 // 敵の頭上に置く要素のY(接地点からの相対値)
-export const enemyTopY = (def: EnemyDef) => SHAPE_TOP[def.shape] * def.size;
+export const enemyTopY = (def: EnemyDef) =>
+  SHAPE_TOP[def.shape] * def.size * SPRITE_SCALE;
 
 export const ENEMIES: EnemyDef[] = [
   // --- tier1 (ステージ1〜4) ---
