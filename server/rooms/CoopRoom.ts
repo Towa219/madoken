@@ -15,6 +15,7 @@ import { parseSpells } from '../spellPayload';
 import { clientIp, logConnection } from '../connlog';
 import { clearRoomPresence, setRoomPresence } from '../presence';
 import { submitScore } from '../ranking';
+import { claimName } from '../names';
 import {
   affinityMul, battleRP, bossForStage, ENEMY_ATK_MUL, ENEMY_HP_MUL, isBossStage,
   pickEnemiesForStage, PLAYER_MAX_HP, PLAYER_MAX_MP, stageAtkMul, stageHpMul,
@@ -174,13 +175,18 @@ export class CoopRoom extends Room<CoopState> {
   }
 
   // 到達済みステージのみ参加可(クライアント申告の maxStage を検証)
-  onAuth(
-    _client: Client, options: { maxStage?: unknown }, request?: IncomingMessage,
-  ): { ip: string } {
+  // 合わせてニックネームの所有も確認する(他人の名前では入れない)
+  async onAuth(
+    _client: Client,
+    options: { maxStage?: unknown; name?: unknown; nickToken?: unknown },
+    request?: IncomingMessage,
+  ): Promise<{ ip: string }> {
     const myMax = Math.max(1, Math.floor(Number(options?.maxStage) || 1));
     if (this.state.stage > myMax) {
       throw new Error(`ステージ${this.state.stage}にはまだ到達していない`);
     }
+    const r = await claimName(options?.name, options?.nickToken);
+    if (!r.ok) throw new Error(r.error ?? 'そのニックネームは使用できません');
     return { ip: clientIp(request) };
   }
 

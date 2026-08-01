@@ -4,7 +4,9 @@ import { BattleManager } from './battle';
 import { ELEMENTS, isBossStage } from '../shared/data';
 import { initLab, renderLab, showToast } from './lab';
 import { renderManual } from './manual';
-import { initOnline, coopTryCast, duelTryCast, renderNickField } from './lobby';
+import {
+  initOnline, coopTryCast, duelTryCast, releaseNickname, renderNickField,
+} from './lobby';
 import {
   combatPower, spellDisplayName, spellMagicValue, statsSummary,
 } from '../shared/spellcraft';
@@ -179,9 +181,10 @@ function main(): void {
     if (resetBtn.dataset.arm === '1') {
       resetBtn.dataset.arm = '';
       resetBtn.textContent = '初期化';
+      void releaseNickname(); // 使っていた名前を手放す(他の人が使えるようになる)
       resetSave();
       renderNickField(); // ニックネームも再登録できるようになる
-      showToast('セーブデータを初期化した。ニックネームも再設定できる。');
+      showToast('セーブデータを初期化した。ニックネームも解放され、再設定できる。');
     } else {
       resetBtn.dataset.arm = '1';
       resetBtn.textContent = '本当に初期化?';

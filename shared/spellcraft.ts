@@ -88,6 +88,39 @@ export function computeSpell(counts: ElementCounts): CraftResult {
   return { stats: s, matched, autoName };
 }
 
+// 指定した系統が成立する構成のうち、最も魔導値が高いものを探す。
+// (発見図鑑コンプリート報酬など、「その系統の代表的な1本」を作るのに使う)
+export function bestCompositionFor(
+  recipeId: string, maxElements: number,
+): ElementCounts | null {
+  const def = RECIPES.find(r => r.id === recipeId);
+  if (!def) return null;
+
+  let best: ElementCounts | null = null;
+  let bestValue = -1;
+  const cur: ElementCounts = {};
+
+  const walk = (idx: number, left: number): void => {
+    if (idx === ELEMENT_ORDER.length) {
+      const used = maxElements - left;
+      if (used < 2 || !def.check(cur)) return;
+      const v = spellMagicValue(computeSpell(cur).stats);
+      if (v > bestValue) { bestValue = v; best = { ...cur }; }
+      return;
+    }
+    const id = ELEMENT_ORDER[idx];
+    for (let k = 0; k <= left; k++) {
+      if (k === 0) delete cur[id];
+      else cur[id] = k;
+      walk(idx + 1, left - k);
+    }
+    delete cur[id];
+  };
+
+  walk(0, Math.max(2, Math.min(6, Math.floor(maxElements))));
+  return best;
+}
+
 // ===== 強化(同一レシピの再調合) =====
 
 export const ENHANCE_MAX = 9;

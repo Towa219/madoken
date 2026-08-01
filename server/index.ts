@@ -14,6 +14,7 @@ import { persistent, topRanking } from './ranking';
 import { recentConnections } from './connlog';
 import { discordEnabled, sendNow, startDiscordReports } from './discord';
 import { presenceSnapshot } from './presence';
+import { checkName, claimName, releaseName } from './names';
 import { BUILD_DATE, VERSION } from '../shared/version';
 
 const { Server } = colyseusPkg;
@@ -50,6 +51,31 @@ app.get('/api/connlog', (req, res) => {
   void recentConnections(n)
     .then(entries => res.json({ entries }))
     .catch(() => res.json({ entries: [] }));
+});
+
+// ===== ニックネーム登録簿(重複防止) =====
+
+// 入力欄の事前チェック(登録はしない)
+app.get('/api/name/check', (req, res) => {
+  void checkName(req.query.name, req.query.token)
+    .then(r => res.json(r))
+    .catch(() => res.json({ ok: true }));
+});
+
+// 名前を確保する(初回接続時)
+app.post('/api/name/claim', (req, res) => {
+  const body = req.body as { name?: unknown; token?: unknown };
+  void claimName(body?.name, body?.token)
+    .then(r => res.json(r))
+    .catch(() => res.json({ ok: true }));
+});
+
+// 名前を手放す(キャラ初期化時)。所有者本人のときだけ消える。
+app.post('/api/name/release', (req, res) => {
+  const body = req.body as { name?: unknown; token?: unknown };
+  void releaseName(body?.name, body?.token)
+    .then(released => res.json({ released }))
+    .catch(() => res.json({ released: false }));
 });
 
 // プレイ中人数: クライアントが定期的に叩く簡易ハートビート

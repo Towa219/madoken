@@ -74,6 +74,7 @@ button.tab.active { background: #5533aa; border-color: #7755cc; }
 /* 素材庫 */
 #inv-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
 .elem-card {
+  position: relative; /* 入手バッジを浮かせる基準 */
   border: 1px solid #333355; border-radius: 6px; padding: 8px;
   cursor: pointer; -webkit-user-select: none; user-select: none; background: #1d1d35;
 }
@@ -89,9 +90,11 @@ button.tab.active { background: #5533aa; border-color: #7755cc; }
   25%  { background: #2c4a35; box-shadow: 0 0 0 6px rgba(136,255,170,0.35); }
   100% { background: #1d1d35; box-shadow: 0 0 0 14px rgba(136,255,170,0); }
 }
+/* 「+1」は浮かせて表示する。通常の流れに入れると ×個数 の位置がずれるため */
 .gain-badge {
-  float: right; margin-right: 6px; color: #88ffaa;
-  font-size: 12px; font-weight: bold;
+  position: absolute; right: 8px; bottom: 6px;
+  color: #88ffaa; font-size: 12px; font-weight: bold;
+  pointer-events: none;
   animation: gain-badge 1.6s ease-out forwards;
 }
 @keyframes gain-badge {
@@ -182,6 +185,16 @@ button.tab.active { background: #5533aa; border-color: #7755cc; }
 .recipe-row.found { border-left: 3px solid #88ddaa; }
 .recipe-row.unfound { border-left: 3px solid #444466; color: #8888aa; }
 .recipe-row .rname { font-weight: bold; color: #88ddaa; }
+
+.prarity { font-size: 11px; color: #aaaacc; margin-top: 2px; }
+.prarity small { color: #8888aa; }
+
+/* 発見図鑑のコンプリート報酬の案内 */
+.codex-reward {
+  font-size: 12px; line-height: 1.6; padding: 8px 10px; border-radius: 6px;
+  background: #241a38; border: 1px solid #4a3570; color: #ddccff;
+}
+.codex-reward.done { background: #1c2a22; border-color: #3a6b4d; color: #bbeecc; }
 
 /* ===== 戦闘 ===== */
 #battle-screen { position: relative; }

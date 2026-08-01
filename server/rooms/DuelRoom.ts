@@ -13,6 +13,7 @@ import { spellCooldown } from '../../shared/spellcraft';
 import { parseSpells } from '../spellPayload';
 import { clientIp, logConnection } from '../connlog';
 import { clearRoomPresence, setRoomPresence } from '../presence';
+import { claimName } from '../names';
 import type { ServerSpell } from '../spellPayload';
 import type { ElementId, SpellStats } from '../../shared/types';
 
@@ -103,8 +104,14 @@ export class DuelRoom extends Room<DuelState> {
     this.setSimulationInterval(dtMs => this.update(dtMs / 1000), 50);
   }
 
-  // 接続元IPを控えて接続ログに使う
-  onAuth(_client: Client, _options: unknown, request?: IncomingMessage): { ip: string } {
+  // ニックネームの所有を確認しつつ、接続元IPを控えて接続ログに使う
+  async onAuth(
+    _client: Client,
+    options: { name?: unknown; nickToken?: unknown },
+    request?: IncomingMessage,
+  ): Promise<{ ip: string }> {
+    const r = await claimName(options?.name, options?.nickToken);
+    if (!r.ok) throw new Error(r.error ?? 'そのニックネームは使用できません');
     return { ip: clientIp(request) };
   }
 

@@ -6,10 +6,13 @@
 import {
   DISASSEMBLE_RATE, DISCOVERY_BONUS_RP, ELEMENTS, ELEMENT_ORDER, ENEMIES,
   ENEMY_HP_MUL, BOSSES, DUEL_MAX_HP, GATHER_COST, GATHER_COUNT,
+  LIBRARY_BONUS_MAX, LIBRARY_BONUS_PER_KIND, libraryBonus,
   PLAYER_MAX_HP, PLAYER_MAX_MP, RARITIES, RECIPES,
   SLOT4_BOSS_STAGE, SLOT4_COST, SLOT5_BOSS_STAGE, SLOT5_COST,
 } from '../shared/data';
 import { ENHANCE_MAX } from '../shared/spellcraft';
+import { NICK_MAX } from '../shared/nickname';
+import { spellKindCount } from './lab';
 import { BUILD_DATE, VERSION } from '../shared/version';
 import { state } from './state';
 import type { Rarity } from '../shared/types';
@@ -27,14 +30,19 @@ function elementTable(): string {
 }
 
 function rarityTable(): string {
+  const kinds = spellKindCount();
+  const lb = libraryBonus(kinds);
   const order: Rarity[] = ['rare', 'epic', 'legend'];
   const rows = order.map(r => {
     const d = RARITIES[r];
+    const now = d.chance * lb * 100;
     return `<tr><td style="color:${d.cssColor}">${d.name}</td>`
       + `<td>性能 ×${d.mul}</td>`
-      + `<td>基礎 ${(d.chance * 100).toFixed(2)}%</td></tr>`;
+      + `<td>基礎 ${(d.chance * 100).toFixed(2)}%</td>`
+      + `<td>今 ${now >= 1 ? now.toFixed(1) : now.toFixed(2)}%〜</td></tr>`;
   }).join('');
-  return `<table class="man-table"><thead><tr><th>品質</th><th>効果</th><th>出現率</th></tr></thead>`
+  return `<table class="man-table"><thead><tr><th>品質</th><th>効果</th>`
+    + `<th>出現率</th><th>あなたの現在値</th></tr></thead>`
     + `<tbody>${rows}</tbody></table>`;
 }
 
@@ -83,13 +91,22 @@ export function renderManual(): void {
     <li>特定の組み合わせで<b>系統</b>が成立します。初めて出した系統は「発見」となり研究P+${DISCOVERY_BONUS_RP}</li>
     <li><b>同じ構成をもう一度調合すると強化</b>になります(最大+${ENHANCE_MAX}。1段階ごとに威力+8%・詠唱-2%)</li>
     <li>ごく稀に上位<b>品質</b>で生まれます。素材が多く光・闇を含むほど確率が上がります</li>
+    <li><b>魔導書に集めた魔法の「種類」が多いほど上位品質が出やすくなります</b>
+    (1種類ごとに+${Math.round(LIBRARY_BONUS_PER_KIND * 100)}%、上限×${LIBRARY_BONUS_MAX}=
+    ${Math.round((LIBRARY_BONUS_MAX - 1) / LIBRARY_BONUS_PER_KIND)}種類。
+    レシピが違えば別の種類として数えます)</li>
   </ul>
   ${rarityTable()}
+  <p class="man-note">下表の「あなたの現在値」は<b>魔導書 ${spellKindCount()}種(×${libraryBonus(spellKindCount()).toFixed(2)})</b>での値です。
+  素材構成のボーナスを掛けるとさらに上がります(調合画面に実際の確率が出ます)。</p>
   <p class="man-note">魔法名の末尾〈火2風〉はレシピそのものです。名前を見れば作り方が分かります。</p>
 </section>
 
 <section class="man-sec">
   <h3>系統一覧 <small>(${found} / ${RECIPES.length} 発見済み)</small></h3>
+  <p class="man-note">🎁 <b>全${RECIPES.length}系統を発見すると</b>、その証として
+  <b style="color:${RARITIES.epic.cssColor}">【${RARITIES.epic.name}】</b>品質の魔法(性能×${RARITIES.epic.mul})が
+  ランダムな系統で1つ贈られます(1回きり)。素材は消費しません。</p>
   <ul class="man-recipes">${recipeList()}</ul>
 </section>
 
@@ -113,7 +130,10 @@ export function renderManual(): void {
     <li><b>ボス戦(5の倍数)は2人以上の共闘専用</b>。ソロでは挑めません</li>
     <li><b>決闘</b>は1対1。HP${DUEL_MAX_HP}で、挑発は「構え」(被弾-20%)として働きます</li>
     <li><b>ランキング</b>はニックネームごとに自己ベスト1件。スコア = クリアステージ×10 + 与ダメージ÷20</li>
-    <li>ニックネームは初回接続時に登録され、<b>初期化するまで変更できません</b></li>
+    <li>ニックネームは初回接続時に登録され、<b>初期化するまで変更できません</b>。
+    ${NICK_MAX}文字まで・使えるのは<b>ひらがな/カタカナ/漢字/英数字</b>だけで、
+    <b>スペースと記号は半角・全角とも使用不可</b>・
+    <b>他の人が使用中の名前は登録できません</b>(初期化すると解放され、他の人が使えるようになります)</li>
   </ul>
 </section>
 
@@ -136,7 +156,8 @@ export function renderManual(): void {
     <li><b>ボス前には仲間を集める。</b>ボスは2人以上必須です。ステージ${SLOT4_BOSS_STAGE}のボスを倒さないとスロットも増えません</li>
     <li><b>共闘は役割分担で伸びます。</b>挑発+護盾で敵を引き受ける人、治癒や鼓舞で支える人、火力に専念する人。敵はヘイト(与ダメ・護盾・回復で増える)が高い人を狙います</li>
     <li><b>格上に挑むときは耐性と継続ダメージ。</b>敵の攻撃属性に合わせた護符で耐え、腐蝕や延焼でじわじわ削ると安定します</li>
-    <li><b>行き詰まったら図鑑のヒントを読み直す。</b>未発見の系統は必ず何かの組み合わせで出ます</li>
+    <li><b>行き詰まったら図鑑のヒントを読み直す。</b>未発見の系統は必ず何かの組み合わせで出ます。
+    ${RECIPES.length}系統すべて発見すればエピック魔法が手に入るので、図鑑埋めは遠回りに見えて近道です</li>
   </ul>
 </section>
 

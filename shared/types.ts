@@ -54,6 +54,7 @@ export interface Spell {
 export interface GameState {
   version: number;
   nickname: string;        // 一度決めたら初期化まで変更不可
+  nickToken: string;       // ニックネームの所有者を示す秘密ID(初期化で解放に使う)
   researchP: number;
   inventory: Record<ElementId, number>;
   spells: Spell[];
@@ -64,6 +65,7 @@ export interface GameState {
   bestStage: number;       // 最高クリアステージ
   bossCleared: number[];   // 撃破したボスステージ(共闘でのみ撃破可能)
   sortByPower: boolean;    // 魔導書を魔導値順に並べるか
+  codexRewarded: boolean;  // 発見図鑑コンプリート報酬(エピック魔法)を受け取ったか
 }
 
 export interface BattleResult {

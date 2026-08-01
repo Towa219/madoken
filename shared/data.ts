@@ -253,8 +253,22 @@ export function rarityBonus(counts: ElementCounts): number {
   return 1 + Math.max(0, used - 2) * 0.6 + rare * 0.8;
 }
 
-export function rollRarity(counts: ElementCounts): Rarity {
-  const b = rarityBonus(counts);
+// 魔導書に収めた魔法の「種類」が多いほど上位品質が出やすくなる(研究の蓄積)
+export const LIBRARY_BONUS_PER_KIND = 0.15; // 1種類あたり+15%
+export const LIBRARY_BONUS_MAX = 4;         // 上限は4倍(20種類で到達)
+
+export function libraryBonus(kinds: number): number {
+  const k = Math.max(0, Math.floor(kinds || 0));
+  return Math.min(LIBRARY_BONUS_MAX, 1 + k * LIBRARY_BONUS_PER_KIND);
+}
+
+// 最終的な上位品質の出やすさ(素材ボーナス × 蔵書ボーナス)
+export function rarityMultiplier(counts: ElementCounts, kinds: number): number {
+  return rarityBonus(counts) * libraryBonus(kinds);
+}
+
+export function rollRarity(counts: ElementCounts, kinds = 0): Rarity {
+  const b = rarityMultiplier(counts, kinds);
   const r = Math.random();
   if (r < RARITIES.legend.chance * b) return 'legend';
   if (r < RARITIES.epic.chance * b) return 'epic';

@@ -4,10 +4,17 @@ import type { ElementId, GameState, Spell } from '../shared/types';
 
 const SAVE_KEY = 'magic_web_game_save_v1';
 
+// ニックネームの所有者を示す秘密ID。
+// これを持っている端末だけがその名前を使え、初期化すると名前は解放される。
+function newNickToken(): string {
+  return `nt_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 12)}`;
+}
+
 function initialState(): GameState {
   return {
     version: 1,
     nickname: '',
+    nickToken: newNickToken(),
     researchP: 30,
     inventory: {
       fire: 4, water: 4, wind: 3, earth: 3,
@@ -21,6 +28,7 @@ function initialState(): GameState {
     bestStage: 0,
     bossCleared: [],
     sortByPower: false,
+    codexRewarded: false,
   };
 }
 
@@ -46,8 +54,12 @@ function load(): GameState {
       } catch { /* レシピが壊れている場合は元の値のまま */ }
     }
     if (typeof merged.nickname !== 'string') merged.nickname = '';
+    if (typeof merged.nickToken !== 'string' || !merged.nickToken) {
+      merged.nickToken = newNickToken();
+    }
     if (!Array.isArray(merged.bossCleared)) merged.bossCleared = [];
     if (typeof merged.sortByPower !== 'boolean') merged.sortByPower = false;
+    if (typeof merged.codexRewarded !== 'boolean') merged.codexRewarded = false;
     // 素材庫の欠損も0で補う
     for (const id of ELEMENT_ORDER) {
       if (typeof merged.inventory[id] !== 'number' || !Number.isFinite(merged.inventory[id])) {

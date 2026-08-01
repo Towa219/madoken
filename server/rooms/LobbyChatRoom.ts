@@ -7,6 +7,8 @@ import type { Client } from 'colyseus';
 import type { IncomingMessage } from 'node:http';
 import { clientIp, logConnection } from '../connlog';
 import { setRoomPresence } from '../presence';
+import { claimName } from '../names';
+import { normalizeNickname } from '../../shared/nickname';
 
 const { Room } = colyseusPkg;
 
@@ -40,14 +42,22 @@ export class LobbyChatRoom extends Room<LobbyState> {
     });
   }
 
-  // 接続元IPを控えて接続ログに使う
-  onAuth(_client: Client, _options: unknown, request?: IncomingMessage): { ip: string } {
-    return { ip: clientIp(request) };
+  // ニックネームの重複を確認しつつ、接続元IPを控えて接続ログに使う
+  async onAuth(
+    _client: Client,
+    options: { name?: unknown; nickToken?: unknown },
+    request?: IncomingMessage,
+  ): Promise<{ ip: string; name: string }> {
+    const name = normalizeNickname(options?.name);
+    const r = await claimName(name, options?.nickToken);
+    if (!r.ok) throw new Error(r.error ?? 'そのニックネームは使用できません');
+    return { ip: clientIp(request), name };
   }
 
   onJoin(client: Client, options: { name?: unknown }): void {
+    const auth = client.auth as { name?: string } | undefined;
     const p = new LobbyPlayer();
-    p.name = String(options?.name ?? '名無し').slice(0, 12) || '名無し';
+    p.name = (auth?.name || String(options?.name ?? '')).slice(0, 12) || '名無し';
     this.state.players.set(client.sessionId, p);
     logConnection('ロビー', p.name, (client.auth as { ip?: string } | undefined)?.ip ?? '');
     this.syncPresence();

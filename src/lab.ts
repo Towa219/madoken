@@ -2,15 +2,16 @@
 
 import {
   DISASSEMBLE_RATE, DISCOVERY_BONUS_RP, ELEMENTS, ELEMENT_ORDER,
-  GATHER_COST, GATHER_COUNT, RARITIES, RECIPES, rollRarity,
+  GATHER_COST, GATHER_COUNT, LIBRARY_BONUS_MAX, libraryBonus,
+  RARITIES, rarityMultiplier, RECIPES, rollRarity,
   SLOT4_BOSS_STAGE, SLOT4_COST, SLOT5_BOSS_STAGE, SLOT5_COST,
 } from '../shared/data';
 import {
-  computeSpell, ENHANCE_MAX, finalStats, spellDisplayName,
+  bestCompositionFor, computeSpell, ENHANCE_MAX, finalStats, spellDisplayName,
   spellMagicValue, statsSummary,
 } from '../shared/spellcraft';
 import {
-  addElements, addSpell, deleteSpell, hasBossCleared, notify,
+  addElements, addSpell, deleteSpell, hasBossCleared, notify, save,
   spendElements, state, toggleEquip, totalInventory,
 } from './state';
 import type { ElementCounts, ElementId, Spell } from '../shared/types';
@@ -60,6 +61,19 @@ function recipesEqual(a: ElementCounts, b: ElementCounts): boolean {
   return true;
 }
 
+// 魔導書に収まっている魔法の「種類」数(レシピが違えば別の種類)。
+// 多いほど上位品質が生まれやすくなる。
+export function spellKindCount(): number {
+  const seen = new Set<string>();
+  for (const sp of state.spells) {
+    const key = ELEMENT_ORDER
+      .map(id => `${id}${sp.recipe?.[id] ?? 0}`)
+      .join('-');
+    seen.add(key);
+  }
+  return seen.size;
+}
+
 // スロットの構成と同じレシピの既存魔法を探す(強化対象)
 function findSameRecipeSpell(counts: ElementCounts): Spell | undefined {
   return state.spells.find(sp => recipesEqual(sp.recipe, counts));
@@ -76,6 +90,8 @@ export function initLab(): void {
 }
 
 export function renderLab(): void {
+  grantCodexRewardIfDue(); // 図鑑コンプリート報酬(まだなら1回だけ)
+
   // スロット数が増えた場合に選択配列を追従
   while (slotSel.length < state.slots) slotSel.push(null);
   slotSel = slotSel.slice(0, state.slots);
@@ -219,7 +235,25 @@ function renderPreview(): void {
     `<div class="pname">${autoName} <span class="mval">魔導値 ${spellMagicValue(stats)}</span></div>` +
     `<div>${statsSummary(stats)}</div>` +
     `<div class="${chanceClass(ch)}">調合成功率: ${ch}%${ch < 100 ? ' (失敗すると素材の半分を失う)' : ''}</div>` +
+    rarityLine(counts) +
     recipeNote;
+}
+
+// 上位品質の出現率(素材構成と魔導書の種類数で変わる)
+function rarityLine(counts: ElementCounts): string {
+  const kinds = spellKindCount();
+  const mul = rarityMultiplier(counts, kinds);
+  const pct = (base: number) => {
+    const p = Math.min(100, base * mul * 100);
+    return p >= 1 ? `${p.toFixed(1)}%` : `${p.toFixed(2)}%`;
+  };
+  const lb = libraryBonus(kinds);
+  const cap = lb >= LIBRARY_BONUS_MAX ? '(上限)' : '';
+  return `<div class="prarity">上位品質: `
+    + `<span style="color:${RARITIES.rare.cssColor}">${RARITIES.rare.name} ${pct(RARITIES.rare.chance)}</span> / `
+    + `<span style="color:${RARITIES.epic.cssColor}">${RARITIES.epic.name} ${pct(RARITIES.epic.chance)}</span> / `
+    + `<span style="color:${RARITIES.legend.cssColor}">${RARITIES.legend.name} ${pct(RARITIES.legend.chance)}</span>`
+    + ` <small>(魔導書 ${kinds}種で ×${lb.toFixed(2)}${cap})</small></div>`;
 }
 
 // ---- 調合実行(進行バー+成功率+失敗あり) ----
@@ -319,7 +353,7 @@ function resolveCraft(counts: ElementCounts, same: Spell | undefined): void {
   }
 
   const { matched, autoName } = computeSpell(counts);
-  const rarity = rollRarity(counts);
+  const rarity = rollRarity(counts, spellKindCount());
   const stats = finalStats(counts, 0, rarity);
   const name = autoName;
 
@@ -504,11 +538,53 @@ function disassemble(sp: Spell): void {
 }
 
 // ---- 発見図鑑 ----
+
+// 全系統を発見していたら、その証としてエピック品質の魔法を1つだけ授ける。
+// 系統はランダムに選び、その系統が成立する構成の中で最も魔導値が高いものを作る。
+function grantCodexRewardIfDue(): void {
+  if (state.codexRewarded) return;
+  if (RECIPES.some(r => !state.discovered.includes(r.id))) return;
+
+  state.codexRewarded = true; // 先に立てて二重取得を防ぐ
+
+  const def = RECIPES[Math.floor(Math.random() * RECIPES.length)];
+  const counts = bestCompositionFor(def.id, Math.max(3, state.slots));
+  if (!counts) { save(); return; }
+
+  const { autoName, matched } = computeSpell(counts);
+  const spell: Spell = {
+    id: `sp_codex_${Date.now()}`,
+    name: autoName,
+    recipe: counts,
+    stats: finalStats(counts, 0, 'epic'),
+    discoveries: matched.map(r => r.id),
+    level: 0,
+    rarity: 'epic',
+  };
+  addSpell(spell);
+  save();
+  showToast(`📚 発見図鑑コンプリート! 【${RARITIES.epic.name}】「${autoName}」を授かった!`);
+}
+
 function renderRecipes(): void {
   const list = $('#recipe-list');
   list.innerHTML = '';
   const found = RECIPES.filter(r => state.discovered.includes(r.id)).length;
   $('#recipe-progress').textContent = `(${found} / ${RECIPES.length} 系統を発見)`;
+
+  // コンプリート報酬の案内
+  const banner = document.createElement('div');
+  banner.className = 'codex-reward' + (state.codexRewarded ? ' done' : '');
+  banner.innerHTML = state.codexRewarded
+    ? `🏆 <b>コンプリート達成</b> — 報酬の`
+      + `<span style="color:${RARITIES.epic.cssColor}">【${RARITIES.epic.name}】</span>`
+      + `魔法は魔導書に収めてあります。`
+    : `🎁 <b>コンプリート報酬</b> — 全${RECIPES.length}系統を発見すると、`
+      + `<span style="color:${RARITIES.epic.cssColor}">【${RARITIES.epic.name}】</span>`
+      + `品質の魔法(性能×${RARITIES.epic.mul})がランダムな系統で1つ贈られます。`
+      + ` あと<b>${RECIPES.length - found}</b>系統。`;
+  list.appendChild(banner);
+
   for (const r of RECIPES) {
     const found = state.discovered.includes(r.id);
     const row = document.createElement('div');

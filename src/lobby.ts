@@ -5,6 +5,7 @@ import type { Room } from 'colyseus.js';
 import { CoopView } from './coop';
 import { DuelView } from './duel';
 import { spellDisplayName } from '../shared/spellcraft';
+import { NICK_MAX, normalizeNickname, validateNickname } from '../shared/nickname';
 import { equippedSpells, notify, state } from './state';
 import type { SpellPayload } from '../shared/protocol';
 
@@ -41,7 +42,27 @@ export function renderNickField(): void {
       'ニックネームは登録済み。変更するには右上の「初期化」でキャラをリセットする必要がある。';
   } else {
     input.disabled = false;
-    note.textContent = '最初に接続したときのニックネームが登録され、以後は変更できない。';
+    note.textContent =
+      `最初に接続したときのニックネームが登録され、以後は変更できない。`
+      + `${NICK_MAX}文字まで・使えるのはひらがな/カタカナ/漢字/英数字だけ`
+      + `(スペースと記号は半角・全角とも不可)。`
+      + `他の人が使っている名前は登録できない。`;
+  }
+}
+
+// ニックネームを手放す(キャラ初期化時に呼ぶ)。同じ名前を他の人が使えるようになる。
+export async function releaseNickname(): Promise<void> {
+  const name = state.nickname;
+  const token = state.nickToken;
+  if (!name || !token) return;
+  try {
+    await fetch(`${apiBase()}/api/name/release`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, token }),
+    });
+  } catch {
+    // オフライン時は諦める(サーバー側に登録が残る)
   }
 }
 
@@ -95,11 +116,44 @@ async function connect(): Promise<void> {
   connecting = true;
   const connectBtn = $<HTMLButtonElement>('#btn-connect');
   connectBtn.disabled = true;
+
   // 登録済みなら保存されたニックネームを使う(変更不可)
-  nick = state.nickname
-    || $<HTMLInputElement>('#nick-input').value.trim().slice(0, 12)
-    || '名無し';
-  if (!state.nickname) {
+  const isNew = !state.nickname;
+  nick = state.nickname || normalizeNickname($<HTMLInputElement>('#nick-input').value);
+
+  // 形式チェック(スペース・記号・文字数)
+  const formErr = validateNickname(nick);
+  if (formErr) {
+    $('#online-msg').textContent = formErr;
+    connecting = false;
+    connectBtn.disabled = false;
+    return;
+  }
+
+  // 重複チェック(サーバーの登録簿に確保する)
+  $('#online-msg').textContent = 'ニックネームを確認中…';
+  try {
+    const res = await fetch(`${apiBase()}/api/name/claim`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: nick, token: state.nickToken }),
+    });
+    const data = await res.json() as { ok: boolean; error?: string };
+    if (!data.ok) {
+      $('#online-msg').textContent = data.error ?? 'そのニックネームは使用できません。';
+      connecting = false;
+      connectBtn.disabled = false;
+      return;
+    }
+  } catch {
+    $('#online-msg').textContent =
+      'サーバーに接続できない。少し待ってからもう一度試してください。';
+    connecting = false;
+    connectBtn.disabled = false;
+    return;
+  }
+
+  if (isNew) {
     state.nickname = nick;
     notify();
     renderNickField();
@@ -110,7 +164,9 @@ async function connect(): Promise<void> {
       ? 'ws://localhost:2567'
       : location.origin.replace(/^http/, 'ws');
     client = new Client(endpoint);
-    lobbyRoom = await client.joinOrCreate('lobby_chat', { name: nick });
+    lobbyRoom = await client.joinOrCreate('lobby_chat', {
+      name: nick, nickToken: state.nickToken,
+    });
     wireLobby(lobbyRoom);
 
     $('#online-login').classList.add('hidden');
@@ -227,6 +283,7 @@ async function createRoom(): Promise<void> {
   try {
     const room = await client.create('coop', {
       name: nick, spells, stage, maxStage: state.maxStage,
+      nickToken: state.nickToken,
     });
     enterCoop(room);
   } catch (err) {
@@ -250,6 +307,7 @@ async function joinRoom(roomId: string, roomStage: number): Promise<void> {
   try {
     const room = await client.joinById(roomId, {
       name: nick, spells, maxStage: state.maxStage,
+      nickToken: state.nickToken,
     });
     enterCoop(room);
   } catch (err) {
@@ -352,7 +410,9 @@ async function joinDuel(): Promise<void> {
     return;
   }
   try {
-    const room = await client.joinOrCreate('duel', { name: nick, spells });
+    const room = await client.joinOrCreate('duel', {
+      name: nick, spells, nickToken: state.nickToken,
+    });
     $('#lobby-msg').textContent = '';
     $('#online-lobby').classList.add('hidden');
     $('#duel-view').classList.remove('hidden');

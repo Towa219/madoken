@@ -5,7 +5,28 @@ import { Client } from 'colyseus.js';
 import type { Room } from 'colyseus.js';
 
 const ENDPOINT = process.env.MADOKEN_ENDPOINT ?? 'ws://localhost:2567';
-const TIMEOUT_MS = 90_000;
+const TIMEOUT_MS = 180_000; // 決闘はHP増加で長引くため余裕を持たせる
+
+// ニックネームは登録簿で重複が弾かれるので、実行ごとに別名を使い、
+// 終了時に解放して本番の登録簿を汚さないようにする(英数字のみ)
+const RUN = Math.random().toString(36).slice(2, 7);
+const NAME_A = `tA${RUN}`;
+const NAME_B = `tB${RUN}`;
+const TOKEN_A = `tok${RUN}A`;
+const TOKEN_B = `tok${RUN}B`;
+const HTTP_BASE = ENDPOINT.replace(/^ws/, 'http');
+
+async function releaseNames(): Promise<void> {
+  for (const [name, token] of [[NAME_A, TOKEN_A], [NAME_B, TOKEN_B]]) {
+    try {
+      await fetch(`${HTTP_BASE}/api/name/release`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, token }),
+      });
+    } catch { /* 解放できなくてもテスト結果には影響しない */ }
+  }
+}
 
 function fail(msg: string): never {
   console.error(`✗ 失敗: ${msg}`);
@@ -36,22 +57,33 @@ async function main(): Promise<void> {
   const clientB = new Client(ENDPOINT);
 
   let chatReceivedByB = false;
-  const lobbyA = await clientA.joinOrCreate('lobby_chat', { name: 'テストA' });
-  const lobbyB = await clientB.joinOrCreate('lobby_chat', { name: 'テストB' });
+  const lobbyA = await clientA.joinOrCreate('lobby_chat', { name: NAME_A, nickToken: TOKEN_A });
+  const lobbyB = await clientB.joinOrCreate('lobby_chat', { name: NAME_B, nickToken: TOKEN_B });
   lobbyB.onMessage('chat', (m: { name: string; text: string }) => {
-    if (m.name === 'テストA' && m.text === 'よろしく!') chatReceivedByB = true;
+    if (m.name === NAME_A && m.text === 'よろしく!') chatReceivedByB = true;
   });
   await sleep(300);
   lobbyA.send('chat', 'よろしく!');
   await waitFor(() => chatReceivedByB, 'チャット受信');
   ok('ロビーチャット: AのメッセージをBが受信');
 
+  // ---- 1-2. ニックネームの重複拒否 ----
+  const clientC = new Client(ENDPOINT);
+  let nickRejected = false;
+  try {
+    await clientC.joinOrCreate('lobby_chat', { name: NAME_A, nickToken: 'tokX' });
+  } catch {
+    nickRejected = true;
+  }
+  if (!nickRejected) fail('他人が使用中のニックネームで入室できてしまった');
+  ok('ニックネーム重複: 別端末が同じ名前で入室しようとして拒否された');
+
   // ---- 2. 共闘部屋の作成と参加 ----
   const spellsA = [{ name: '炎の魔弾', recipe: { fire: 2, wind: 1 } }];
   const spellsB = [{ name: '雷の魔弾', recipe: { thunder: 1, wind: 2 } }];
 
   const roomA: Room = await clientA.create('coop', {
-    name: 'テストA', spells: spellsA, stage: 1, maxStage: 1,
+    name: NAME_A, spells: spellsA, stage: 1, maxStage: 1, nickToken: TOKEN_A,
   });
   await sleep(300);
   const available = await clientB.getAvailableRooms('coop');
@@ -59,7 +91,7 @@ async function main(): Promise<void> {
   ok(`部屋一覧取得: ${available.length}件 (stage=${(available[0].metadata as { stage?: number })?.stage})`);
 
   const roomB: Room = await clientB.joinById(available[0].roomId, {
-    name: 'テストB', spells: spellsB, maxStage: 1,
+    name: NAME_B, spells: spellsB, maxStage: 1, nickToken: TOKEN_B,
   });
   ok('Bが部屋に参加');
 
@@ -146,17 +178,17 @@ async function main(): Promise<void> {
   await waitFor(() => abortedByB !== null, '離脱による中断通知(aborted)', 10_000);
   {
     const m = abortedByB as unknown as { name: string; clearedStage: number };
-    if (m.name !== 'テストA') fail(`離脱者名が違う: ${m.name}`);
+    if (m.name !== NAME_A) fail(`離脱者名が違う: ${m.name}`);
     ok(`Aの離脱でBに中断通知が届いた(クリア済みステージ${m.clearedStage})`);
   }
 
   // ---- 6. 未到達ステージの部屋には入れない ----
   const roomHigh: Room = await clientA.create('coop', {
-    name: 'テストA', spells: spellsA, stage: 5, maxStage: 5,
+    name: NAME_A, spells: spellsA, stage: 5, maxStage: 5, nickToken: TOKEN_A,
   });
   let rejected = false;
   try {
-    await clientB.joinById(roomHigh.roomId, { name: 'テストB', spells: spellsB, maxStage: 1 });
+    await clientB.joinById(roomHigh.roomId, { name: NAME_B, spells: spellsB, maxStage: 1, nickToken: TOKEN_B });
   } catch (e) {
     rejected = true;
     ok(`未到達ステージ5の部屋への参加を拒否: ${(e as Error).message}`);
@@ -166,7 +198,7 @@ async function main(): Promise<void> {
 
   // ---- 7. ボス戦は2人以上でないと開始できない ----
   const bossRoom: Room = await clientA.create('coop', {
-    name: 'テストA', spells: spellsA, stage: 5, maxStage: 5,
+    name: NAME_A, spells: spellsA, stage: 5, maxStage: 5, nickToken: TOKEN_A,
   });
   bossRoom.send('ready');
   await sleep(1200);
@@ -178,8 +210,8 @@ async function main(): Promise<void> {
   await sleep(300);
 
   // ---- 8. 決闘(PvP) ----
-  const duelA: Room = await clientA.joinOrCreate('duel', { name: 'テストA', spells: spellsA });
-  const duelB: Room = await clientB.joinOrCreate('duel', { name: 'テストB', spells: spellsB });
+  const duelA: Room = await clientA.joinOrCreate('duel', { name: NAME_A, spells: spellsA, nickToken: TOKEN_A });
+  const duelB: Room = await clientB.joinOrCreate('duel', { name: NAME_B, spells: spellsB, nickToken: TOKEN_B });
   await waitFor(() => (duelA.state as any)?.players?.size === 2, '決闘場に2人が入る');
   ok('決闘場に2人が入室');
 
@@ -217,6 +249,7 @@ async function main(): Promise<void> {
     void lobbyA.leave();
     void lobbyB.leave();
   } catch { /* 切断済みでも無視 */ }
+  await releaseNames(); // テスト用ニックネームを登録簿から消す
   clearTimeout(killer);
   console.log('\n★ E2Eテスト全項目合格');
   setTimeout(() => process.exit(0), 1500);
@@ -224,5 +257,5 @@ async function main(): Promise<void> {
 
 main().catch(err => {
   console.error('✗ 例外で失敗:', err);
-  process.exit(1);
+  void releaseNames().finally(() => process.exit(1));
 });
