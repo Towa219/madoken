@@ -12,6 +12,7 @@ import {
 } from './cloudsave';
 import { initWelcome, waitForServer } from './boot';
 import { renderTips } from './tips';
+import { initShare } from './share';
 import {
   combatPower, spellDisplayName, spellMagicValue, statsSummary,
 } from '../shared/spellcraft';
@@ -45,7 +46,10 @@ function switchTab(tab: Tab): void {
   $('#tab-manual').classList.toggle('active', tab === 'manual');
   $('#tab-settings').classList.toggle('active', tab === 'settings');
   if (tab === 'manual') renderManual();
-  if (tab === 'settings') renderCloudStatus();
+  if (tab === 'settings') {
+    renderCloudStatus();
+    initShare(); // 共有文に今の戦闘力・発見数を載せ直す
+  }
   if (tab === 'battle' && !battle.isActive()) {
     showSetup();
   }
@@ -247,6 +251,7 @@ function main(): void {
   });
 
   initCloudUI();
+  initShare();
   updateTopbar();
   renderLab();
   renderFooter();

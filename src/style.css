@@ -239,6 +239,29 @@ button.tab.active { background: #5533aa; border-color: #7755cc; }
 #reset-panel .danger:hover { background: #74283c; }
 #reset-msg { color: #ffbb88; min-height: 16px; margin-top: 6px; }
 
+/* 拡散・支援 */
+#share-panel { margin-top: 12px; }
+#share-buttons { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; }
+.sns-btn {
+  display: inline-block; padding: 8px 12px; border-radius: 6px;
+  font-size: 13px; text-decoration: none; cursor: pointer;
+  border: 1px solid #44446a; background: #22223c; color: #ddddee;
+  font-family: inherit;
+}
+.sns-btn:hover { background: #2c2c4e; }
+.sns-x { background: #1a1a1a; border-color: #555; color: #fff; }
+.sns-line { background: #06c755; border-color: #06c755; color: #06210f; font-weight: bold; }
+.sns-fb { background: #1877f2; border-color: #1877f2; color: #fff; }
+#share-msg { color: #88bbaa; min-height: 16px; }
+#support-box { margin-top: 14px; }
+#support-box.hidden { display: none; }
+.support-btn {
+  display: inline-block; padding: 10px 16px; border-radius: 8px;
+  background: #ffcc44; color: #2a2010; font-weight: bold;
+  text-decoration: none; font-size: 14px;
+}
+.support-btn:hover { background: #ffdd77; }
+
 /* クラウドセーブ(引き継ぎ) */
 #cloud-panel { margin-top: 12px; }
 #cloud-panel .cloud-row { display: flex; gap: 8px; flex-wrap: wrap; margin: 8px 0; }
