@@ -12,6 +12,7 @@ import { DUEL_MAX_HP, DUEL_MAX_MP } from '../../shared/data';
 import { spellCooldown } from '../../shared/spellcraft';
 import { parseSpells } from '../spellPayload';
 import { clientIp, logConnection } from '../connlog';
+import { clearRoomPresence, setRoomPresence } from '../presence';
 import type { ServerSpell } from '../spellPayload';
 import type { ElementId, SpellStats } from '../../shared/types';
 
@@ -122,6 +123,7 @@ export class DuelRoom extends Room<DuelState> {
 
     this.state.players.set(client.sessionId, p);
     logConnection('決闘', p.name, (client.auth as { ip?: string } | undefined)?.ip ?? '');
+    this.syncPresence();
     this.internals.set(client.sessionId, {
       spells: parseSpells(options?.spells),
       cooldowns: [0, 0, 0, 0],
@@ -137,6 +139,7 @@ export class DuelRoom extends Room<DuelState> {
     const name = leaver?.name ?? '相手';
     this.state.players.delete(client.sessionId);
     this.internals.delete(client.sessionId);
+    this.syncPresence();
 
     if (this.state.phase === 'ready') return;
     if (this.ended) return;
@@ -148,6 +151,16 @@ export class DuelRoom extends Room<DuelState> {
       c.send('duelend', { win: true, reason: `${name} が退出した` });
     }
     setTimeout(() => { void this.disconnect(); }, 800);
+  }
+
+  private syncPresence(): void {
+    const names: string[] = [];
+    this.state.players.forEach(p => names.push(p.name));
+    setRoomPresence(this.roomId, '決闘', '', names);
+  }
+
+  onDispose(): void {
+    clearRoomPresence(this.roomId);
   }
 
   private checkStart(): void {

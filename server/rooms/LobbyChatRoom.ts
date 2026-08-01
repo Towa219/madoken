@@ -6,6 +6,7 @@ import { Schema, MapSchema, defineTypes } from '@colyseus/schema';
 import type { Client } from 'colyseus';
 import type { IncomingMessage } from 'node:http';
 import { clientIp, logConnection } from '../connlog';
+import { setRoomPresence } from '../presence';
 
 const { Room } = colyseusPkg;
 
@@ -49,6 +50,7 @@ export class LobbyChatRoom extends Room<LobbyState> {
     p.name = String(options?.name ?? '名無し').slice(0, 12) || '名無し';
     this.state.players.set(client.sessionId, p);
     logConnection('ロビー', p.name, (client.auth as { ip?: string } | undefined)?.ip ?? '');
+    this.syncPresence();
     this.broadcast('chat', { name: 'システム', text: `${p.name} がロビーに入った` });
   }
 
@@ -58,5 +60,12 @@ export class LobbyChatRoom extends Room<LobbyState> {
       this.broadcast('chat', { name: 'システム', text: `${p.name} が退出した` });
     }
     this.state.players.delete(client.sessionId);
+    this.syncPresence();
+  }
+
+  private syncPresence(): void {
+    const names: string[] = [];
+    this.state.players.forEach(p => names.push(p.name));
+    setRoomPresence(this.roomId, 'ロビー', '', names);
   }
 }

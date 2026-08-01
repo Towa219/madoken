@@ -13,6 +13,7 @@ import { finalStats, spellCooldown } from '../../shared/spellcraft';
 import type { IncomingMessage } from 'node:http';
 import { parseSpells } from '../spellPayload';
 import { clientIp, logConnection } from '../connlog';
+import { clearRoomPresence, setRoomPresence } from '../presence';
 import { submitScore } from '../ranking';
 import {
   affinityMul, battleRP, bossForStage, ENEMY_ATK_MUL, ENEMY_HP_MUL, isBossStage,
@@ -160,6 +161,8 @@ export class CoopRoom extends Room<CoopState> {
       (client.auth as { ip?: string } | undefined)?.ip ?? '',
     );
 
+    this.syncPresence();
+
     // 魔法: レシピからサーバー側で再計算
     const spells = parseSpells(options?.spells);
     this.internals.set(client.sessionId, {
@@ -186,6 +189,7 @@ export class CoopRoom extends Room<CoopState> {
     this.submitToRanking(client.sessionId); // 途中離脱でもスコアは記録
     this.state.players.delete(client.sessionId);
     this.internals.delete(client.sessionId);
+    this.syncPresence();
 
     if (this.state.phase === 'ready') {
       this.checkStart();
@@ -208,6 +212,16 @@ export class CoopRoom extends Room<CoopState> {
     }
     // メッセージ到達を待ってから全員切断
     setTimeout(() => { void this.disconnect(); }, 600);
+  }
+
+  private syncPresence(): void {
+    const names: string[] = [];
+    this.state.players.forEach(p => names.push(p.name));
+    setRoomPresence(this.roomId, '共闘', `ステージ${this.state.stage}`, names);
+  }
+
+  onDispose(): void {
+    clearRoomPresence(this.roomId);
   }
 
   private submitToRanking(sid: string): void {

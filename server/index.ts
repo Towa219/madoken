@@ -12,6 +12,7 @@ import { CoopRoom } from './rooms/CoopRoom';
 import { DuelRoom } from './rooms/DuelRoom';
 import { persistent, topRanking } from './ranking';
 import { recentConnections } from './connlog';
+import { discordEnabled, sendNow, startDiscordReports } from './discord';
 
 const { Server } = colyseusPkg;
 const { WebSocketTransport } = wsTransportPkg;
@@ -54,14 +55,30 @@ app.get('/api/connlog', (req, res) => {
 const heartbeats = new Map<string, number>();
 const ALIVE_MS = 90_000;
 
-app.get('/api/heartbeat', (req, res) => {
+function onlineCount(): number {
   const now = Date.now();
-  const id = String(req.query.id ?? '').slice(0, 40);
-  if (id) heartbeats.set(id, now);
   for (const [k, t] of heartbeats) {
     if (now - t > ALIVE_MS) heartbeats.delete(k);
   }
-  res.json({ count: heartbeats.size });
+  return heartbeats.size;
+}
+
+app.get('/api/heartbeat', (req, res) => {
+  const id = String(req.query.id ?? '').slice(0, 40);
+  if (id) heartbeats.set(id, Date.now());
+  res.json({ count: onlineCount() });
+});
+
+// Discordへ今すぐ1回送る(ADMIN_KEY必須・動作確認用)
+app.get('/api/discord-test', (req, res) => {
+  const adminKey = process.env.ADMIN_KEY;
+  if (!adminKey || String(req.query.key ?? '') !== adminKey) {
+    res.status(403).json({ error: 'ADMIN_KEYが必要です' });
+    return;
+  }
+  void sendNow(onlineCount())
+    .then(ok => res.json({ sent: ok, enabled: discordEnabled }))
+    .catch(() => res.json({ sent: false, enabled: discordEnabled }));
 });
 
 // ビルド済みクライアントを配信
@@ -85,4 +102,5 @@ httpServer.listen(port, () => {
       ? '[ランキング] Upstashに恒久保存します'
       : '[ランキング] 一時保存(再起動でリセット)。UPSTASH_REDIS_REST_URL/TOKEN未設定',
   );
+  startDiscordReports(onlineCount);
 });
