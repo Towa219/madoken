@@ -7,6 +7,7 @@ import { DuelView } from './duel';
 import { spellDisplayName } from '../shared/spellcraft';
 import { NICK_MAX, normalizeNickname, validateNickname } from '../shared/nickname';
 import { equippedSpells, notify, state } from './state';
+import { pushCloudSave } from './cloudsave';
 import type { SpellPayload } from '../shared/protocol';
 
 const $ = <T extends HTMLElement = HTMLElement>(sel: string) =>
@@ -176,6 +177,7 @@ async function connect(): Promise<void> {
     renderStageOptions();
     void refreshRooms();
     void refreshRanking();
+    void pushCloudSave(); // 接続できた時点でサーバーにも保存しておく
   } catch (err) {
     console.error(err);
     $('#online-msg').textContent =

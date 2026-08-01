@@ -8,6 +8,9 @@ import {
   initOnline, coopTryCast, duelTryCast, releaseNickname, renderNickField,
 } from './lobby';
 import {
+  deleteCloudSave, initCloudUI, renderCloudStatus, scheduleCloudSave,
+} from './cloudsave';
+import {
   combatPower, spellDisplayName, spellMagicValue, statsSummary,
 } from '../shared/spellcraft';
 import { BUILD_DATE, COPYRIGHT, VERSION } from '../shared/version';
@@ -181,7 +184,8 @@ function main(): void {
     if (resetBtn.dataset.arm === '1') {
       resetBtn.dataset.arm = '';
       resetBtn.textContent = '初期化';
-      void releaseNickname(); // 使っていた名前を手放す(他の人が使えるようになる)
+      // クラウド側のセーブを消してから名前を手放す(順番が逆だと本人確認に失敗する)
+      void deleteCloudSave().then(() => releaseNickname());
       resetSave();
       renderNickField(); // ニックネームも再登録できるようになる
       showToast('セーブデータを初期化した。ニックネームも解放され、再設定できる。');
@@ -207,9 +211,12 @@ function main(): void {
   onChange(() => {
     updateTopbar();
     renderLab();
+    renderCloudStatus();
+    scheduleCloudSave(); // 変更のたびにクラウドへ(まとめて数秒後に1回)
     if (!$('#battle-setup').classList.contains('hidden')) renderSetup();
   });
 
+  initCloudUI();
   updateTopbar();
   renderLab();
   renderFooter();

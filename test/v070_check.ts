@@ -4,7 +4,10 @@
 //  ③ 上位品質の確率が魔導書の種類数で上がるか
 
 import { bestCompositionFor, computeSpell, finalStats, spellMagicValue } from '../shared/spellcraft';
-import { RECIPES, libraryBonus, rarityMultiplier } from '../shared/data';
+import {
+  LIBRARY_BONUS_FULL_KINDS, LIBRARY_BONUS_MAX, LIBRARY_BONUS_START,
+  RECIPES, libraryBonus, rarityMultiplier,
+} from '../shared/data';
 import { nicknameKey, validateNickname } from '../shared/nickname';
 
 let ng = 0;
@@ -45,11 +48,13 @@ if (nicknameKey('ＹＵＲＩ') !== nicknameKey('yuri')) { console.log('✗ 大�
 else console.log('OK  「ＹＵＲＩ」と「yuri」は同じ名前として重複扱い');
 
 console.log('--- ③ 上位品質の確率(魔導書の種類数) ---');
-for (const k of [0, 5, 10, 20, 30]) {
+for (const k of [0, 5, 10, 11, 20, 35, 60, 80]) {
   console.log(`魔導書${k}種 → 蔵書ボーナス ×${libraryBonus(k).toFixed(2)}`
     + ` / 火3闇1で合計 ×${rarityMultiplier({ fire: 3, dark: 1 }, k).toFixed(2)}`);
 }
-if (libraryBonus(10) <= libraryBonus(0)) { console.log('✗ 種類が増えても上がっていない'); ng++; }
+if (libraryBonus(LIBRARY_BONUS_START) !== 1) { console.log('✗ 開始点まではボーナス無しのはず'); ng++; }
+if (libraryBonus(30) <= libraryBonus(LIBRARY_BONUS_START)) { console.log('✗ 種類が増えても上がっていない'); ng++; }
+if (libraryBonus(LIBRARY_BONUS_FULL_KINDS) < LIBRARY_BONUS_MAX) { console.log('✗ 上限に届いていない'); ng++; }
 
 console.log(ng === 0 ? '=== 合格 ===' : `=== ${ng}件の不具合 ===`);
 if (ng > 0) process.exit(1);

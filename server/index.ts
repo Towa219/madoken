@@ -15,6 +15,7 @@ import { recentConnections } from './connlog';
 import { discordEnabled, sendNow, startDiscordReports } from './discord';
 import { presenceSnapshot } from './presence';
 import { checkName, claimName, releaseName } from './names';
+import { deleteSave, getSave, putSave } from './save';
 import { BUILD_DATE, VERSION } from '../shared/version';
 
 const { Server } = colyseusPkg;
@@ -24,7 +25,7 @@ const port = Number(process.env.PORT ?? 2567);
 
 const app = express();
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '1mb' })); // クラウドセーブのため少し大きめ
 
 // ランキングAPI(上位5件)
 app.get('/api/ranking', (_req, res) => {
@@ -76,6 +77,32 @@ app.post('/api/name/release', (req, res) => {
   void releaseName(body?.name, body?.token)
     .then(released => res.json({ released }))
     .catch(() => res.json({ released: false }));
+});
+
+// ===== サーバー側セーブ(クラウドセーブ) =====
+
+// 保存(ニックネーム+引き継ぎコードが本人のものであること)
+app.post('/api/save', (req, res) => {
+  const b = req.body as { name?: unknown; token?: unknown; data?: unknown; savedAt?: unknown };
+  void putSave(b?.name, b?.token, b?.data, Number(b?.savedAt) || Date.now())
+    .then(r => res.json(r))
+    .catch(() => res.json({ ok: false, error: '保存に失敗しました。' }));
+});
+
+// 読み込み(別の端末への引き継ぎもこれ)
+app.post('/api/load', (req, res) => {
+  const b = req.body as { name?: unknown; token?: unknown };
+  void getSave(b?.name, b?.token)
+    .then(r => res.json(r))
+    .catch(() => res.json({ ok: false, error: '読み込みに失敗しました。' }));
+});
+
+// 削除(キャラ初期化時)
+app.post('/api/save/delete', (req, res) => {
+  const b = req.body as { name?: unknown; token?: unknown };
+  void deleteSave(b?.name, b?.token)
+    .then(deleted => res.json({ deleted }))
+    .catch(() => res.json({ deleted: false }));
 });
 
 // プレイ中人数: クライアントが定期的に叩く簡易ハートビート

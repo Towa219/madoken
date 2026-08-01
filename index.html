@@ -106,6 +106,31 @@
         <div id="online-msg"></div>
       </div>
 
+      <!-- クラウドセーブ(引き継ぎ) -->
+      <section class="panel" id="cloud-panel">
+        <h2>データの引き継ぎ</h2>
+        <p class="note">
+          オンラインに接続すると、セーブは<b>この端末とサーバーの両方</b>に保存される。
+          別の端末で続きから遊ぶには、下の「引き継ぎコード」をその端末に入力する。
+        </p>
+        <div id="cloud-status" class="note"></div>
+        <div class="cloud-row">
+          <button id="btn-show-code">引き継ぎコードを表示</button>
+          <button id="btn-copy-code">コピー</button>
+        </div>
+        <div id="transfer-code" class="code-box">••••••••••••</div>
+        <p class="note warn">
+          引き継ぎコードは<b>パスワードと同じ</b>。他人に渡すとデータを乗っ取られる。
+        </p>
+        <h3 class="cloud-h3">別の端末から引き継ぐ</h3>
+        <div class="cloud-row">
+          <input id="restore-name" maxlength="12" placeholder="ニックネーム">
+          <input id="restore-code" maxlength="64" placeholder="引き継ぎコード">
+        </div>
+        <button id="btn-restore">復元する</button>
+        <p class="note">復元すると、<b>この端末の今のデータは上書きされる</b>。</p>
+      </section>
+
       <div id="online-lobby" class="hidden">
         <section class="panel" id="lobby-chat-panel">
           <h2>現在オンライン</h2>

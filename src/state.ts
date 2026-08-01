@@ -38,7 +38,15 @@ function load(): GameState {
   try {
     const raw = localStorage.getItem(SAVE_KEY);
     if (!raw) return initialState();
-    const parsed = JSON.parse(raw) as GameState;
+    return migrate(JSON.parse(raw) as Partial<GameState>);
+  } catch {
+    return initialState();
+  }
+}
+
+// 欠損の補完と魔法の性能再計算(ローカルセーブ・クラウドセーブの両方が通る)
+function migrate(parsed: Partial<GameState>): GameState {
+  try {
     // 旧セーブの移行: 強化レベルが無い魔法は0で補完
     const merged = { ...initialState(), ...parsed };
     for (const sp of merged.spells) {
@@ -78,6 +86,12 @@ export function save(): void {
   } catch {
     // 公開版のiframe等でlocalStorageが使えない場合はセーブなしで続行
   }
+}
+
+// クラウドから取り出したデータで丸ごと置き換える(引き継ぎ)
+export function applyLoadedState(loaded: Partial<GameState>): void {
+  state = migrate(loaded);
+  notify();
 }
 
 export function resetSave(): void {

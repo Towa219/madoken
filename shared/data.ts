@@ -240,9 +240,10 @@ export interface RarityDef {
 
 export const RARITIES: Record<Rarity, RarityDef> = {
   normal: { name: '', mul: 1, cssColor: '#ddddee', chance: 0 },
-  rare: { name: 'レア', mul: 1.2, cssColor: '#66aaff', chance: 0.02 },
-  epic: { name: 'エピック', mul: 1.5, cssColor: '#cc77ff', chance: 0.002 },
-  legend: { name: 'レジェンド', mul: 2.0, cssColor: '#ffcc44', chance: 0.0002 },
+  // 基礎値は控えめ。素材構成ボーナスと蔵書ボーナスで最大×12程度まで上がる
+  rare: { name: 'レア', mul: 1.2, cssColor: '#66aaff', chance: 0.01 },
+  epic: { name: 'エピック', mul: 1.5, cssColor: '#cc77ff', chance: 0.001 },
+  legend: { name: 'レジェンド', mul: 2.0, cssColor: '#ffcc44', chance: 0.0001 },
 };
 
 // 素材が多く、希少エレメント(光・闇)を使うほど上位品質が出やすい
@@ -253,13 +254,20 @@ export function rarityBonus(counts: ElementCounts): number {
   return 1 + Math.max(0, used - 2) * 0.6 + rare * 0.8;
 }
 
-// 魔導書に収めた魔法の「種類」が多いほど上位品質が出やすくなる(研究の蓄積)
-export const LIBRARY_BONUS_PER_KIND = 0.15; // 1種類あたり+15%
-export const LIBRARY_BONUS_MAX = 4;         // 上限は4倍(20種類で到達)
+// 魔導書に収めた魔法の「種類」が多いほど上位品質が出やすくなる(研究の蓄積)。
+// 少し集めた程度では効かず、蔵書を本気で増やした研究者だけが恩恵を受ける。
+export const LIBRARY_BONUS_START = 10;      // ここまではボーナス無し
+export const LIBRARY_BONUS_PER_KIND = 0.06; // 超えた分1種類あたり+6%
+export const LIBRARY_BONUS_MAX = 4;         // 上限は4倍
+
+// 上限に到達する種類数(60種)
+export const LIBRARY_BONUS_FULL_KINDS =
+  LIBRARY_BONUS_START + Math.round((LIBRARY_BONUS_MAX - 1) / LIBRARY_BONUS_PER_KIND);
 
 export function libraryBonus(kinds: number): number {
-  const k = Math.max(0, Math.floor(kinds || 0));
-  return Math.min(LIBRARY_BONUS_MAX, 1 + k * LIBRARY_BONUS_PER_KIND);
+  const over = Math.max(0, Math.floor(kinds || 0)) - LIBRARY_BONUS_START;
+  if (over <= 0) return 1;
+  return Math.min(LIBRARY_BONUS_MAX, 1 + over * LIBRARY_BONUS_PER_KIND);
 }
 
 // 最終的な上位品質の出やすさ(素材ボーナス × 蔵書ボーナス)

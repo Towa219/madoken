@@ -186,6 +186,19 @@ button.tab.active { background: #5533aa; border-color: #7755cc; }
 .recipe-row.unfound { border-left: 3px solid #444466; color: #8888aa; }
 .recipe-row .rname { font-weight: bold; color: #88ddaa; }
 
+/* クラウドセーブ(引き継ぎ) */
+#cloud-panel { margin-top: 12px; }
+#cloud-panel .cloud-row { display: flex; gap: 8px; flex-wrap: wrap; margin: 8px 0; }
+#cloud-panel .cloud-row input { flex: 1 1 140px; min-width: 0; }
+#cloud-panel .cloud-h3 { font-size: 13px; color: #aaaacc; margin: 14px 0 4px; }
+#cloud-panel .note.warn { color: #ffbb88; }
+#cloud-status { min-height: 16px; color: #88bbaa; }
+.code-box {
+  font-family: monospace; font-size: 12px; word-break: break-all;
+  background: #12121f; border: 1px solid #333355; border-radius: 6px;
+  padding: 8px; color: #ddddee;
+}
+
 .prarity { font-size: 11px; color: #aaaacc; margin-top: 2px; }
 .prarity small { color: #8888aa; }
 

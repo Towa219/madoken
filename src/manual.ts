@@ -6,15 +6,13 @@
 import {
   DISASSEMBLE_RATE, DISCOVERY_BONUS_RP, ELEMENTS, ELEMENT_ORDER, ENEMIES,
   ENEMY_HP_MUL, BOSSES, DUEL_MAX_HP, GATHER_COST, GATHER_COUNT,
-  LIBRARY_BONUS_MAX, LIBRARY_BONUS_PER_KIND, libraryBonus,
+  LIBRARY_BONUS_FULL_KINDS, LIBRARY_BONUS_MAX, LIBRARY_BONUS_PER_KIND,
+  LIBRARY_BONUS_START, libraryBonus,
   PLAYER_MAX_HP, PLAYER_MAX_MP, RARITIES, RECIPES,
   SLOT4_BOSS_STAGE, SLOT4_COST, SLOT5_BOSS_STAGE, SLOT5_COST,
 } from '../shared/data';
 import { ENHANCE_MAX } from '../shared/spellcraft';
 import { NICK_MAX } from '../shared/nickname';
-import { spellKindCount } from './lab';
-import { BUILD_DATE, VERSION } from '../shared/version';
-import { state } from './state';
 import type { Rarity } from '../shared/types';
 
 const $ = <T extends HTMLElement = HTMLElement>(sel: string) =>
@@ -30,34 +28,21 @@ function elementTable(): string {
 }
 
 function rarityTable(): string {
-  const kinds = spellKindCount();
-  const lb = libraryBonus(kinds);
   const order: Rarity[] = ['rare', 'epic', 'legend'];
   const rows = order.map(r => {
     const d = RARITIES[r];
-    const now = d.chance * lb * 100;
     return `<tr><td style="color:${d.cssColor}">${d.name}</td>`
       + `<td>性能 ×${d.mul}</td>`
       + `<td>基礎 ${(d.chance * 100).toFixed(2)}%</td>`
-      + `<td>今 ${now >= 1 ? now.toFixed(1) : now.toFixed(2)}%〜</td></tr>`;
+      + `<td>最大 ${(d.chance * LIBRARY_BONUS_MAX * 100).toFixed(2)}%`
+      + `<small>(蔵書ボーナスのみ)</small></td></tr>`;
   }).join('');
   return `<table class="man-table"><thead><tr><th>品質</th><th>効果</th>`
-    + `<th>出現率</th><th>あなたの現在値</th></tr></thead>`
+    + `<th>出現率</th><th>蔵書上限時</th></tr></thead>`
     + `<tbody>${rows}</tbody></table>`;
 }
 
-// 発見済みは効果を、未発見はヒントだけを表示(ネタバレ防止)
-function recipeList(): string {
-  return RECIPES.map(r => {
-    const found = state.discovered.includes(r.id);
-    return found
-      ? `<li><b style="color:#88ddaa">${r.name}</b> — ${r.desc}</li>`
-      : `<li><b style="color:#777799">???</b> — ヒント: ${r.hint}</li>`;
-  }).join('');
-}
-
 export function renderManual(): void {
-  const found = RECIPES.filter(r => state.discovered.includes(r.id)).length;
   $('#manual-body').innerHTML = `
 <section class="man-sec">
   <h3>この世界でやること</h3>
@@ -91,23 +76,25 @@ export function renderManual(): void {
     <li>特定の組み合わせで<b>系統</b>が成立します。初めて出した系統は「発見」となり研究P+${DISCOVERY_BONUS_RP}</li>
     <li><b>同じ構成をもう一度調合すると強化</b>になります(最大+${ENHANCE_MAX}。1段階ごとに威力+8%・詠唱-2%)</li>
     <li>ごく稀に上位<b>品質</b>で生まれます。素材が多く光・闇を含むほど確率が上がります</li>
-    <li><b>魔導書に集めた魔法の「種類」が多いほど上位品質が出やすくなります</b>
-    (1種類ごとに+${Math.round(LIBRARY_BONUS_PER_KIND * 100)}%、上限×${LIBRARY_BONUS_MAX}=
-    ${Math.round((LIBRARY_BONUS_MAX - 1) / LIBRARY_BONUS_PER_KIND)}種類。
-    レシピが違えば別の種類として数えます)</li>
+    <li><b>魔導書に集めた魔法の「種類」が多いほど上位品質が出やすくなります</b>。
+    ただし<b>${LIBRARY_BONUS_START}種類まではボーナス無し</b>で、
+    そこを超えた分だけ1種類ごとに+${Math.round(LIBRARY_BONUS_PER_KIND * 100)}%、
+    <b>${LIBRARY_BONUS_FULL_KINDS}種類で上限×${LIBRARY_BONUS_MAX}</b>に達します
+    (レシピが違えば別の種類として数えます)</li>
   </ul>
   ${rarityTable()}
-  <p class="man-note">下表の「あなたの現在値」は<b>魔導書 ${spellKindCount()}種(×${libraryBonus(spellKindCount()).toFixed(2)})</b>での値です。
-  素材構成のボーナスを掛けるとさらに上がります(調合画面に実際の確率が出ます)。</p>
+  <p class="man-note">実際の確率は<b>素材構成のボーナス</b>も掛かるため上表よりさらに上がります。
+  今の自分の確率は<b>調合画面</b>に表示されます。</p>
   <p class="man-note">魔法名の末尾〈火2風〉はレシピそのものです。名前を見れば作り方が分かります。</p>
 </section>
 
 <section class="man-sec">
-  <h3>系統一覧 <small>(${found} / ${RECIPES.length} 発見済み)</small></h3>
+  <h3>系統(隠しレシピ)</h3>
+  <p>特定の組み合わせで成立する<b>系統</b>が全${RECIPES.length}種類あります。
+  一覧・ヒント・発見状況は<b>「発見図鑑」タブ</b>で確認してください。</p>
   <p class="man-note">🎁 <b>全${RECIPES.length}系統を発見すると</b>、その証として
   <b style="color:${RARITIES.epic.cssColor}">【${RARITIES.epic.name}】</b>品質の魔法(性能×${RARITIES.epic.mul})が
   ランダムな系統で1つ贈られます(1回きり)。素材は消費しません。</p>
-  <ul class="man-recipes">${recipeList()}</ul>
 </section>
 
 <section class="man-sec">
@@ -138,6 +125,18 @@ export function renderManual(): void {
 </section>
 
 <section class="man-sec">
+  <h3>セーブと引き継ぎ</h3>
+  <ul>
+    <li>セーブは<b>遊んでいる端末</b>に自動保存されます</li>
+    <li>オンラインに接続してニックネームを登録すると、<b>サーバーにも自動で保存</b>されます</li>
+    <li>別の端末で続きから遊ぶには、オンライン画面の<b>「引き継ぎコード」</b>をその端末の
+    「別の端末から引き継ぐ」欄に、ニックネームと一緒に入力します</li>
+    <li>引き継ぎコードは<b>パスワードと同じ</b>です。他人に教えないでください</li>
+    <li><b>初期化</b>するとサーバー側のセーブも消え、そのニックネームは他の人が使えるようになります</li>
+  </ul>
+</section>
+
+<section class="man-sec">
   <h3>調合スロットの解放</h3>
   <ul>
     <li>第4スロット: <b>ステージ${SLOT4_BOSS_STAGE}のボス撃破</b> + 研究P${SLOT4_COST}</li>
@@ -160,7 +159,5 @@ export function renderManual(): void {
     ${RECIPES.length}系統すべて発見すればエピック魔法が手に入るので、図鑑埋めは遠回りに見えて近道です</li>
   </ul>
 </section>
-
-<p class="man-foot">この説明書はゲームの設定値から自動生成されています(v${VERSION} / ${BUILD_DATE} 時点)。</p>
 `;
 }

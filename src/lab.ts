@@ -2,8 +2,8 @@
 
 import {
   DISASSEMBLE_RATE, DISCOVERY_BONUS_RP, ELEMENTS, ELEMENT_ORDER,
-  GATHER_COST, GATHER_COUNT, LIBRARY_BONUS_MAX, libraryBonus,
-  RARITIES, rarityMultiplier, RECIPES, rollRarity,
+  GATHER_COST, GATHER_COUNT, LIBRARY_BONUS_MAX, LIBRARY_BONUS_START,
+  libraryBonus, RARITIES, rarityMultiplier, RECIPES, rollRarity,
   SLOT4_BOSS_STAGE, SLOT4_COST, SLOT5_BOSS_STAGE, SLOT5_COST,
 } from '../shared/data';
 import {
@@ -248,7 +248,11 @@ function rarityLine(counts: ElementCounts): string {
     return p >= 1 ? `${p.toFixed(1)}%` : `${p.toFixed(2)}%`;
   };
   const lb = libraryBonus(kinds);
-  const cap = lb >= LIBRARY_BONUS_MAX ? '(上限)' : '';
+  const cap = lb >= LIBRARY_BONUS_MAX
+    ? '(上限)'
+    : kinds <= LIBRARY_BONUS_START
+      ? `・あと${LIBRARY_BONUS_START + 1 - kinds}種でボーナス開始`
+      : '';
   return `<div class="prarity">上位品質: `
     + `<span style="color:${RARITIES.rare.cssColor}">${RARITIES.rare.name} ${pct(RARITIES.rare.chance)}</span> / `
     + `<span style="color:${RARITIES.epic.cssColor}">${RARITIES.epic.name} ${pct(RARITIES.epic.chance)}</span> / `
