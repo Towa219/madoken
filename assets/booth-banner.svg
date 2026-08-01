@@ -1,0 +1,43 @@
+<!-- BOOTHショップのヘッダー画像(横長・1200x300想定)
+     使い方: ブラウザで開いてスクリーンショット、または画像変換サイトでPNG化 -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 300" width="1200" height="300">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#1a1636"/>
+      <stop offset="50%" stop-color="#241c3c"/>
+      <stop offset="100%" stop-color="#0f0f1e"/>
+    </linearGradient>
+    <filter id="g2" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="5" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <rect width="1200" height="300" fill="url(#sky)"/>
+
+  <!-- 舞う光(エレメント) -->
+  <g filter="url(#g2)" opacity="0.9">
+    <circle cx="120" cy="70"  r="9" fill="#ff6644"/>
+    <circle cx="240" cy="210" r="7" fill="#44aaff"/>
+    <circle cx="360" cy="110" r="8" fill="#88ffaa"/>
+    <circle cx="900" cy="80"  r="8" fill="#ffdd44"/>
+    <circle cx="1020" cy="200" r="7" fill="#aaeeff"/>
+    <circle cx="1120" cy="120" r="9" fill="#aa66ee"/>
+    <circle cx="780" cy="230" r="6" fill="#ffffcc"/>
+    <circle cx="660" cy="60"  r="6" fill="#cc9955"/>
+  </g>
+
+  <!-- 中央のタイトル -->
+  <text x="600" y="130" text-anchor="middle"
+        font-family="Yu Mincho, Hiragino Mincho ProN, serif" font-size="72" font-weight="bold"
+        fill="#f0e6ff" filter="url(#g2)" letter-spacing="8">魔導研究記</text>
+  <text x="600" y="180" text-anchor="middle"
+        font-family="Yu Gothic, Meiryo, sans-serif" font-size="26"
+        fill="#ccbbff" letter-spacing="4">《まどけん》</text>
+  <text x="600" y="230" text-anchor="middle"
+        font-family="Yu Gothic, Meiryo, sans-serif" font-size="22"
+        fill="#9999cc">エレメントを混ぜて、まだ誰も知らない魔法を発明する ─ ブラウザで遊べるオンラインRPG</text>
+  <text x="600" y="266" text-anchor="middle"
+        font-family="Consolas, monospace" font-size="20"
+        fill="#88bbdd">madoken.onrender.com</text>
+</svg>

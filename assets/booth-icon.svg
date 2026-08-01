@@ -1,0 +1,48 @@
+<!-- BOOTHショップアイコン(正方形・512px想定)
+     ゲーム本編と同じ配色: 背景の紺 + 8エレメントの色 + 中央に「魔」
+     使い方: ブラウザで開いてスクリーンショット、または画像変換サイトでPNG化 -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="42%" r="70%">
+      <stop offset="0%" stop-color="#2a2450"/>
+      <stop offset="60%" stop-color="#16162a"/>
+      <stop offset="100%" stop-color="#0d0d18"/>
+    </radialGradient>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="6" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <rect width="512" height="512" rx="72" fill="url(#bg)"/>
+
+  <!-- 魔法陣(外周) -->
+  <circle cx="256" cy="256" r="182" fill="none" stroke="#4a3f7a" stroke-width="3" opacity="0.8"/>
+  <circle cx="256" cy="256" r="150" fill="none" stroke="#6a5aa8" stroke-width="2" opacity="0.6"/>
+
+  <!-- 8エレメントの光点(火・水・風・地・雷・氷・光・闇) -->
+  <g filter="url(#glow)">
+    <circle cx="256" cy="74"  r="15" fill="#ff6644"/>
+    <circle cx="385" cy="127" r="15" fill="#44aaff"/>
+    <circle cx="438" cy="256" r="15" fill="#88ffaa"/>
+    <circle cx="385" cy="385" r="15" fill="#cc9955"/>
+    <circle cx="256" cy="438" r="15" fill="#ffdd44"/>
+    <circle cx="127" cy="385" r="15" fill="#aaeeff"/>
+    <circle cx="74"  cy="256" r="15" fill="#ffffcc"/>
+    <circle cx="127" cy="127" r="15" fill="#aa66ee"/>
+  </g>
+
+  <!-- 光点を結ぶ八芒星 -->
+  <path d="M256 74 L438 256 L256 438 L74 256 Z" fill="none" stroke="#8877cc" stroke-width="2" opacity="0.45"/>
+  <path d="M385 127 L385 385 L127 385 L127 127 Z" fill="none" stroke="#8877cc" stroke-width="2" opacity="0.45"/>
+
+  <!-- 中央の「魔」 -->
+  <text x="256" y="258" text-anchor="middle" dominant-baseline="central"
+        font-family="Yu Mincho, Hiragino Mincho ProN, serif" font-size="200"
+        fill="#f0e6ff" filter="url(#glow)">魔</text>
+
+  <!-- 下部の作品名 -->
+  <text x="256" y="470" text-anchor="middle"
+        font-family="Yu Gothic, Meiryo, sans-serif" font-size="34" font-weight="bold"
+        fill="#ccbbff" letter-spacing="6">魔導研究記</text>
+</svg>
