@@ -94,6 +94,18 @@ export function logConnection(where: string, name: string, ip: string): void {
   })();
 }
 
+// そのニックネームが最初に接続してきたときの記録(IP・地域・回線)を返す。
+// Discordの在室レポートで「誰がどこから繋いでいるか」を出すのに使う。
+export function connInfoOf(name: string): ConnEntry | undefined {
+  const key = name.trim();
+  if (!key) return undefined;
+  // recent は新しい順なので、末尾から探すと「最初の接続」になる
+  for (let i = recent.length - 1; i >= 0; i--) {
+    if (recent[i].name === key) return recent[i];
+  }
+  return undefined;
+}
+
 export async function recentConnections(n: number): Promise<ConnEntry[]> {
   if (!persistent) return recent.slice(0, n);
   try {

@@ -1,10 +1,14 @@
 // Discordへの定期通知
 //
+// レポートにはニックネームに加えてIP・推定地域・回線事業者を載せる。
+// ※IPは個人情報になり得るので、送信先は運営者だけが見られる非公開チャンネルにすること。
+//
 // 環境変数:
 //   DISCORD_WEBHOOK_URL   … 送信先のWebhook URL(未設定なら通知しない)
 //   DISCORD_INTERVAL_MIN  … 送信間隔(分)。既定30
 //   DISCORD_SEND_EMPTY    … "1" なら誰もいなくても送る(既定は送らない)
 
+import { connInfoOf } from './connlog';
 import { presenceSnapshot, uniqueNames } from './presence';
 
 const WEBHOOK = process.env.DISCORD_WEBHOOK_URL;
@@ -33,7 +37,8 @@ async function post(content: string): Promise<void> {
   }
 }
 
-function buildReport(onlineCount: number): string {
+// レポート本文を組み立てる(動作確認用にexport)
+export function buildReport(onlineCount: number): string {
   const rooms = presenceSnapshot();
   const names = uniqueNames();
   const now = new Date().toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' });
@@ -41,8 +46,21 @@ function buildReport(onlineCount: number): string {
   const lines: string[] = [
     `**【まどけん】在室レポート** (${now})`,
     `プレイ中(ページを開いている人): **${onlineCount}人**`,
-    `オンライン接続中: **${names.length}人**${names.length > 0 ? ` — ${names.join('、')}` : ''}`,
+    `オンライン接続中: **${names.length}人**`,
   ];
+
+  // 誰がどこから繋いでいるか(最初の接続時に記録したIP・地域・回線)
+  for (const name of names) {
+    const info = connInfoOf(name);
+    if (!info) {
+      lines.push(`・**${name}** — 接続情報なし(サーバー再起動前の接続)`);
+      continue;
+    }
+    const at = new Date(info.at).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' });
+    lines.push(
+      `・**${name}** — \`${info.ip}\` (${info.region} / ${info.isp}) 初回接続 ${at}`,
+    );
+  }
 
   if (rooms.length === 0) {
     lines.push('部屋: なし');
