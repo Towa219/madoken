@@ -6,6 +6,7 @@
 import {
   NICK_MAX_FULL, NICK_MAX_WIDTH, normalizeNickname, validateNickname,
 } from '../shared/nickname';
+import { parseTransferCode, pullCloudSave } from './cloudsave';
 import { notify, state } from './state';
 
 const $ = <T extends HTMLElement = HTMLElement>(sel: string) =>
@@ -69,10 +70,37 @@ export async function waitForServer(): Promise<boolean> {
   return false;
 }
 
-// ---- 初回のニックネーム登録 ----
+// ---- 初回の登録画面(新規で始める / 別端末から引き継ぐ) ----
 
 let welcomeWired = false;
 let welcomeDone: () => void = () => { /* 差し替えられる */ };
+
+// 入力欄とメッセージを初期状態に戻す(初期化した直後にも使う)
+function resetWelcome(): void {
+  $<HTMLInputElement>('#welcome-nick').value = '';
+  $<HTMLInputElement>('#welcome-code').value = '';
+  $('#welcome-msg').textContent = '';
+  $<HTMLButtonElement>('#btn-welcome-ok').disabled = false;
+  $<HTMLButtonElement>('#btn-welcome-transfer').disabled = false;
+  showWelcomeMode('new');
+}
+
+// 「はじめて遊ぶ」と「データを引き継ぐ」の切り替え
+function showWelcomeMode(mode: 'new' | 'transfer'): void {
+  const isNew = mode === 'new';
+  $('#welcome-new').classList.toggle('hidden', !isNew);
+  $('#welcome-transfer').classList.toggle('hidden', isNew);
+  $('#wt-new').classList.toggle('active', isNew);
+  $('#wt-transfer').classList.toggle('active', !isNew);
+  $('#welcome-msg').textContent = '';
+  $<HTMLInputElement>(isNew ? '#welcome-nick' : '#welcome-code').focus();
+}
+
+function setWelcomeMsg(text: string, isError: boolean): void {
+  const msg = $('#welcome-msg');
+  msg.style.color = isError ? '#ff9977' : '#88bbaa';
+  msg.textContent = text;
+}
 
 export function initWelcome(onDone: () => void): void {
   const overlay = $('#welcome-overlay');
@@ -85,10 +113,7 @@ export function initWelcome(onDone: () => void): void {
   if (welcomeWired) {
     // 2回目以降(初期化した後など)は表示を戻すだけ
     overlay.classList.remove('hidden');
-    $<HTMLInputElement>('#welcome-nick').value = '';
-    $('#welcome-msg').textContent = '';
-    $<HTMLButtonElement>('#btn-welcome-ok').disabled = false;
-    $<HTMLInputElement>('#welcome-nick').focus();
+    resetWelcome();
     return;
   }
   welcomeWired = true;
@@ -99,21 +124,22 @@ export function initWelcome(onDone: () => void): void {
     + '他の人が使っている名前は登録できません。';
   overlay.classList.remove('hidden');
 
+  $('#wt-new').addEventListener('click', () => showWelcomeMode('new'));
+  $('#wt-transfer').addEventListener('click', () => showWelcomeMode('transfer'));
+
+  // --- 新しく始める ---
   const input = $<HTMLInputElement>('#welcome-nick');
   const btn = $<HTMLButtonElement>('#btn-welcome-ok');
-  const msg = $('#welcome-msg');
-  input.focus();
 
-  const submit = async (): Promise<void> => {
+  const submitNew = async (): Promise<void> => {
     const name = normalizeNickname(input.value);
     const err = validateNickname(name);
     if (err) {
-      msg.textContent = err;
+      setWelcomeMsg(err, true);
       return;
     }
     btn.disabled = true;
-    msg.style.color = '#88bbaa';
-    msg.textContent = '確認中…';
+    setWelcomeMsg('確認中…', false);
     try {
       const res = await fetch(`${apiBase()}/api/name/claim`, {
         method: 'POST',
@@ -122,14 +148,12 @@ export function initWelcome(onDone: () => void): void {
       });
       const data = await res.json() as { ok: boolean; error?: string };
       if (!data.ok) {
-        msg.style.color = '#ff9977';
-        msg.textContent = data.error ?? 'その名前は使えません。';
+        setWelcomeMsg(data.error ?? 'その名前は使えません。', true);
         btn.disabled = false;
         return;
       }
     } catch {
-      msg.style.color = '#ff9977';
-      msg.textContent = 'サーバーに接続できません。少し待ってからもう一度。';
+      setWelcomeMsg('サーバーに接続できません。少し待ってからもう一度。', true);
       btn.disabled = false;
       return;
     }
@@ -139,8 +163,38 @@ export function initWelcome(onDone: () => void): void {
     welcomeDone();
   };
 
-  btn.addEventListener('click', () => void submit());
+  btn.addEventListener('click', () => void submitNew());
   input.addEventListener('keydown', ev => {
-    if (ev.key === 'Enter') void submit();
+    if (ev.key === 'Enter') void submitNew();
   });
+
+  // --- 別の端末から引き継ぐ ---
+  // この端末にはまだ何も無いので、設定タブの復元と違って確認は挟まない。
+  const codeInput = $<HTMLInputElement>('#welcome-code');
+  const tBtn = $<HTMLButtonElement>('#btn-welcome-transfer');
+
+  const submitTransfer = async (): Promise<void> => {
+    const { name, token, error } = parseTransferCode(codeInput.value);
+    if (error) {
+      setWelcomeMsg(error, true);
+      return;
+    }
+    tBtn.disabled = true;
+    setWelcomeMsg('引き継ぎ中…', false);
+    const err = await pullCloudSave(name, token);
+    if (err) {
+      setWelcomeMsg(err, true);
+      tBtn.disabled = false;
+      return;
+    }
+    overlay.classList.add('hidden');
+    welcomeDone();
+  };
+
+  tBtn.addEventListener('click', () => void submitTransfer());
+  codeInput.addEventListener('keydown', ev => {
+    if (ev.key === 'Enter') void submitTransfer();
+  });
+
+  input.focus();
 }

@@ -230,6 +230,17 @@ button.tab.active { background: #5533aa; border-color: #7755cc; }
 .welcome-box p { font-size: 12px; color: #aaaacc; line-height: 1.7; margin: 6px 0; }
 .welcome-box input { width: 100%; box-sizing: border-box; margin: 10px 0; }
 #welcome-msg { color: #ff9977; font-size: 12px; min-height: 16px; }
+#welcome-new.hidden, #welcome-transfer.hidden { display: none; }
+
+/* 「はじめて遊ぶ」と「データを引き継ぐ」の切り替え */
+#welcome-tabs { display: flex; gap: 8px; margin: 12px 0 14px; }
+#welcome-tabs button {
+  flex: 1; background: #1c1c34; border: 1px solid #3a3060; color: #9999bb;
+  font-size: 13px; padding: 9px 6px;
+}
+#welcome-tabs button.active {
+  background: #2c2450; border-color: #7755cc; color: #ddccff;
+}
 
 /* 設定画面 */
 #reset-panel { margin-top: 12px; }
