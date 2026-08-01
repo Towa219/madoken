@@ -164,7 +164,10 @@ export class CoopRoom extends Room<CoopState> {
   private startFight(): void {
     this.state.phase = 'fight';
     this.lock(); // 開始後の途中参加は不可
+    this.spawnEnemies();
+  }
 
+  private spawnEnemies(): void {
     const stage = this.state.stage;
     let defs: EnemyDef[];
     if (stage % 5 === 0) {
@@ -221,14 +224,14 @@ export class CoopRoom extends Room<CoopState> {
   // ---- メインループ(20Hz) ----
 
   private update(dt: number): void {
-    if (this.state.phase !== 'fight') return;
-
-    // 予約イベント(弾の着弾など)
+    // 予約イベント(弾の着弾・次ステージ移行)はクリア演出中も進める
     this.pending = this.pending.filter(ev => {
       ev.t -= dt;
       if (ev.t <= 0) { ev.fn(); return false; }
       return true;
     });
+
+    if (this.state.phase !== 'fight') return;
 
     // プレイヤー
     this.state.players.forEach((p, sid) => {
@@ -453,16 +456,15 @@ export class CoopRoom extends Room<CoopState> {
   // ---- 終了 ----
 
   private endFight(win: boolean): void {
-    this.ended = true;
-    this.state.phase = 'done';
     const stage = this.state.stage;
-    const rp = win
-      ? 12 + 6 * stage + (stage % 5 === 0 ? 30 : 0)
-      : 4 + 2 * stage;
+    this.pending = []; // 飛んでいる弾・攻撃予約は破棄
 
-    for (const client of this.clients) {
-      const drops: ElementId[] = [];
-      if (win) {
+    if (win) {
+      // ステージクリア: 報酬を配って4秒後に自動で次ステージへ
+      this.state.phase = 'clear';
+      const rp = 12 + 6 * stage + (stage % 5 === 0 ? 30 : 0);
+      for (const client of this.clients) {
+        const drops: ElementId[] = [];
         for (const ei of this.eInternals) {
           const count = 1 + (Math.random() < 0.5 ? 1 : 0);
           for (let i = 0; i < count; i++) {
@@ -470,8 +472,48 @@ export class CoopRoom extends Room<CoopState> {
           }
         }
         if (stage % 5 === 0) drops.push('light', 'dark');
+        client.send('stageclear', { stage, drops, rp });
       }
-      client.send('result', { win, drops, rp });
+      this.pending.push({ t: 4, fn: () => this.nextStage() });
+      return;
     }
+
+    // 全滅: ここで終了
+    this.ended = true;
+    this.state.phase = 'done';
+    const rp = 4 + 2 * stage;
+    for (const client of this.clients) {
+      client.send('result', { win: false, drops: [], rp });
+    }
+  }
+
+  // 次ステージへ(生存者25%回復・死亡者は50%で復活・MP全快)
+  private nextStage(): void {
+    if (this.ended || this.clients.length === 0) return;
+    this.state.stage += 1;
+    this.setMetadata({ stage: this.state.stage });
+
+    this.state.players.forEach((p, sid) => {
+      const internal = this.internals.get(sid);
+      if (internal) {
+        internal.cooldowns = internal.cooldowns.map(() => 0);
+        internal.shieldT = 0;
+      }
+      if (!p.alive) {
+        p.alive = true;
+        p.hp = Math.round(p.maxHp * 0.5);
+      } else {
+        p.hp = Math.min(p.maxHp, p.hp + Math.round(p.maxHp * 0.25));
+      }
+      p.mp = p.maxMp;
+      p.shield = 0;
+      p.castingIdx = -1;
+      p.castT = 0;
+    });
+
+    this.state.enemies.splice(0, this.state.enemies.length);
+    this.eInternals = [];
+    this.spawnEnemies();
+    this.state.phase = 'fight';
   }
 }

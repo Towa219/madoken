@@ -59,16 +59,25 @@ async function main(): Promise<void> {
   const roomB: Room = await clientB.joinById(available[0].roomId, { name: 'テストB', spells: spellsB });
   ok('Bが部屋に参加');
 
-  const events = { hits: 0, projs: 0, resultA: null as null | { win: boolean; rp: number; drops: string[] }, resultB: null as null | { win: boolean } };
+  const events = {
+    hits: 0, projs: 0,
+    clearA: null as null | { stage: number; rp: number; drops: string[] },
+    clearB: null as null | { stage: number },
+    resultA: null as null | { win: boolean; rp: number; drops: string[] },
+  };
   for (const room of [roomA, roomB]) {
     room.onMessage('hit', () => { events.hits++; });
     room.onMessage('proj', () => { events.projs++; });
     room.onMessage('eproj', () => { /* 敵の攻撃 */ });
     room.onMessage('phit', () => { /* 被弾 */ });
     room.onMessage('heal', () => { /* 回復 */ });
+    room.onMessage('shieldup', () => { /* 護盾 */ });
+    room.onMessage('shieldhit', () => { /* 護盾被弾 */ });
   }
+  roomA.onMessage('stageclear', (m: { stage: number; rp: number; drops: string[] }) => { events.clearA = m; });
+  roomB.onMessage('stageclear', (m: { stage: number }) => { events.clearB = m; });
   roomA.onMessage('result', (m: { win: boolean; rp: number; drops: string[] }) => { events.resultA = m; });
-  roomB.onMessage('result', (m: { win: boolean }) => { events.resultB = m; });
+  roomB.onMessage('result', () => { /* 全滅時 */ });
 
   // ---- 3. 準備完了→戦闘開始 ----
   await waitFor(() => {
@@ -104,14 +113,27 @@ async function main(): Promise<void> {
     }
   }, 400);
 
-  await waitFor(() => events.resultA !== null && events.resultB !== null, '決着(result受信)', 60_000);
-  clearInterval(caster);
+  await waitFor(() => events.clearA !== null && events.clearB !== null, 'ステージ1クリア(stageclear受信)', 60_000);
 
   if (events.projs === 0) fail('弾イベント(proj)が飛んでいない');
   if (events.hits === 0) fail('ダメージイベント(hit)が発生していない');
   ok(`戦闘ログ: proj=${events.projs}回, hit=${events.hits}回`);
-  const rA = events.resultA!;
-  ok(`決着: win=${rA.win}, 研究P+${rA.rp}, ドロップ=[${rA.drops.join(',')}] を両者が受信`);
+  const cA = events.clearA!;
+  ok(`ステージ${cA.stage}クリア: 研究P+${cA.rp}, ドロップ=[${cA.drops.join(',')}] を両者が受信`);
+
+  // 自動で次ステージへ進むことを確認
+  await waitFor(() => {
+    const st: any = roomA.state;
+    return st?.stage === 2 && st?.phase === 'fight' && st?.enemies?.length > 0;
+  }, '次ステージ自動開始(stage=2, fight)', 15_000);
+  clearInterval(caster);
+  {
+    const st: any = roomA.state;
+    let allAlive = true;
+    st.players.forEach((p: any) => { if (!p.alive) allAlive = false; });
+    if (!allAlive) fail('次ステージ開始時に復活していないプレイヤーがいる');
+  }
+  ok('ステージ2が自動開始され、全員生存状態で継続');
 
   // ---- 5. 後片付け ----
   await roomA.leave();

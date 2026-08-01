@@ -8,6 +8,7 @@ import {
 import type { AffinityGrade, EnemyDef } from '../shared/data';
 import { makeEnemySprite, makePlayerSprite } from './battle';
 import { spellCooldown } from '../shared/spellcraft';
+import { showToast } from './lab';
 import { addElements, equippedSpells, notify, state } from './state';
 import type { ElementId, Spell } from '../shared/types';
 
@@ -280,6 +281,19 @@ export class CoopView {
       this.addPopup(PLAYER_XS[p.slot] ?? 110, GROUND_Y - 115, `盾-${m.amount}`, 0x88ccff);
     });
 
+    // ステージクリア: 報酬を受け取り、自動で次ステージへ(サーバー主導)
+    room.onMessage('stageclear', (m: { stage: number; drops: ElementId[]; rp: number }) => {
+      addElements(m.drops);
+      state.researchP += m.rp;
+      state.bestStage = Math.max(state.bestStage, m.stage);
+      state.maxStage = Math.max(state.maxStage, m.stage + 1);
+      notify();
+      const dropStr = m.drops.length > 0
+        ? m.drops.map(d => ELEMENTS[d].name).join('・')
+        : 'なし';
+      showToast(`⚔ ステージ${m.stage}クリア! 研究P+${m.rp} 素材:${dropStr} — まもなく次のステージ`);
+    });
+
     room.onMessage('result', (m: { win: boolean; drops: ElementId[]; rp: number }) => {
       this.showResult(m);
     });
@@ -310,7 +324,7 @@ export class CoopView {
     overlay.innerHTML =
       `<div class="result-box">` +
       `<h2 class="${m.win ? 'win' : 'lose'}">${m.win ? '共闘勝利!' : '全滅…'}</h2>` +
-      `<div>ステージ ${stage}</div>` +
+      `<div>${m.win ? `ステージ ${stage}` : `ステージ ${stage} まで到達`}</div>` +
       `<div class="drops">獲得エレメント: ${dropChips}</div>` +
       `<div style="color:#ffdd66">研究P +${m.rp}</div>` +
       `<div style="margin-top:16px">` +
@@ -411,6 +425,14 @@ export class CoopView {
   private syncEnemies(st: any): void {
     const enemies: any[] = [];
     st.enemies.forEach((e: any) => enemies.push(e));
+    // ステージ切替で敵が入れ替わったら表示をリセット
+    if (enemies.length < this.eViews.length) {
+      for (const v of this.eViews) v.cont.destroy({ children: true });
+      this.eViews = [];
+      this.statusEls = [];
+      this.statusBuilt = false;
+      this.$('#coop-enemy-status').innerHTML = '';
+    }
     while (this.eViews.length < enemies.length) {
       const e = enemies[this.eViews.length];
       const def = DEF_BY_ID[e.defId] ?? ENEMIES[0];
