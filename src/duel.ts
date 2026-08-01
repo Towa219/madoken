@@ -14,7 +14,7 @@ const GROUND_Y = 460;
 const XS = [140, 820];
 
 interface Anim {
-  g: Graphics; x0: number; y0: number; x1: number; y1: number;
+  g: Container; x0: number; y0: number; x1: number; y1: number;
   t: number; dur: number; attr: ElementId; r: number; trailT: number;
 }
 interface Popup { t: Text; vy: number; life: number; }

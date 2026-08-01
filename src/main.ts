@@ -13,6 +13,7 @@ import {
 import { initWelcome, waitForServer } from './boot';
 import { renderTips } from './tips';
 import { initShare } from './share';
+import { loadArtwork } from './artwork';
 import {
   combatPower, spellDisplayName, spellMagicValue, statsSummary,
 } from '../shared/spellcraft';
@@ -186,6 +187,7 @@ function main(): void {
   // サーバーの起床を待ちつつ、初回なら名前を決めてもらう。
   // (名前が決まってからオンラインを初期化 = そのまま自動接続される)
   renderTips();
+  void loadArtwork(); // public/img/ に画像があれば読み込む(無ければ図形描画のまま)
   let onlineReady = false;
   const startOnline = (): void => {
     renderNickField();

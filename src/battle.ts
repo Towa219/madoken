@@ -1,15 +1,17 @@
 // 戦闘シーン(PixiJS・横視点・セミリアルタイム詠唱+クールダウン制)
 //
-// ※キャラの見た目は makePlayerSprite / makeEnemySprite に分離してある。
-//   将来 assets/ の画像(Sprite)に差し替える場合はこの2関数だけ変更すればよい。
+// ※キャラの見た目は makePlayerSprite / makeEnemySprite / makeProjectileGfx に分離。
+//   public/img/ に画像を置くと自動でそちらが使われる(src/artwork.ts を参照)。
 
-import { Application, Container, Graphics, Text } from 'pixi.js';
+import { Application, Container, Graphics, Sprite, Text } from 'pixi.js';
 import {
   affinityMul, affinitySymbol, battleRP, bossForStage, ELEMENTS, ELEMENT_ORDER,
   ENEMY_ATK_MUL, ENEMY_HP_MUL, enemyTopY, isBossStage, pickEnemiesForStage,
   PLAYER_MAX_HP, PLAYER_MAX_MP, stageAtkMul, stageHpMul,
 } from '../shared/data';
+import { SHAPE_TOP } from '../shared/data';
 import type { AffinityGrade, EnemyDef } from '../shared/data';
+import { backgroundArt, enemyArt, playerArt, projectileArt } from './artwork';
 import { spellCooldown, spellDisplayName } from '../shared/spellcraft';
 import type { BattleResult, ElementId, Spell, SpellStats } from '../shared/types';
 
@@ -24,7 +26,7 @@ interface EnemyUnit {
   maxHp: number;
   x: number;
   cont: Container;
-  body: Graphics;
+  body: Graphics | Sprite;
   hpBar: Graphics;
   atkTimer: number;
   interval: number;
@@ -41,7 +43,7 @@ interface EnemyUnit {
 }
 
 interface Proj {
-  g: Graphics;
+  g: Container;
   x: number;
   y: number;
   speed: number;      // 右向き正
@@ -227,19 +229,23 @@ export class BattleManager {
     app.stage.addChild(root);
     this.root = root;
 
-    // 背景
+    // 背景(画像素材があればそれを敷く)
+    const bgArt = backgroundArt(W, H);
+    if (bgArt) root.addChild(bgArt);
     const bg = new Graphics();
-    bg.rect(0, 0, W, H).fill(0x0b0b18);
-    bg.circle(780, 90, 42).fill({ color: 0xddddff, alpha: 0.85 }); // 月
-    bg.circle(766, 82, 34).fill(0x0b0b18);                          // 三日月に削る
-    for (let i = 0; i < 40; i++) {                                  // 星
-      const sx = (i * 137 + 61) % W;
-      const sy = (i * 89 + 23) % (GROUND_Y - 120);
-      bg.circle(sx, sy, (i % 3 === 0) ? 1.6 : 1).fill({ color: 0xffffff, alpha: 0.5 });
+    if (!bgArt) {
+      bg.rect(0, 0, W, H).fill(0x0b0b18);
+      bg.circle(780, 90, 42).fill({ color: 0xddddff, alpha: 0.85 }); // 月
+      bg.circle(766, 82, 34).fill(0x0b0b18);                          // 三日月に削る
+      for (let i = 0; i < 40; i++) {                                  // 星
+        const sx = (i * 137 + 61) % W;
+        const sy = (i * 89 + 23) % (GROUND_Y - 120);
+        bg.circle(sx, sy, (i % 3 === 0) ? 1.6 : 1).fill({ color: 0xffffff, alpha: 0.5 });
+      }
+      bg.rect(0, GROUND_Y, W, H - GROUND_Y).fill(0x1c1c30);           // 地面
+      bg.rect(0, GROUND_Y, W, 4).fill(0x33335a);
+      root.addChild(bg);
     }
-    bg.rect(0, GROUND_Y, W, H - GROUND_Y).fill(0x1c1c30);           // 地面
-    bg.rect(0, GROUND_Y, W, 4).fill(0x33335a);
-    root.addChild(bg);
 
     this.entityLayer = new Container();
     this.projLayer = new Container();
@@ -901,10 +907,13 @@ export class BattleManager {
 }
 
 // 属性ごとに形の違う弾を生成(プレイヤー・敵共用)
-export function makeProjectileGfx(attr: ElementId, power: number): Graphics {
+export function makeProjectileGfx(attr: ElementId, power: number): Container {
+  const r = 5 + Math.min(10, power / 25);
+  // 画像素材があればそれを使う
+  const art = projectileArt(attr, (r + 6) * 2);
+  if (art) return art;
   const g = new Graphics();
   const color = ELEMENTS[attr].color;
-  const r = 5 + Math.min(10, power / 25);
   switch (attr) {
     case 'fire': // 火球(芯が白熱)
       g.circle(0, 0, r + 5).fill({ color, alpha: 0.25 });
@@ -952,6 +961,12 @@ export function makeProjectileGfx(attr: ElementId, power: number): Graphics {
 
 export function makePlayerSprite(): Container {
   const c = new Container();
+  // 画像素材があればそれを使う(無ければ従来の図形)
+  const art = playerArt(100);
+  if (art) {
+    c.addChild(art);
+    return c;
+  }
   const g = new Graphics();
   // ローブ
   g.poly([-20, 0, 20, 0, 7, -48, -7, -48]).fill(0x5533aa);
@@ -968,8 +983,14 @@ export function makePlayerSprite(): Container {
   return c;
 }
 
-export function makeEnemySprite(def: EnemyDef): { cont: Container; body: Graphics } {
+export function makeEnemySprite(def: EnemyDef): { cont: Container; body: Graphics | Sprite } {
   const cont = new Container();
+  // 画像素材があればそれを使う(bodyは凍結時に色を変える対象。Spriteでもtintが効く)
+  const art = enemyArt(def.shape, Math.abs(SHAPE_TOP[def.shape]) * def.size);
+  if (art) {
+    cont.addChild(art);
+    return { cont, body: art };
+  }
   const body = new Graphics();
   const c = def.color;
   switch (def.shape) {

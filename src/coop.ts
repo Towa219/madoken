@@ -1,6 +1,6 @@
 // 共闘バトル画面(サーバー状態の描画専用。判定はすべてサーバー側)
 
-import { Application, Container, Graphics, Text } from 'pixi.js';
+import { Application, Container, Graphics, Sprite, Text } from 'pixi.js';
 import type { Room } from 'colyseus.js';
 import {
   affinitySymbol, ALL_ENEMIES, ELEMENTS, ELEMENT_ORDER, enemyTopY,
@@ -21,7 +21,7 @@ const DEF_BY_ID: Record<string, EnemyDef> = {};
 for (const d of ALL_ENEMIES) DEF_BY_ID[d.id] = d;
 
 interface Anim {
-  g: Graphics;
+  g: Container;
   x0: number; y0: number; x1: number; y1: number;
   t: number; dur: number;
   attr: ElementId; r: number; trailT: number;
@@ -53,7 +53,7 @@ export class CoopView {
   private pViews = new Map<
     string, { cont: Container; nameT: Text; castT: Text; buffT: Text }
   >();
-  private eViews: { cont: Container; body: Graphics }[] = [];
+  private eViews: { cont: Container; body: Graphics | Sprite }[] = [];
   private anims: Anim[] = [];
   private popups: Popup[] = [];
   private fxs: Fx[] = [];

@@ -1,0 +1,34 @@
+{
+  "_使い方": "このファイルを manifest.json という名前でコピーし、実際に置いた画像の行だけ残す。書かなかったものは図形描画のまま。",
+
+  "player": "player.png",
+  "background": "bg/field.png",
+
+  "enemies": {
+    "blob": "enemy/blob.png",
+    "imp": "enemy/imp.png",
+    "golem": "enemy/golem.png",
+    "wisp": "enemy/wisp.png",
+    "orb": "enemy/orb.png",
+    "beast": "enemy/beast.png",
+    "bird": "enemy/bird.png",
+    "plant": "enemy/plant.png",
+    "undead": "enemy/undead.png",
+    "knight": "enemy/knight.png",
+    "serpent": "enemy/serpent.png",
+    "insect": "enemy/insect.png",
+    "eye": "enemy/eye.png",
+    "fish": "enemy/fish.png"
+  },
+
+  "projectiles": {
+    "fire": "proj/fire.png",
+    "water": "proj/water.png",
+    "wind": "proj/wind.png",
+    "earth": "proj/earth.png",
+    "thunder": "proj/thunder.png",
+    "ice": "proj/ice.png",
+    "light": "proj/light.png",
+    "dark": "proj/dark.png"
+  }
+}
