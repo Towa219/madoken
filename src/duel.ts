@@ -349,11 +349,45 @@ export class DuelView {
         nameT.anchor.set(0.5);
         nameT.position.set(0, -128);
         cont.addChild(nameT);
+        // 詠唱中の魔法名(相手にも見える)
+        const castT = new Text({
+          text: '',
+          style: { fill: 0xffdd66, fontSize: 12, fontFamily: 'Meiryo, sans-serif' },
+        });
+        castT.anchor.set(0.5);
+        castT.position.set(0, -144);
+        castT.label = 'castT';
+        cont.addChild(castT);
+        // かかっている効果
+        const buffT = new Text({
+          text: '',
+          style: { fill: 0x88ffcc, fontSize: 11, fontFamily: 'Meiryo, sans-serif' },
+        });
+        buffT.anchor.set(0.5);
+        buffT.position.set(0, -112);
+        buffT.label = 'buffT';
+        cont.addChild(buffT);
         this.entityLayer.addChild(cont);
         this.pViews.set(sid, cont);
       }
       cont.position.set(XS[p.slot] ?? 140, GROUND_Y);
       cont.alpha = p.alive ? 1 : 0.25;
+
+      const castT = cont.getChildByLabel('castT') as Text | null;
+      if (castT) {
+        castT.text = p.castingIdx >= 0 && p.castName ? `✦ ${p.castName}` : '';
+      }
+      const buffT = cont.getChildByLabel('buffT') as Text | null;
+      if (buffT) {
+        const buffs: string[] = [];
+        if (p.shield > 0) buffs.push('🛡');
+        if (p.guard > 0) buffs.push(`構え-${p.guard}%`);
+        if (p.wardPct > 0) buffs.push(`◈${p.wardPct}%`);
+        if (p.atkBoost > 0) buffs.push(`⚔+${p.atkBoost}%`);
+        if (p.vigorBonus > 0) buffs.push(`♥+${p.vigorBonus}`);
+        if (p.sealed) buffs.push('封印中');
+        buffT.text = buffs.join(' ');
+      }
     });
     for (const [sid, cont] of this.pViews) {
       if (!seen.has(sid)) { cont.destroy({ children: true }); this.pViews.delete(sid); }

@@ -41,13 +41,18 @@ class PlayerS extends Schema {
   declare ready: boolean;
   declare slot: number;
   declare castingIdx: number; // -1=非詠唱
+  declare castName: string;   // 詠唱中の魔法名(全員に見える)
+  declare wardPct: number;    // 属性耐性(%)。0=なし
+  declare atkBoost: number;   // 与ダメージ上昇(%)。0=なし
+  declare vigorBonus: number; // 最大HP上昇。0=なし
   declare castT: number;
   declare castTotal: number;
 }
 defineTypes(PlayerS, {
   name: 'string', hp: 'number', maxHp: 'number', mp: 'number', maxMp: 'number',
   shield: 'number', hate: 'number', alive: 'boolean', ready: 'boolean', slot: 'number',
-  castingIdx: 'number', castT: 'number', castTotal: 'number',
+  castingIdx: 'number', castT: 'number', castTotal: 'number', castName: 'string',
+  wardPct: 'number', atkBoost: 'number', vigorBonus: 'number',
 });
 
 class EnemyS extends Schema {
@@ -58,10 +63,14 @@ class EnemyS extends Schema {
   declare alive: boolean;
   declare x: number;
   declare frozen: boolean;
+  declare sealed: boolean;   // 封印(行動不能)
+  declare slowed: boolean;   // 鈍化
+  declare burning: boolean;  // 継続ダメージ中
 }
 defineTypes(EnemyS, {
   defId: 'string', name: 'string', hp: 'number', maxHp: 'number',
   alive: 'boolean', x: 'number', frozen: 'boolean',
+  sealed: 'boolean', slowed: 'boolean', burning: 'boolean',
 });
 
 class CoopState extends Schema {
@@ -150,7 +159,8 @@ export class CoopRoom extends Room<CoopState> {
     p.shield = 0;
     p.hate = 0;
     p.alive = true; p.ready = false;
-    p.castingIdx = -1; p.castT = 0; p.castTotal = 0;
+    p.castingIdx = -1; p.castT = 0; p.castTotal = 0; p.castName = '';
+    p.wardPct = 0; p.atkBoost = 0; p.vigorBonus = 0;
 
     const used = new Set<number>();
     this.state.players.forEach(q => used.add(q.slot));
@@ -299,6 +309,7 @@ export class CoopRoom extends Room<CoopState> {
       e.alive = true;
       e.x = xs[i];
       e.frozen = false;
+      e.sealed = false; e.slowed = false; e.burning = false;
       this.state.enemies.push(e);
       this.eInternals.push({
         def, atkTimer: Math.random() * def.interval * 0.7,
@@ -323,6 +334,7 @@ export class CoopRoom extends Room<CoopState> {
 
     p.mp -= sp.stats.manaCost;
     p.castingIdx = idx;
+    p.castName = sp.name;
     p.castT = 0;
     p.castTotal = sp.stats.castTime;
   }
@@ -370,12 +382,18 @@ export class CoopRoom extends Room<CoopState> {
       // ヘイト減衰(毎秒5%)と同期
       internal.hate = Math.max(0, internal.hate * (1 - 0.05 * dt));
       p.hate = Math.round(internal.hate);
+
+      // かかっている効果を全員に見せる(0なら効果なし)
+      p.wardPct = internal.wardT > 0 ? Math.round(internal.wardPct) : 0;
+      p.atkBoost = internal.atkBoostT > 0 ? Math.round(internal.atkBoost) : 0;
+      p.vigorBonus = internal.vigorT > 0 ? Math.round(internal.vigorBonus) : 0;
       if (p.castingIdx >= 0) {
         p.castT += dt;
         const sp = internal.spells[p.castingIdx];
         if (sp && p.castT >= sp.stats.castTime) {
           const idx = p.castingIdx;
           p.castingIdx = -1;
+          p.castName = '';
           p.castT = 0;
           internal.cooldowns[idx] = spellCooldown(sp.stats);
           this.resolveCast(sid, p, sp.stats);
@@ -387,6 +405,11 @@ export class CoopRoom extends Room<CoopState> {
     this.state.enemies.forEach((e, i) => {
       if (!e.alive) return;
       const ei = this.eInternals[i];
+
+      // 状態異常を全員に見せる(誰がかけたものでも全員の画面に出る)
+      e.sealed = ei.sealedT > 0;
+      e.slowed = ei.slowT > 0;
+      e.burning = ei.dotT > 0;
 
       // 継続ダメージ(1秒ごと)
       if (ei.dotT > 0) {
@@ -756,6 +779,7 @@ export class CoopRoom extends Room<CoopState> {
     if (p.hp <= 0) {
       p.alive = false;
       p.castingIdx = -1;
+      p.castName = '';
     }
   }
 
@@ -823,6 +847,7 @@ export class CoopRoom extends Room<CoopState> {
       p.mp = p.maxMp;
       p.shield = 0;
       p.castingIdx = -1;
+      p.castName = '';
       p.castT = 0;
     });
 

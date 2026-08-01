@@ -96,19 +96,21 @@ export const RECIPES: RecipeDef[] = [
     check: c => n(c, 'earth') >= 2 && n(c, 'ice') >= 1,
     apply: s => { s.kind = 'shield'; },
   },
-  {
-    id: 'seiiki', name: '聖域系', spellNoun: '聖域盾',
-    hint: '守りの大地に光を灯すと、盾は皆を包む (土×2+氷×1+光×1以上)',
-    desc: 'パーティ全員に護盾を張る(各自に耐久60%・持続10秒)。ソロでは通常の護盾。',
-    check: c => n(c, 'earth') >= 2 && n(c, 'ice') >= 1 && n(c, 'light') >= 1,
-    apply: s => { s.kind = 'shield'; s.targetAll = true; },
-  },
+  // ※ 並び順は「条件がゆるいものを先に」。後のものが上書きするため、
+  //   条件の厳しい(素材の多い)系統を後に置かないと、そちらが成立しなくなる。
   {
     id: 'katsuryoku', name: '活力系', spellNoun: '活力',
     hint: '大地の力を光が引き出すとき、体は強くなる (土×2+光×1以上)',
     desc: '最大HPを一時的に増やし、その分だけHPも回復する(25秒・自分)。',
     check: c => n(c, 'earth') >= 2 && n(c, 'light') >= 1,
     apply: s => { s.kind = 'vigor'; },
+  },
+  {
+    id: 'seiiki', name: '聖域系', spellNoun: '聖域盾',
+    hint: '守りの大地に光を灯すと、盾は皆を包む (土×2+氷×1+光×1以上)',
+    desc: 'パーティ全員に護盾を張る(各自に耐久60%・持続10秒)。ソロでは通常の護盾。',
+    check: c => n(c, 'earth') >= 2 && n(c, 'ice') >= 1 && n(c, 'light') >= 1,
+    apply: s => { s.kind = 'shield'; s.targetAll = true; },
   },
   {
     id: 'koubu', name: '鼓舞系', spellNoun: '鼓舞',

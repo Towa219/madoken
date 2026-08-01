@@ -35,6 +35,11 @@ class DuelPlayer extends Schema {
   declare ready: boolean;
   declare slot: number;
   declare castingIdx: number;
+  declare castName: string;   // 詠唱中の魔法名(相手にも見える)
+  declare wardPct: number;    // 属性耐性(%)。0=なし
+  declare atkBoost: number;   // 与ダメージ上昇(%)。0=なし
+  declare vigorBonus: number; // 最大HP上昇。0=なし
+  declare sealed: boolean;    // 封印されているか
   declare castT: number;
   declare castTotal: number;
 }
@@ -42,6 +47,8 @@ defineTypes(DuelPlayer, {
   name: 'string', hp: 'number', maxHp: 'number', mp: 'number', maxMp: 'number',
   shield: 'number', guard: 'number', alive: 'boolean', ready: 'boolean',
   slot: 'number', castingIdx: 'number', castT: 'number', castTotal: 'number',
+  castName: 'string', wardPct: 'number', atkBoost: 'number',
+  vigorBonus: 'number', sealed: 'boolean',
 });
 
 class DuelState extends Schema {
@@ -124,7 +131,8 @@ export class DuelRoom extends Room<DuelState> {
     p.maxMp = DUEL_MAX_MP; p.mp = DUEL_MAX_MP;
     p.shield = 0; p.guard = 0;
     p.alive = true; p.ready = false;
-    p.castingIdx = -1; p.castT = 0; p.castTotal = 0;
+    p.castingIdx = -1; p.castT = 0; p.castTotal = 0; p.castName = '';
+    p.wardPct = 0; p.atkBoost = 0; p.vigorBonus = 0; p.sealed = false;
 
     const used = new Set<number>();
     this.state.players.forEach(q => used.add(q.slot));
@@ -205,6 +213,7 @@ export class DuelRoom extends Room<DuelState> {
     if (p.mp < sp.stats.manaCost) return;
     p.mp -= sp.stats.manaCost;
     p.castingIdx = idx;
+    p.castName = sp.name;
     p.castT = 0;
     p.castTotal = sp.stats.castTime;
   }
@@ -264,8 +273,13 @@ export class DuelRoom extends Room<DuelState> {
       }
       if (internal.sealedT > 0) {
         internal.sealedT -= dt;
-        if (internal.sealedT > 0) p.castingIdx = -1;
+        if (internal.sealedT > 0) { p.castingIdx = -1; p.castName = ''; }
       }
+      // かかっている効果を相手にも見せる
+      p.wardPct = internal.wardT > 0 ? Math.round(internal.wardPct) : 0;
+      p.atkBoost = internal.atkBoostT > 0 ? Math.round(internal.atkBoost) : 0;
+      p.vigorBonus = internal.vigorT > 0 ? Math.round(internal.vigorBonus) : 0;
+      p.sealed = internal.sealedT > 0;
       // 継続ダメージ(1秒ごと)
       if (internal.dotT > 0) {
         internal.dotT -= dt;
@@ -284,6 +298,7 @@ export class DuelRoom extends Room<DuelState> {
         if (sp && p.castT >= sp.stats.castTime) {
           const idx = p.castingIdx;
           p.castingIdx = -1;
+          p.castName = '';
           p.castT = 0;
           internal.cooldowns[idx] = spellCooldown(sp.stats);
           this.resolveCast(sid, p, sp.stats);
@@ -329,6 +344,7 @@ export class DuelRoom extends Room<DuelState> {
         if (fi) {
           fi.sealedT = Math.max(fi.sealedT, st.sealTime * 0.6); // 対人では短め
           foe0.p.castingIdx = -1;
+          foe0.p.castName = '';
           this.broadcast('dseal', { sid: foe0.sid, sec: fi.sealedT });
         }
       }
@@ -437,6 +453,7 @@ export class DuelRoom extends Room<DuelState> {
     if (p.hp <= 0) {
       p.alive = false;
       p.castingIdx = -1;
+      p.castName = '';
     }
   }
 

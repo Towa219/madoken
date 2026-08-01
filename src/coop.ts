@@ -50,7 +50,9 @@ export class CoopView {
   private onExit: (() => void) | null = null;
   private exited = true;
 
-  private pViews = new Map<string, { cont: Container; nameT: Text }>();
+  private pViews = new Map<
+    string, { cont: Container; nameT: Text; castT: Text; buffT: Text }
+  >();
   private eViews: { cont: Container; body: Graphics }[] = [];
   private anims: Anim[] = [];
   private popups: Popup[] = [];
@@ -517,12 +519,38 @@ export class CoopView {
         nameT.anchor.set(0.5);
         nameT.position.set(0, -118);
         cont.addChild(nameT);
+        // 詠唱中の魔法名(味方全員に見える)
+        const castT = new Text({
+          text: '',
+          style: { fill: 0xffdd66, fontSize: 11, fontFamily: 'Meiryo, sans-serif' },
+        });
+        castT.anchor.set(0.5);
+        castT.position.set(0, -132);
+        cont.addChild(castT);
+        // かかっている効果(護盾・耐性・攻撃上昇・HP上昇)
+        const buffT = new Text({
+          text: '',
+          style: { fill: 0x88ffcc, fontSize: 10, fontFamily: 'Meiryo, sans-serif' },
+        });
+        buffT.anchor.set(0.5);
+        buffT.position.set(0, -105);
+        cont.addChild(buffT);
         this.entityLayer.addChild(cont);
-        v = { cont, nameT };
+        v = { cont, nameT, castT, buffT };
         this.pViews.set(sid, v);
       }
       v.cont.position.set(PLAYER_XS[p.slot] ?? 110, GROUND_Y);
       v.cont.alpha = p.alive ? 1 : 0.25;
+      // 誰が何を詠唱しているかを表示
+      v.castT.text = p.castingIdx >= 0 && p.castName ? `✦ ${p.castName}` : '';
+
+      // かかっている効果を全員に見せる(全体魔法なら3人とも点灯する)
+      const buffs: string[] = [];
+      if (p.shield > 0) buffs.push('🛡');
+      if (p.wardPct > 0) buffs.push(`◈${p.wardPct}%`);
+      if (p.atkBoost > 0) buffs.push(`⚔+${p.atkBoost}%`);
+      if (p.vigorBonus > 0) buffs.push(`♥+${p.vigorBonus}`);
+      v.buffT.text = buffs.join(' ');
     });
     for (const [sid, v] of this.pViews) {
       if (!seen.has(sid)) {
@@ -665,14 +693,24 @@ export class CoopView {
       }
       g.rect(x - 26, GROUND_Y - 108, 52, 6).fill(0x222238);
       g.rect(x - 26, GROUND_Y - 108, 52 * Math.max(0, p.hp / p.maxHp), 6).fill(0x55cc66);
+      // 仲間のMPも見えるようにする(誰が息切れしているか分かる)
+      g.rect(x - 26, GROUND_Y - 101, 52, 3).fill(0x222238);
+      g.rect(x - 26, GROUND_Y - 101, 52 * Math.max(0, p.mp / p.maxMp), 3).fill(0x5588ee);
       if (p.shield > 0) {
         g.rect(x - 26, GROUND_Y - 113, 52 * Math.min(1, p.shield / p.maxHp), 3).fill(0x88ccff);
         g.circle(x, GROUND_Y - 50, 46).stroke({ width: 2, color: 0x88ccff, alpha: 0.4 });
       }
+      // 耐性・攻撃上昇がかかっている間は足元の輪で示す(全員に見える)
+      if (p.wardPct > 0) {
+        g.circle(x, GROUND_Y - 50, 52).stroke({ width: 2, color: 0x88ffcc, alpha: 0.35 });
+      }
+      if (p.atkBoost > 0) {
+        g.circle(x, GROUND_Y - 50, 40).stroke({ width: 2, color: 0xff8844, alpha: 0.4 });
+      }
       if (p.castingIdx >= 0 && p.castTotal > 0) {
         const k = Math.min(1, p.castT / p.castTotal);
-        g.rect(x - 26, GROUND_Y - 100, 52, 5).fill(0x222238);
-        g.rect(x - 26, GROUND_Y - 100, 52 * k, 5).fill(0xffdd66);
+        g.rect(x - 26, GROUND_Y - 96, 52, 5).fill(0x222238);
+        g.rect(x - 26, GROUND_Y - 96, 52 * k, 5).fill(0xffdd66);
       }
     });
 
@@ -683,6 +721,15 @@ export class CoopView {
       const top = GROUND_Y + (def ? enemyTopY(def) : -70) - 14;
       g.rect(e.x - 28, top, 56, 7).fill(0x222238);
       g.rect(e.x - 28, top, 56 * Math.max(0, e.hp / e.maxHp), 7).fill(0xdd5566);
+      // 敵の状態異常(誰がかけたものでも全員に見える)
+      const marks: number[] = [];
+      if (e.sealed) marks.push(0xbb77ee);   // 封印
+      if (e.frozen) marks.push(0x88ccff);   // 凍結
+      if (e.slowed) marks.push(0x66ddcc);   // 鈍化
+      if (e.burning) marks.push(0x99ee66);  // 継続ダメージ
+      marks.forEach((c, mi) => {
+        g.circle(e.x - 28 + 5 + mi * 11, top - 6, 3.5).fill(c);
+      });
     });
   }
 
