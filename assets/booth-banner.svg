@@ -1,4 +1,6 @@
-<!-- BOOTHショップのヘッダー画像(横長・1200x300想定)
+<!-- BOOTHショップのヘッダー画像(1200x300想定)
+     BOOTHはヘッダーの左下にショップアイコンを重ねて表示するため、
+     左端360px・下端70px は「安全地帯」として何も置かない。
      使い方: ブラウザで開いてスクリーンショット、または画像変換サイトでPNG化 -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 300" width="1200" height="300">
   <defs>
@@ -15,33 +17,27 @@
 
   <rect width="1200" height="300" fill="url(#sky)"/>
 
-  <!-- 舞う光(エレメント)。文字に重ならないよう左右の余白へ寄せる -->
-  <g filter="url(#g2)" opacity="0.9">
-    <circle cx="150" cy="180" r="7" fill="#44aaff"/>
-    <circle cx="105" cy="250" r="8" fill="#88ffaa"/>
-    <circle cx="205" cy="95"  r="6" fill="#cc9955"/>
-    <circle cx="1130" cy="80"  r="8" fill="#ffdd44"/>
-    <circle cx="1050" cy="185" r="7" fill="#aaeeff"/>
-    <circle cx="1105" cy="255" r="9" fill="#aa66ee"/>
-    <circle cx="995"  cy="95"  r="6" fill="#ffffcc"/>
+  <!-- 舞う光(エレメント)。文字とアイコンを避けて上辺と右端に置く -->
+  <g filter="url(#g2)" opacity="0.85">
+    <circle cx="430"  cy="42"  r="7" fill="#ff6644"/>
+    <circle cx="600"  cy="28"  r="6" fill="#44aaff"/>
+    <circle cx="1160" cy="60"  r="8" fill="#ffdd44"/>
+    <circle cx="1175" cy="150" r="6" fill="#aaeeff"/>
+    <circle cx="1150" cy="240" r="8" fill="#aa66ee"/>
+    <circle cx="1080" cy="34"  r="6" fill="#88ffaa"/>
   </g>
 
-  <!-- 中央のタイトル -->
-  <text x="600" y="130" text-anchor="middle"
-        font-family="Yu Mincho, Hiragino Mincho ProN, serif" font-size="72" font-weight="bold"
+  <!-- 文字は右寄りに集める(左360pxはアイコン用に空ける) -->
+  <text x="780" y="112" text-anchor="middle"
+        font-family="Yu Mincho, Hiragino Mincho ProN, serif" font-size="66" font-weight="bold"
         fill="#f0e6ff" filter="url(#g2)" letter-spacing="8">魔導研究記</text>
-  <text x="600" y="180" text-anchor="middle"
-        font-family="Yu Gothic, Meiryo, sans-serif" font-size="26"
+  <text x="780" y="156" text-anchor="middle"
+        font-family="Yu Gothic, Meiryo, sans-serif" font-size="24"
         fill="#ccbbff" letter-spacing="4">《まどけん》</text>
-  <text x="600" y="230" text-anchor="middle"
-        font-family="Yu Gothic, Meiryo, sans-serif" font-size="22"
-        fill="#9999cc">エレメントを混ぜて、まだ誰も知らない魔法を発明する ─ ブラウザで遊べるオンラインRPG</text>
-  <text x="600" y="266" text-anchor="middle"
-        font-family="Consolas, monospace" font-size="20"
+  <text x="780" y="196" text-anchor="middle"
+        font-family="Yu Gothic, Meiryo, sans-serif" font-size="20"
+        fill="#a0a0cc">エレメントを混ぜて、まだ誰も知らない魔法を発明する</text>
+  <text x="780" y="224" text-anchor="middle"
+        font-family="Consolas, monospace" font-size="19"
         fill="#88bbdd">madoken.onrender.com</text>
-
-  <!-- ショップ名(左上に小さく) -->
-  <text x="34" y="42"
-        font-family="Yu Gothic, Meiryo, sans-serif" font-size="20" font-weight="bold"
-        fill="#8877bb" letter-spacing="2">まどけん研究所</text>
 </svg>
