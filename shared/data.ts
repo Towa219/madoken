@@ -548,9 +548,15 @@ export const SLOT5_BOSS_STAGE = 20;
 export const DISCOVERY_BONUS_RP = 25;
 export const DISASSEMBLE_RATE = 0.4; // 分解時に素材1個が戻る確率
 
-// 戦闘報酬の研究P。成果(勝利)にだけ支払う。
-// 撤退も敗北も0(逃げ得・負け得をなくす)。
-export function battleRP(stage: number, win: boolean, _escaped = false): number {
-  if (!win) return 0;
-  return 6 + 3 * stage + (isBossStage(stage) ? 25 : 0);
+// 戦闘報酬の研究P。
+//   勝利 … 満額(ボスは+25)
+//   敗北 … 最後まで戦った分として勝利報酬の2割(最低2)。ボス加算は付かない
+//   撤退 … 0(自分から逃げた場合は成果なし)
+export const DEFEAT_RP_RATE = 0.2;
+
+export function battleRP(stage: number, win: boolean, escaped = false): number {
+  const base = 6 + 3 * stage;
+  if (escaped) return 0;
+  if (!win) return Math.max(2, Math.floor(base * DEFEAT_RP_RATE));
+  return base + (isBossStage(stage) ? 25 : 0);
 }

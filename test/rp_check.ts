@@ -12,8 +12,8 @@ for (const stage of [1, 3, 5, 10]) {
   const lose = battleRP(stage, false);
   const esc = battleRP(stage, false, true);
   console.log(`ステージ${stage}${isBossStage(stage) ? '(ボス)' : ''}: 勝利+${win} / 敗北+${lose} / 撤退+${esc}`);
-  check(win > 0, `  勝利では研究Pがもらえる`);
-  check(lose === 0, `  敗北では研究Pはもらえない`);
+  check(win > 0, `  勝利では満額もらえる`);
+  check(lose > 0 && lose < win, `  敗北では少額だけもらえる(勝利より必ず少ない)`);
   check(esc === 0, `  撤退では研究Pはもらえない`);
 }
 
