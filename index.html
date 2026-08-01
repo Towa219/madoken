@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>魔導研究記 — Phase 0 試作</title>
+  <link rel="stylesheet" href="/src/style.css">
+</head>
+<body>
+  <div id="app">
+    <header id="topbar">
+      <span id="game-title">魔導研究記 <small>Phase 0 試作</small></span>
+      <span id="rp-display">研究P: 0</span>
+      <nav>
+        <button id="tab-lab" class="tab active">研究室</button>
+        <button id="tab-battle" class="tab">戦闘</button>
+        <button id="tab-online" class="tab">オンライン</button>
+        <button id="btn-reset" title="セーブデータを初期化">初期化</button>
+      </nav>
+    </header>
+
+    <!-- ===== 研究室 ===== -->
+    <main id="lab-screen">
+      <section id="panel-inventory" class="panel">
+        <h2>素材庫</h2>
+        <div id="inv-grid"></div>
+        <div id="gather-box">
+          <button id="btn-gather"></button>
+          <p class="note">採取: ランダムな素材を3個入手</p>
+        </div>
+      </section>
+
+      <section id="panel-craft" class="panel">
+        <h2>調合台</h2>
+        <p class="note">素材庫のエレメントをクリックしてスロットへ。もう一度クリックで戻す。</p>
+        <div id="slot-row"></div>
+        <div id="slot-unlock"></div>
+        <div id="preview-box" class="hidden"></div>
+        <div id="craft-controls">
+          <button id="btn-craft">調合する</button>
+        </div>
+        <div id="craft-msg"></div>
+      </section>
+
+      <section id="panel-book" class="panel">
+        <h2>魔導書 <small>(装備は4つまで)</small></h2>
+        <div id="spell-list"></div>
+        <h2>発見図鑑</h2>
+        <div id="recipe-list"></div>
+      </section>
+    </main>
+
+    <!-- ===== 戦闘 ===== -->
+    <main id="battle-screen" class="hidden">
+      <div id="battle-setup">
+        <h2>出撃準備</h2>
+        <div id="equip-summary"></div>
+        <h3>挑戦ステージ (5の倍数はボス)</h3>
+        <div id="stage-select"></div>
+        <div id="setup-msg"></div>
+      </div>
+      <div id="battle-view" class="hidden">
+        <div id="game-canvas"></div>
+        <div id="enemy-status"></div>
+        <div id="spell-bar"></div>
+      </div>
+      <div id="battle-overlay" class="hidden"></div>
+    </main>
+
+    <!-- ===== オンライン(ロビー/共闘) ===== -->
+    <main id="online-screen" class="hidden">
+      <div id="online-login" class="panel">
+        <h2>オンラインロビー</h2>
+        <p class="note">ニックネームを決めて接続。ロビーで仲間と合流し、共闘部屋でボスに挑もう。</p>
+        <div style="display:flex; gap:8px; max-width:420px">
+          <input id="nick-input" maxlength="12" placeholder="ニックネーム">
+          <button id="btn-connect">接続する</button>
+        </div>
+        <div id="online-msg"></div>
+      </div>
+
+      <div id="online-lobby" class="hidden">
+        <section class="panel" id="lobby-chat-panel">
+          <h2>ロビーチャット</h2>
+          <div id="chat-log"></div>
+          <div style="display:flex; gap:8px">
+            <input id="chat-input" maxlength="200" placeholder="メッセージを入力">
+            <button id="btn-chat-send">送信</button>
+          </div>
+        </section>
+        <section class="panel" id="lobby-rooms-panel">
+          <h2>共闘部屋 <small>(最大3人)</small></h2>
+          <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap">
+            <label>ステージ <select id="coop-stage"></select></label>
+            <button id="btn-create-room">部屋を作る</button>
+            <button id="btn-refresh-rooms">一覧更新</button>
+          </div>
+          <div id="room-list"></div>
+          <div id="lobby-msg"></div>
+        </section>
+      </div>
+
+      <div id="coop-view" class="hidden">
+        <div id="coop-canvas"></div>
+        <div id="coop-enemy-status"></div>
+        <div id="coop-bar"></div>
+        <div id="coop-waiting" class="hidden"></div>
+        <div id="coop-overlay" class="hidden"></div>
+      </div>
+    </main>
+  </div>
+
+  <div id="toast" class="hidden"></div>
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>

@@ -1,0 +1,12 @@
+# Render Blueprint: 魔導研究記(クライアント配信+Colyseusサーバー)
+# Render無料プランで1サービスとして動かす
+services:
+  - type: web
+    name: madoken
+    runtime: node
+    plan: free
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_VERSION
+        value: "22.12.0"
