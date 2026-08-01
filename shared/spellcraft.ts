@@ -61,17 +61,11 @@ export function computeSpell(counts: ElementCounts): CraftResult {
   if (s.kind === 'heal') s.healPower = Math.round(s.power * 1.8 + 10);
   if (s.kind === 'taunt') s.hateGain = Math.round(s.power * 10);
 
-  // 自動命名: 主属性(+副属性)接頭辞 + 系統名 + 威力による階級
-  // 例: 火2+風1 →「炎風の魔弾」 / 火3 →「炎の爆裂弾・改」
-  let secondary: ElementId | null = null;
-  let secondCount = 0;
-  for (const id of ELEMENT_ORDER) {
-    if (id === s.attr) continue;
-    if (c(id) > secondCount) { secondary = id; secondCount = c(id); }
-  }
-  let prefix = ATTR_CHAR[s.attr];
-  if (secondary && secondCount > 0) prefix += ATTR_CHAR[secondary];
-  prefix += 'の';
+  // 自動命名: 主属性接頭辞 + 系統名 + 威力階級 + 構成タグ
+  // 構成タグ〈火2風〉はレシピの完全な符号なので、
+  // エレメントが1つでも違えば必ず別の名前になる。
+  // 例: 火3 →「炎の爆裂弾・改〈火3〉」 / 火2+風1 →「炎の魔弾〈火2風〉」
+  const prefix = `${ATTR_CHAR[s.attr]}の`;
 
   const noun = matched.length > 0 ? matched[matched.length - 1].spellNoun : '魔弾';
 
@@ -80,13 +74,14 @@ export function computeSpell(counts: ElementCounts): CraftResult {
   else if (s.power >= 55) rank = '・極';
   else if (s.power >= 30) rank = '・改';
 
-  // 素材合計数をローマ数字で付与(3個以上)。火3と火4のような構成違いを名前で区別する
-  let total = 0;
-  for (const id of ELEMENT_ORDER) total += c(id);
-  const NUMERALS = ['', '', '', 'Ⅲ', 'Ⅳ', 'Ⅴ'];
-  const numeral = NUMERALS[total] ?? 'Ⅴ';
+  // 構成タグ(定義順に各エレメント+個数。1個は数字省略)
+  let comp = '';
+  for (const id of ELEMENT_ORDER) {
+    const k = c(id);
+    if (k > 0) comp += ATTR_CHAR[id] + (k > 1 ? String(k) : '');
+  }
 
-  const autoName = `${prefix}${noun}${numeral}${rank}`;
+  const autoName = `${prefix}${noun}${rank}〈${comp}〉`;
 
   return { stats: s, matched, autoName };
 }
