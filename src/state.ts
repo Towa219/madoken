@@ -1,3 +1,4 @@
+import { spellMagicValue } from '../shared/spellcraft';
 import type { ElementId, GameState, Spell } from '../shared/types';
 
 const SAVE_KEY = 'magic_web_game_save_v1';
@@ -116,10 +117,14 @@ export function toggleEquip(id: string): void {
   }
 }
 
+// 装備中の魔法。並び順は魔導書での表示順に一致させる
+// (戦闘バーの1〜4が、研究室で見えている上からの順番になる)
 export function equippedSpells(): Spell[] {
-  return state.equipped
-    .map(id => state.spells.find(s => s.id === id))
-    .filter((s): s is Spell => !!s);
+  const eq = state.spells.filter(s => state.equipped.includes(s.id));
+  if (state.sortByPower) {
+    eq.sort((a, b) => spellMagicValue(b.stats) - spellMagicValue(a.stats));
+  }
+  return eq;
 }
 
 export function totalInventory(): number {
