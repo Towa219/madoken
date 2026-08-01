@@ -36,13 +36,8 @@
   <path d="M256 74 L438 256 L256 438 L74 256 Z" fill="none" stroke="#8877cc" stroke-width="2" opacity="0.45"/>
   <path d="M385 127 L385 385 L127 385 L127 127 Z" fill="none" stroke="#8877cc" stroke-width="2" opacity="0.45"/>
 
-  <!-- 中央の「魔」 -->
-  <text x="256" y="258" text-anchor="middle" dominant-baseline="central"
-        font-family="Yu Mincho, Hiragino Mincho ProN, serif" font-size="200"
+  <!-- 中央の「魔」(小さく表示されても潰れないよう、これ一文字で見せる) -->
+  <text x="256" y="252" text-anchor="middle" dominant-baseline="central"
+        font-family="Yu Mincho, Hiragino Mincho ProN, serif" font-size="176"
         fill="#f0e6ff" filter="url(#glow)">魔</text>
-
-  <!-- 下部の作品名 -->
-  <text x="256" y="470" text-anchor="middle"
-        font-family="Yu Gothic, Meiryo, sans-serif" font-size="34" font-weight="bold"
-        fill="#ccbbff" letter-spacing="6">魔導研究記</text>
 </svg>
