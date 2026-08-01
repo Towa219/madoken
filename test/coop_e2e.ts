@@ -136,13 +136,16 @@ async function main(): Promise<void> {
   ok('ステージ2が自動開始され、全員生存状態で継続');
 
   // ---- 5. 後片付け ----
-  await roomA.leave();
-  await roomB.leave();
-  await lobbyA.leave();
-  await lobbyB.leave();
+  // leaveは投げっぱなし(本番のプロキシ経由では応答が返らず固まることがある)
+  try {
+    void roomA.leave();
+    void roomB.leave();
+    void lobbyA.leave();
+    void lobbyB.leave();
+  } catch { /* 切断済みでも無視 */ }
   clearTimeout(killer);
   console.log('\n★ E2Eテスト全項目合格');
-  process.exit(0);
+  setTimeout(() => process.exit(0), 1500);
 }
 
 main().catch(err => {
