@@ -17,7 +17,6 @@
 
   <!-- 舞う光(エレメント)。文字に重ならないよう左右の余白へ寄せる -->
   <g filter="url(#g2)" opacity="0.9">
-    <circle cx="70"  cy="70"  r="9" fill="#ff6644"/>
     <circle cx="150" cy="180" r="7" fill="#44aaff"/>
     <circle cx="105" cy="250" r="8" fill="#88ffaa"/>
     <circle cx="205" cy="95"  r="6" fill="#cc9955"/>
@@ -40,4 +39,9 @@
   <text x="600" y="266" text-anchor="middle"
         font-family="Consolas, monospace" font-size="20"
         fill="#88bbdd">madoken.onrender.com</text>
+
+  <!-- ショップ名(左上に小さく) -->
+  <text x="34" y="42"
+        font-family="Yu Gothic, Meiryo, sans-serif" font-size="20" font-weight="bold"
+        fill="#8877bb" letter-spacing="2">まどけん研究所</text>
 </svg>
