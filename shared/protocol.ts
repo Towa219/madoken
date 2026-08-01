@@ -2,10 +2,11 @@
 
 import type { ElementCounts, ElementId } from './types';
 
-// 参加時に送る魔法(レシピのみ。性能はサーバーが再計算する=改竄対策)
+// 参加時に送る魔法(レシピ+強化Lv。性能はサーバーが再計算する=改竄対策)
 export interface SpellPayload {
   name: string;
   recipe: ElementCounts;
+  level?: number; // 強化レベル(サーバー側で0〜9にクランプ)
 }
 
 export interface CoopJoinOptions {

@@ -9,7 +9,7 @@ import {
   stageAtkMul, stageHpMul,
 } from '../shared/data';
 import type { AffinityGrade, EnemyDef } from '../shared/data';
-import { spellCooldown } from '../shared/spellcraft';
+import { spellCooldown, spellDisplayName } from '../shared/spellcraft';
 import type { BattleResult, ElementId, Spell, SpellStats } from '../shared/types';
 
 const W = 960;
@@ -43,12 +43,15 @@ interface Proj {
   from: 'player' | 'enemy';
   spell?: SpellStats;
   dmg?: number;       // 敵弾用
+  attr: ElementId;    // 弾の属性(見た目・軌跡の色)
+  r: number;          // 弾の半径(軌跡サイズ)
+  trailT: number;     // 軌跡の発生タイマー
   hit: Set<EnemyUnit>;
   dead: boolean;
 }
 
 interface Popup { t: Text; vy: number; life: number; }
-interface Fx { g: Graphics; life: number; maxLife: number; }
+interface Fx { g: Graphics; life: number; maxLife: number; grow?: boolean; }
 
 export class BattleManager {
   private app: Application | null = null;
@@ -302,7 +305,7 @@ export class BattleManager {
       const b = document.createElement('button');
       b.className = 'spell-btn';
       b.innerHTML =
-        `<span class="key">${i + 1}</span>${sp.name}` +
+        `<span class="key">${i + 1}</span>${spellDisplayName(sp)}` +
         `<span class="cost">MP${sp.stats.manaCost} / 詠唱${sp.stats.castTime.toFixed(2)}秒</span>` +
         `<div class="cd-overlay"></div>`;
       b.addEventListener('click', () => this.tryCast(i));
@@ -392,6 +395,8 @@ export class BattleManager {
           const heal = st.healPower;
           this.hp = Math.min(this.maxHp, this.hp + heal);
           this.addPopup(PLAYER_X, GROUND_Y - 115, `+${heal}`, 0x88ddaa);
+        } else if (st.quake) {
+          this.castQuake(st);
         } else {
           this.firePlayerProj(sp.stats);
         }
@@ -438,6 +443,18 @@ export class BattleManager {
       if (p.dead) continue;
       p.x += p.speed * dt;
       p.g.position.set(p.x, p.y);
+
+      // 軌跡(属性色の残光)
+      p.trailT -= dt;
+      if (p.trailT <= 0) {
+        p.trailT = 0.05;
+        const tr = new Graphics();
+        tr.circle(0, 0, Math.max(2, p.r * 0.5))
+          .fill({ color: ELEMENTS[p.attr].color, alpha: 0.45 });
+        tr.position.set(p.x, p.y);
+        this.fxLayer.addChild(tr);
+        this.fxs.push({ g: tr, life: 0.22, maxLife: 0.22 });
+      }
 
       if (p.from === 'player') {
         for (const e of this.enemies) {
@@ -493,6 +510,10 @@ export class BattleManager {
       fx.life -= dt;
       if (fx.life <= 0) { fx.g.destroy(); return false; }
       fx.g.alpha = fx.life / fx.maxLife;
+      if (fx.grow) {
+        fx.g.scale.x += 2.2 * dt;
+        fx.g.scale.y += 1.2 * dt;
+      }
       return true;
     });
   }
@@ -510,30 +531,45 @@ export class BattleManager {
   // ===== 弾・命中処理 =====
 
   private firePlayerProj(st: SpellStats): void {
-    const g = new Graphics();
-    const color = ELEMENTS[st.attr].color;
     const r = 5 + Math.min(10, st.power / 25);
-    g.circle(0, 0, r + 4).fill({ color, alpha: 0.25 });
-    g.circle(0, 0, r).fill(color);
+    const g = makeProjectileGfx(st.attr, st.power);
     const y = GROUND_Y - 64;
     g.position.set(PLAYER_X + 34, y);
     this.projLayer.addChild(g);
     this.projs.push({
       g, x: PLAYER_X + 34, y, speed: st.projSpeed,
-      from: 'player', spell: st, hit: new Set(), dead: false,
+      from: 'player', spell: st, attr: st.attr, r, trailT: 0,
+      hit: new Set(), dead: false,
     });
   }
 
+  // 地震: 弾を飛ばさず敵全体にダメージ+画面と大地を揺らす
+  private castQuake(st: SpellStats): void {
+    this.shake = 18;
+    for (let k = 0; k < 3; k++) {
+      const fx = new Graphics();
+      fx.ellipse(0, 0, 60 + k * 45, 10 + k * 5)
+        .stroke({ width: 3, color: 0xcc9955, alpha: 0.85 });
+      fx.position.set(W / 2 + 120, GROUND_Y + 8);
+      this.fxLayer.addChild(fx);
+      this.fxs.push({ g: fx, life: 0.5 + k * 0.15, maxLife: 0.5 + k * 0.15, grow: true });
+    }
+    for (const e of this.enemies) {
+      if (e.alive) this.dealDamage(e, st, 0.75);
+    }
+  }
+
   private fireEnemyProj(e: EnemyUnit): void {
-    const g = new Graphics();
-    g.circle(0, 0, 6).fill(0xff7755);
+    const attr = e.def.attackAttr;
+    const g = makeProjectileGfx(attr, 14);
     const y = GROUND_Y - 40 * e.def.size;
     g.position.set(e.x - 20, y);
     this.projLayer.addChild(g);
     const dmg = Math.round(e.def.atk * stageAtkMul(this.stage) * (0.9 + Math.random() * 0.2));
     this.projs.push({
       g, x: e.x - 20, y, speed: -230,
-      from: 'enemy', dmg, hit: new Set(), dead: false,
+      from: 'enemy', dmg, attr, r: 6, trailT: 0,
+      hit: new Set(), dead: false,
     });
   }
 
@@ -594,6 +630,12 @@ export class BattleManager {
 
     e.hp -= final;
     e.flash = 0.15;
+    // 着弾リング(属性色)
+    const ring = new Graphics();
+    ring.circle(0, 0, 10).stroke({ width: 3, color: ELEMENTS[st.attr].color, alpha: 0.9 });
+    ring.position.set(e.x, GROUND_Y - 40 * e.def.size);
+    this.fxLayer.addChild(ring);
+    this.fxs.push({ g: ring, life: 0.25, maxLife: 0.25, grow: true });
     const color = crit ? 0xffdd44 : (grade > 0 ? 0xff8855 : (grade < 0 ? 0x8899bb : 0xffffff));
     this.addPopup(
       e.x, GROUND_Y - 70 * e.def.size - 10,
@@ -681,12 +723,14 @@ export class BattleManager {
       g.circle(PLAYER_X, GROUND_Y - 50, 52)
         .stroke({ width: 3, color: 0x88ccff, alpha: 0.35 + 0.15 * Math.sin(this.time * 6) });
     }
-    // 詠唱バー
+    // 詠唱バー+杖先の属性グロー
     if (this.casting) {
       const st = this.casting.spell.stats;
       const p = Math.min(1, this.casting.t / st.castTime);
       g.rect(PLAYER_X - 40, GROUND_Y - 130, 80, 8).fill(0x222238);
       g.rect(PLAYER_X - 40, GROUND_Y - 130, 80 * p, 8).fill(0xffdd66);
+      g.circle(PLAYER_X + 29, GROUND_Y - 67, 4 + p * 11)
+        .fill({ color: ELEMENTS[st.attr].color, alpha: 0.5 });
     }
     // 被弾フラッシュ
     if (this.hitFlash > 0) {
@@ -729,6 +773,54 @@ export class BattleManager {
     const result: BattleResult = { win, escaped, stage: this.stage, drops, rp };
     this.onEnd?.(result);
   }
+}
+
+// 属性ごとに形の違う弾を生成(プレイヤー・敵共用)
+export function makeProjectileGfx(attr: ElementId, power: number): Graphics {
+  const g = new Graphics();
+  const color = ELEMENTS[attr].color;
+  const r = 5 + Math.min(10, power / 25);
+  switch (attr) {
+    case 'fire': // 火球(芯が白熱)
+      g.circle(0, 0, r + 5).fill({ color, alpha: 0.25 });
+      g.circle(0, 0, r).fill(color);
+      g.circle(2, -1, r * 0.45).fill(0xffeeaa);
+      break;
+    case 'water': // 水滴
+      g.ellipse(0, 0, r + 3, r * 0.7).fill({ color, alpha: 0.9 });
+      g.ellipse(-2, -2, (r + 3) * 0.4, r * 0.3).fill(0xddffff);
+      break;
+    case 'wind': // 風の刃
+      g.ellipse(0, 0, r + 6, r * 0.45).fill({ color, alpha: 0.7 });
+      g.ellipse(-4, 0, r + 2, r * 0.3).fill({ color: 0xffffff, alpha: 0.5 });
+      break;
+    case 'earth': // 岩塊
+      g.poly([
+        -r, 0, -r * 0.4, -r, r * 0.6, -r * 0.8,
+        r, 0, r * 0.5, r * 0.9, -r * 0.5, r * 0.8,
+      ]).fill(color);
+      g.poly([-r * 0.3, -r * 0.4, r * 0.3, -r * 0.5, r * 0.2, 0]).fill(0xeebb77);
+      break;
+    case 'thunder': // 稲妻
+      g.poly([-r - 5, -2, 0, -2, -2, -r - 2, r + 5, 2, 0, 2, 2, r + 2]).fill(color);
+      break;
+    case 'ice': // 氷晶
+      g.poly([0, -r - 3, r * 0.7, 0, 0, r + 3, -r * 0.7, 0]).fill(color);
+      g.poly([0, -r, r * 0.4, 0, 0, r, -r * 0.4, 0]).fill(0xffffff);
+      break;
+    case 'light': // 光星
+      g.poly([
+        0, -r - 4, r * 0.35, -r * 0.35, r + 4, 0, r * 0.35, r * 0.35,
+        0, r + 4, -r * 0.35, r * 0.35, -r - 4, 0, -r * 0.35, -r * 0.35,
+      ]).fill(color);
+      break;
+    default: // 闇球(暗い芯+紫の輪)
+      g.circle(0, 0, r + 6).stroke({ width: 2, color: 0x6633aa, alpha: 0.8 });
+      g.circle(0, 0, r).fill(0x221133);
+      g.circle(0, 0, r * 0.55).fill(color);
+      break;
+  }
+  return g;
 }
 
 // ===== プレースホルダー描画(将来ここを画像Spriteに差し替える) =====

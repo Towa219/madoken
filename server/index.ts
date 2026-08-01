@@ -9,6 +9,7 @@ import colyseusPkg from 'colyseus';
 import wsTransportPkg from '@colyseus/ws-transport';
 import { LobbyChatRoom } from './rooms/LobbyChatRoom';
 import { CoopRoom } from './rooms/CoopRoom';
+import { topRanking } from './ranking';
 
 const { Server } = colyseusPkg;
 const { WebSocketTransport } = wsTransportPkg;
@@ -18,6 +19,11 @@ const port = Number(process.env.PORT ?? 2567);
 const app = express();
 app.use(cors());
 app.use(express.json());
+
+// ランキングAPI(上位5件)
+app.get('/api/ranking', (_req, res) => {
+  res.json(topRanking(5));
+});
 
 // ビルド済みクライアントを配信
 const distPath = path.resolve(process.cwd(), 'dist');

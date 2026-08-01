@@ -6,8 +6,8 @@ import {
   affinitySymbol, BOSS, ELEMENTS, ELEMENT_ORDER, ENEMIES,
 } from '../shared/data';
 import type { AffinityGrade, EnemyDef } from '../shared/data';
-import { makeEnemySprite, makePlayerSprite } from './battle';
-import { spellCooldown } from '../shared/spellcraft';
+import { makeEnemySprite, makePlayerSprite, makeProjectileGfx } from './battle';
+import { spellCooldown, spellDisplayName } from '../shared/spellcraft';
 import { showToast } from './lab';
 import { addElements, equippedSpells, notify, state } from './state';
 import type { ElementId, Spell } from '../shared/types';
@@ -24,9 +24,10 @@ interface Anim {
   g: Graphics;
   x0: number; y0: number; x1: number; y1: number;
   t: number; dur: number;
+  attr: ElementId; r: number; trailT: number;
 }
 interface Popup { t: Text; vy: number; life: number; }
-interface Fx { g: Graphics; life: number; maxLife: number; }
+interface Fx { g: Graphics; life: number; maxLife: number; grow?: boolean; }
 
 function esc(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;')
@@ -56,6 +57,7 @@ export class CoopView {
   private fxs: Fx[] = [];
 
   private cds = [0, 0, 0, 0];
+  private shakeT = 0;
   private prevCastingIdx = -1;
   private prevCastTotal = 0;
   private spellBtns: HTMLButtonElement[] = [];
@@ -157,7 +159,7 @@ export class CoopView {
       const b = document.createElement('button');
       b.className = 'spell-btn';
       b.innerHTML =
-        `<span class="key">${i + 1}</span>${esc(sp.name)}` +
+        `<span class="key">${i + 1}</span>${esc(spellDisplayName(sp))}` +
         `<span class="cost">MP${sp.stats.manaCost} / 詠唱${sp.stats.castTime.toFixed(2)}秒</span>` +
         `<div class="cd-overlay"></div>`;
       b.addEventListener('click', () => this.tryCast(i));
@@ -212,15 +214,12 @@ export class CoopView {
 
   private wireRoom(room: Room): void {
     room.onMessage('proj', (m: { x0: number; targetX: number; attr: ElementId; power: number; delayMs: number }) => {
-      const g = new Graphics();
-      const color = ELEMENTS[m.attr]?.color ?? 0xffffff;
       const r = 5 + Math.min(10, m.power / 25);
-      g.circle(0, 0, r + 4).fill({ color, alpha: 0.25 });
-      g.circle(0, 0, r).fill(color);
+      const g = makeProjectileGfx(m.attr, m.power);
       this.projLayer.addChild(g);
       this.anims.push({
         g, x0: m.x0, y0: GROUND_Y - 64, x1: m.targetX, y1: GROUND_Y - 40,
-        t: 0, dur: m.delayMs / 1000,
+        t: 0, dur: m.delayMs / 1000, attr: m.attr, r, trailT: 0,
       });
     });
 
@@ -229,13 +228,26 @@ export class CoopView {
       const e = st?.enemies?.[m.i];
       const p = st?.players?.get(m.targetSid);
       if (!e || !p) return;
-      const g = new Graphics();
-      g.circle(0, 0, 6).fill(0xff7755);
+      const attr = DEF_BY_ID[e.defId]?.attackAttr ?? 'fire';
+      const g = makeProjectileGfx(attr, 14);
       this.projLayer.addChild(g);
       this.anims.push({
         g, x0: e.x - 20, y0: GROUND_Y - 40, x1: PLAYER_XS[p.slot] ?? 110, y1: GROUND_Y - 50,
-        t: 0, dur: m.delayMs / 1000,
+        t: 0, dur: m.delayMs / 1000, attr, r: 6, trailT: 0,
       });
+    });
+
+    // 地震: 画面を揺らし、大地に波紋を走らせる
+    room.onMessage('quake', () => {
+      this.shakeT = 0.6;
+      for (let k = 0; k < 3; k++) {
+        const fx = new Graphics();
+        fx.ellipse(0, 0, 60 + k * 45, 10 + k * 5)
+          .stroke({ width: 3, color: 0xcc9955, alpha: 0.85 });
+        fx.position.set(W / 2 + 120, GROUND_Y + 8);
+        this.fxLayer.addChild(fx);
+        this.fxs.push({ g: fx, life: 0.5 + k * 0.15, maxLife: 0.5 + k * 0.15, grow: true });
+      }
     });
 
     room.onMessage('hit', (m: { i: number; amount: number; crit: boolean; note: string; attr: ElementId; radius: number }) => {
@@ -244,6 +256,12 @@ export class CoopView {
       if (!e) return;
       const color = m.crit ? 0xffdd44 : (m.note.includes('弱点') ? 0xff8855 : 0xffffff);
       this.addPopup(e.x, GROUND_Y - 90, `${m.amount}${m.crit ? ' 会心!' : ''}${m.note}`, color);
+      // 着弾リング(属性色)
+      const ring = new Graphics();
+      ring.circle(0, 0, 10).stroke({ width: 3, color: ELEMENTS[m.attr]?.color ?? 0xffffff, alpha: 0.9 });
+      ring.position.set(e.x, GROUND_Y - 40);
+      this.fxLayer.addChild(ring);
+      this.fxs.push({ g: ring, life: 0.25, maxLife: 0.25, grow: true });
       if (m.radius > 0) {
         const fx = new Graphics();
         fx.circle(0, 0, m.radius).fill({ color: ELEMENTS[m.attr]?.color ?? 0xffffff, alpha: 0.4 });
@@ -371,11 +389,29 @@ export class CoopView {
     this.updateBar(st, dt);
     this.drawBars(st);
 
-    // 弾アニメ
+    // 画面揺れ(地震)
+    if (this.shakeT > 0) {
+      this.shakeT -= dt;
+      this.root?.position.set((Math.random() - 0.5) * 14, (Math.random() - 0.5) * 14);
+    } else {
+      this.root?.position.set(0, 0);
+    }
+
+    // 弾アニメ(+属性色の軌跡)
     this.anims = this.anims.filter(a => {
       a.t += dt;
       const k = Math.min(1, a.t / a.dur);
       a.g.position.set(a.x0 + (a.x1 - a.x0) * k, a.y0 + (a.y1 - a.y0) * k);
+      a.trailT -= dt;
+      if (a.trailT <= 0 && k < 1) {
+        a.trailT = 0.05;
+        const tr = new Graphics();
+        tr.circle(0, 0, Math.max(2, a.r * 0.5))
+          .fill({ color: ELEMENTS[a.attr]?.color ?? 0xffffff, alpha: 0.45 });
+        tr.position.set(a.g.position.x, a.g.position.y);
+        this.fxLayer.addChild(tr);
+        this.fxs.push({ g: tr, life: 0.22, maxLife: 0.22 });
+      }
       if (k >= 1) { a.g.destroy(); return false; }
       return true;
     });
@@ -383,6 +419,10 @@ export class CoopView {
       fx.life -= dt;
       if (fx.life <= 0) { fx.g.destroy(); return false; }
       fx.g.alpha = fx.life / fx.maxLife;
+      if (fx.grow) {
+        fx.g.scale.x += 2.2 * dt;
+        fx.g.scale.y += 1.2 * dt;
+      }
       return true;
     });
     this.popups = this.popups.filter(p => {

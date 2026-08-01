@@ -83,7 +83,18 @@ button.tab.active { background: #5533aa; border-color: #7755cc; }
 
 #craft-controls { display: flex; gap: 8px; }
 #btn-craft { flex: 1; background: #5533aa; border-color: #7755cc; font-weight: bold; }
+#craft-bar {
+  height: 10px; background: #101020; border: 1px solid #44446a;
+  border-radius: 5px; margin-top: 8px; overflow: hidden;
+}
+#craft-bar-fill {
+  height: 100%; width: 0%;
+  background: linear-gradient(90deg, #5533aa, #bb99ff);
+}
 #craft-msg { margin-top: 8px; font-size: 12px; color: #88ddaa; min-height: 18px; }
+.chance-high { color: #88ddaa; }
+.chance-mid { color: #ffcc66; }
+.chance-low { color: #ff8877; }
 
 /* 魔導書 */
 #spell-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
@@ -232,6 +243,17 @@ button.tab.active { background: #5533aa; border-color: #7755cc; }
   display: flex; justify-content: space-between; align-items: center;
   background: #1d1d35; border: 1px solid #333355; border-radius: 6px; padding: 8px 10px;
 }
+/* ランキング */
+#ranking-list { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+.rank-row {
+  background: #1d1d35; border: 1px solid #333355; border-radius: 6px; padding: 8px 10px;
+}
+.rank-head { display: flex; align-items: baseline; gap: 8px; }
+.rank-medal { font-size: 14px; }
+.rank-name { font-weight: bold; }
+.rank-score { margin-left: auto; color: #ffdd66; font-variant-numeric: tabular-nums; }
+.rank-spells { font-size: 11px; color: #9999bb; margin-top: 3px; }
+
 #coop-view { position: relative; }
 #coop-canvas { display: flex; justify-content: center; }
 #coop-canvas canvas { border-radius: 8px; max-width: 100%; }

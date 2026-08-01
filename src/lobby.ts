@@ -3,6 +3,7 @@
 import { Client } from 'colyseus.js';
 import type { Room } from 'colyseus.js';
 import { CoopView } from './coop';
+import { spellDisplayName } from '../shared/spellcraft';
 import { equippedSpells, state } from './state';
 import type { SpellPayload } from '../shared/protocol';
 
@@ -28,7 +29,10 @@ export function initOnline(): void {
     if (ev.key === 'Enter') sendChat();
   });
   $('#btn-create-room').addEventListener('click', () => void createRoom());
-  $('#btn-refresh-rooms').addEventListener('click', () => void refreshRooms());
+  $('#btn-refresh-rooms').addEventListener('click', () => {
+    void refreshRooms();
+    void refreshRanking();
+  });
 }
 
 // ---- 接続 ----
@@ -50,6 +54,7 @@ async function connect(): Promise<void> {
 
     renderStageOptions();
     void refreshRooms();
+    void refreshRanking();
   } catch (err) {
     console.error(err);
     $('#online-msg').textContent =
@@ -138,7 +143,9 @@ function addChatLine(name: string, text: string): void {
 // ---- 共闘部屋 ----
 
 function spellPayload(): SpellPayload[] {
-  return equippedSpells().map(sp => ({ name: sp.name, recipe: sp.recipe }));
+  return equippedSpells().map(sp => ({
+    name: spellDisplayName(sp), recipe: sp.recipe, level: sp.level,
+  }));
 }
 
 async function createRoom(): Promise<void> {
@@ -172,6 +179,47 @@ async function joinRoom(roomId: string): Promise<void> {
     console.error(err);
     $('#lobby-msg').textContent = 'その部屋には入れなかった(満員か開始済み)。';
     void refreshRooms();
+  }
+}
+
+// ランキング(サーバーAPIから取得)
+async function refreshRanking(): Promise<void> {
+  const list = $('#ranking-list');
+  try {
+    const base = import.meta.env.DEV ? 'http://localhost:2567' : '';
+    const res = await fetch(`${base}/api/ranking`);
+    const entries = await res.json() as {
+      name: string; score: number; spells: string[]; date: string;
+    }[];
+    if (entries.length === 0) {
+      list.innerHTML = '<div class="empty-note">まだ記録がない。共闘で最初の記録を作ろう!</div>';
+      return;
+    }
+    list.innerHTML = '';
+    entries.forEach((e, i) => {
+      const row = document.createElement('div');
+      row.className = 'rank-row';
+      const medal = ['🥇', '🥈', '🥉'][i] ?? `${i + 1}位`;
+      const head = document.createElement('div');
+      head.className = 'rank-head';
+      const medalEl = document.createElement('span');
+      medalEl.className = 'rank-medal';
+      medalEl.textContent = medal;
+      const nameEl = document.createElement('span');
+      nameEl.className = 'rank-name';
+      nameEl.textContent = e.name;
+      const scoreEl = document.createElement('span');
+      scoreEl.className = 'rank-score';
+      scoreEl.textContent = `${e.score}pt`;
+      head.append(medalEl, nameEl, scoreEl);
+      const spellsEl = document.createElement('div');
+      spellsEl.className = 'rank-spells';
+      spellsEl.textContent = e.spells.length > 0 ? e.spells.join(' / ') : '(装備不明)';
+      row.append(head, spellsEl);
+      list.appendChild(row);
+    });
+  } catch {
+    list.innerHTML = '<div class="empty-note">ランキングを取得できなかった。</div>';
   }
 }
 
@@ -213,6 +261,7 @@ function enterCoop(room: Room): void {
       $('#online-lobby').classList.remove('hidden');
       renderStageOptions();
       void refreshRooms();
+      void refreshRanking();
     } else {
       $('#online-login').classList.remove('hidden');
     }

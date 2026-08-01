@@ -1,4 +1,5 @@
 node_modules/
 dist/
+data/
 *.log
 20260801.txt

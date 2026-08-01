@@ -18,6 +18,7 @@ export interface CraftResult {
 export function computeSpell(counts: ElementCounts): CraftResult {
   const s: SpellStats = {
     kind: 'attack', barrier: 0, healPower: 0, hateGain: 0, targetAll: false,
+    quake: false,
     power: 10, castTime: 1.3, manaCost: 12, projSpeed: 260,
     radius: 0, pierce: false, chain: 0, critRate: 5,
     lifesteal: 0, freeze: 0, slow: 0, selfDamage: 0,
@@ -84,11 +85,35 @@ export function computeSpell(counts: ElementCounts): CraftResult {
   return { stats: s, matched, autoName };
 }
 
+// ===== 強化(同一レシピの再調合) =====
+
+export const ENHANCE_MAX = 9;
+
+// 強化1段階ごとに威力+8%・詠唱-2%。護盾/回復/ヘイトは威力に連動して再計算
+export function applyEnhance(base: SpellStats, level: number): SpellStats {
+  const L = Math.max(0, Math.min(ENHANCE_MAX, Math.floor(level || 0)));
+  const s: SpellStats = { ...base };
+  if (L === 0) return s;
+  s.power = Math.round(base.power * (1 + 0.08 * L));
+  s.castTime = Math.max(0.35, Math.round(base.castTime * (1 - 0.02 * L) * 100) / 100);
+  if (s.kind === 'shield') s.barrier = Math.round(s.power * 2.2);
+  if (s.kind === 'heal') s.healPower = Math.round(s.power * 1.8 + 10);
+  if (s.kind === 'taunt') s.hateGain = Math.round(s.power * 10);
+  return s;
+}
+
+// 表示名(強化値付き)
+export function spellDisplayName(sp: { name: string; level?: number }): string {
+  const lv = sp.level ?? 0;
+  return lv > 0 ? `${sp.name} +${lv}` : sp.name;
+}
+
 // クールダウン(秒)。攻撃は詠唱依存、護盾/治癒は固定で長め
 export function spellCooldown(s: SpellStats): number {
   if (s.kind === 'shield') return 6;
   if (s.kind === 'heal') return 5;
   if (s.kind === 'taunt') return 8;
+  if (s.quake) return 7;
   return 1.2 + s.castTime * 0.5;
 }
 
@@ -127,10 +152,15 @@ export function statsSummary(s: SpellStats): string {
     parts.push(`属性:${ELEMENTS[s.attr].name}`);
     return parts.join(' / ');
   }
-  const parts = [
-    `威力${s.power}`, `詠唱${s.castTime.toFixed(2)}秒`,
-    `MP${s.manaCost}`, `弾速${s.projSpeed}`,
-  ];
+  const parts = s.quake
+    ? [
+        `威力${s.power}`, '全体攻撃(地震・威力75%)',
+        `詠唱${s.castTime.toFixed(2)}秒`, `MP${s.manaCost}`, '再使用7秒',
+      ]
+    : [
+        `威力${s.power}`, `詠唱${s.castTime.toFixed(2)}秒`,
+        `MP${s.manaCost}`, `弾速${s.projSpeed}`,
+      ];
   if (s.radius > 0) parts.push(`爆発${Math.round(s.radius)}`);
   if (s.pierce) parts.push('貫通');
   if (s.chain > 0) parts.push(`連鎖${s.chain}`);

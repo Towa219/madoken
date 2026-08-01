@@ -9,7 +9,8 @@ import { Schema, MapSchema, ArraySchema, defineTypes } from '@colyseus/schema';
 import type { Client } from 'colyseus';
 
 const { Room } = colyseusPkg;
-import { computeSpell, spellCooldown } from '../../shared/spellcraft';
+import { applyEnhance, computeSpell, spellCooldown } from '../../shared/spellcraft';
+import { submitScore } from '../ranking';
 import {
   affinityMul, BOSS, ENEMIES, stageAtkMul, stageHpMul,
 } from '../../shared/data';
@@ -79,7 +80,9 @@ interface PInternal {
   spells: { name: string; stats: SpellStats }[];
   cooldowns: number[];
   shieldT: number;
-  hate: number; // ヘイト(敵対心)。与ダメ/護盾/回復/挑発で増加、毎秒5%減衰
+  hate: number;      // ヘイト(敵対心)。与ダメ/護盾/回復/挑発で増加、毎秒5%減衰
+  score: number;     // 戦闘スコア(クリアステージ×10+与ダメ/20)
+  submitted: boolean; // ランキング送信済みか(二重送信防止)
 }
 
 interface EInternal {
@@ -139,21 +142,34 @@ export class CoopRoom extends Room<CoopState> {
     // 魔法: レシピからサーバー側で再計算
     const raw = Array.isArray(options?.spells) ? (options.spells as unknown[]).slice(0, 4) : [];
     const spells = raw.map(s => {
-      const obj = s as { name?: unknown; recipe?: unknown };
+      const obj = s as { name?: unknown; recipe?: unknown; level?: unknown };
+      const level = Math.max(0, Math.min(9, Math.floor(Number(obj?.level) || 0)));
       return {
-        name: String(obj?.name ?? '魔弾').slice(0, 20),
-        stats: computeSpell((obj?.recipe ?? {}) as ElementCounts).stats,
+        name: String(obj?.name ?? '魔弾').slice(0, 24),
+        stats: applyEnhance(
+          computeSpell((obj?.recipe ?? {}) as ElementCounts).stats, level,
+        ),
       };
     });
     this.internals.set(client.sessionId, {
       spells, cooldowns: [0, 0, 0, 0], shieldT: 0, hate: 0,
+      score: 0, submitted: false,
     });
   }
 
   onLeave(client: Client): void {
+    this.submitToRanking(client.sessionId); // 途中離脱でもスコアは記録
     this.state.players.delete(client.sessionId);
     this.internals.delete(client.sessionId);
     if (this.state.phase === 'ready') this.checkStart();
+  }
+
+  private submitToRanking(sid: string): void {
+    const internal = this.internals.get(sid);
+    const p = this.state.players.get(sid);
+    if (!internal || !p || internal.submitted) return;
+    internal.submitted = true;
+    submitScore(p.name, internal.score, internal.spells.map(s => s.name));
   }
 
   // ---- 開始 ----
@@ -366,6 +382,20 @@ export class CoopRoom extends Room<CoopState> {
       return;
     }
 
+    // 地震: 弾を飛ばさず敵全体に威力75%
+    if (st.quake) {
+      this.broadcast('quake', { sid });
+      this.pending.push({
+        t: 0.25,
+        fn: () => {
+          this.state.enemies.forEach((e, i) => {
+            if (e.alive) this.dealDamage(sid, i, st, 0.75);
+          });
+        },
+      });
+      return;
+    }
+
     let targetIdx = -1;
     this.state.enemies.forEach((e, i) => {
       if (targetIdx === -1 && e.alive) targetIdx = i;
@@ -437,9 +467,12 @@ export class CoopRoom extends Room<CoopState> {
     const final = Math.max(1, Math.round(dmg));
 
     e.hp = Math.max(0, e.hp - final);
-    // 与ダメージ分のヘイト
+    // 与ダメージ分のヘイトとスコア
     const atkInternal = this.internals.get(sid);
-    if (atkInternal) atkInternal.hate += final;
+    if (atkInternal) {
+      atkInternal.hate += final;
+      atkInternal.score += final / 20;
+    }
     let note = '';
     if (grade === 2) note = ' 大弱点!!';
     else if (grade === 1) note = ' 弱点!';
@@ -526,6 +559,8 @@ export class CoopRoom extends Room<CoopState> {
       this.state.phase = 'clear';
       const rp = 12 + 6 * stage + (stage % 5 === 0 ? 30 : 0);
       for (const client of this.clients) {
+        const internal = this.internals.get(client.sessionId);
+        if (internal) internal.score += stage * 10; // クリアスコア
         const drops: ElementId[] = [];
         for (const ei of this.eInternals) {
           const count = 1 + (Math.random() < 0.5 ? 1 : 0);
@@ -540,11 +575,12 @@ export class CoopRoom extends Room<CoopState> {
       return;
     }
 
-    // 全滅: ここで終了
+    // 全滅: ここで終了。スコアをランキングへ記録
     this.ended = true;
     this.state.phase = 'done';
     const rp = 4 + 2 * stage;
     for (const client of this.clients) {
+      this.submitToRanking(client.sessionId);
       client.send('result', { win: false, drops: [], rp });
     }
   }

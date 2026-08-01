@@ -15,6 +15,7 @@ export interface SpellStats {
   healPower: number;  // 回復量(kind=heal)
   hateGain: number;   // ヘイト増加量(kind=taunt)
   targetAll: boolean; // true=パーティ全体対象(shield/heal)
+  quake: boolean;     // true=地震(弾を飛ばさず敵全体に威力75%・画面が揺れる)
   power: number;      // 威力
   castTime: number;   // 詠唱時間(秒)
   manaCost: number;   // 消費MP
@@ -34,8 +35,9 @@ export interface Spell {
   id: string;
   name: string;
   recipe: ElementCounts;   // 使用したエレメント
-  stats: SpellStats;
+  stats: SpellStats;       // 強化適用済みの性能
   discoveries: string[];   // 成立した系統レシピID
+  level: number;           // 強化レベル(同一レシピ再調合で+1、最大9)
 }
 
 export interface GameState {

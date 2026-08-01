@@ -26,8 +26,12 @@ function load(): GameState {
     const raw = localStorage.getItem(SAVE_KEY);
     if (!raw) return initialState();
     const parsed = JSON.parse(raw) as GameState;
-    // 将来のバージョン移行はここで行う
-    return { ...initialState(), ...parsed };
+    // 旧セーブの移行: 強化レベルが無い魔法は0で補完
+    const merged = { ...initialState(), ...parsed };
+    for (const sp of merged.spells) {
+      if (typeof (sp as { level?: unknown }).level !== 'number') sp.level = 0;
+    }
+    return merged;
   } catch {
     return initialState();
   }

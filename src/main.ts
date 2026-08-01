@@ -3,7 +3,7 @@
 import { BattleManager } from './battle';
 import { ELEMENTS } from '../shared/data';
 import { initLab, renderLab, showToast } from './lab';
-import { statsSummary } from '../shared/spellcraft';
+import { spellDisplayName, statsSummary } from '../shared/spellcraft';
 import {
   addElements, equippedSpells, notify, onChange, resetSave, state,
 } from './state';
@@ -51,7 +51,7 @@ function renderSetup(): void {
   } else {
     for (const sp of spells) {
       summary.innerHTML +=
-        `<div class="eq-row">★ ${sp.name} <small>${statsSummary(sp.stats)}</small></div>`;
+        `<div class="eq-row">★ ${spellDisplayName(sp)} <small>${statsSummary(sp.stats)}</small></div>`;
     }
   }
 

@@ -76,6 +76,13 @@ export const RECIPES: RecipeDef[] = [
     apply: s => { s.lifesteal += 30; },
   },
   {
+    id: 'jishin', name: '地震系', spellNoun: '大地震',
+    hint: '大地を三つ重ねれば、世界そのものが武器になる (土×3以上)',
+    desc: '弾を放たず大地そのものを揺らし、敵全体にダメージ(威力75%)。大地が裂け、画面が揺れる。',
+    check: c => n(c, 'earth') >= 3,
+    apply: s => { s.quake = true; },
+  },
+  {
     id: 'chouhatsu', name: '挑発系', spellNoun: '咆哮',
     hint: '大地を踏み鳴らし火を噴けば、敵は君を見る (土×2+火×1以上)',
     desc: '敵の注意を自分に集める(ヘイト+威力×10)。共闘でタンク役の要。ソロでは小さな護盾に変わる。',
@@ -167,6 +174,7 @@ export interface EnemyDef {
   atk: number;         // 基礎攻撃力
   interval: number;    // 攻撃間隔(秒)
   affinity: Partial<Record<ElementId, AffinityGrade>>; // 未記載は0(等倍)
+  attackAttr: ElementId; // 敵の攻撃魔法の属性(弾の見た目に使用)
   color: number;
   size: number;        // 描画スケール
   drops: ElementId[];  // ドロップ候補
@@ -176,25 +184,25 @@ export const ENEMIES: EnemyDef[] = [
   {
     id: 'slime', name: 'スライム', hp: 26, atk: 7, interval: 3.2,
     affinity: { fire: 2, thunder: 1, ice: -1, water: -2 },
-    color: 0x55cc66, size: 1.0,
+    attackAttr: 'water', color: 0x55cc66, size: 1.0,
     drops: ['water', 'water', 'fire', 'wind'],
   },
   {
     id: 'imp', name: 'インプ', hp: 20, atk: 9, interval: 2.6,
     affinity: { light: 2, wind: 1, fire: -1, dark: -2 },
-    color: 0xdd6688, size: 0.95,
+    attackAttr: 'dark', color: 0xdd6688, size: 0.95,
     drops: ['fire', 'dark', 'wind'],
   },
   {
     id: 'golem', name: 'ゴーレム', hp: 48, atk: 8, interval: 4.0,
     affinity: { thunder: 2, water: 1, fire: -1, earth: -2 },
-    color: 0x998877, size: 1.25,
+    attackAttr: 'earth', color: 0x998877, size: 1.25,
     drops: ['earth', 'earth', 'thunder'],
   },
   {
     id: 'wisp', name: 'ウィスプ', hp: 16, atk: 7, interval: 2.2,
     affinity: { dark: 2, fire: 1, wind: -1, light: -2 },
-    color: 0xaaddff, size: 0.8,
+    attackAttr: 'light', color: 0xaaddff, size: 0.8,
     drops: ['light', 'ice', 'wind'],
   },
 ];
@@ -202,7 +210,7 @@ export const ENEMIES: EnemyDef[] = [
 export const BOSS: EnemyDef = {
   id: 'core', name: '魔導核', hp: 150, atk: 12, interval: 2.8,
   affinity: { light: 1, dark: 1 },
-  color: 0xee66ff, size: 1.5,
+  attackAttr: 'dark', color: 0xee66ff, size: 1.5,
   drops: ['light', 'dark', 'thunder', 'ice'],
 };
 
