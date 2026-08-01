@@ -10,7 +10,7 @@ import wsTransportPkg from '@colyseus/ws-transport';
 import { LobbyChatRoom } from './rooms/LobbyChatRoom';
 import { CoopRoom } from './rooms/CoopRoom';
 import { DuelRoom } from './rooms/DuelRoom';
-import { persistent, topRanking } from './ranking';
+import { persistent, removeScore, topRanking } from './ranking';
 import { recentConnections } from './connlog';
 import { discordEnabled, sendNow, startDiscordReports } from './discord';
 import { presenceSnapshot } from './presence';
@@ -72,10 +72,14 @@ app.post('/api/name/claim', (req, res) => {
 });
 
 // 名前を手放す(キャラ初期化時)。所有者本人のときだけ消える。
+// 同時にランキングの記録も消す(次にその名前を取った人の記録と混ざらないように)。
 app.post('/api/name/release', (req, res) => {
   const body = req.body as { name?: unknown; token?: unknown };
   void releaseName(body?.name, body?.token)
-    .then(released => res.json({ released }))
+    .then(async released => {
+      if (released) await removeScore(String(body?.name ?? ''));
+      res.json({ released });
+    })
     .catch(() => res.json({ released: false }));
 });
 

@@ -27,7 +27,7 @@ let lastStage = 1;
 
 // ===== タブ切替 =====
 
-type Tab = 'lab' | 'book' | 'battle' | 'online' | 'manual';
+type Tab = 'lab' | 'book' | 'battle' | 'online' | 'manual' | 'settings';
 
 function switchTab(tab: Tab): void {
   $('#lab-screen').classList.toggle('hidden', tab !== 'lab');
@@ -35,12 +35,15 @@ function switchTab(tab: Tab): void {
   $('#battle-screen').classList.toggle('hidden', tab !== 'battle');
   $('#online-screen').classList.toggle('hidden', tab !== 'online');
   $('#manual-screen').classList.toggle('hidden', tab !== 'manual');
+  $('#settings-screen').classList.toggle('hidden', tab !== 'settings');
   $('#tab-lab').classList.toggle('active', tab === 'lab');
   $('#tab-book').classList.toggle('active', tab === 'book');
   $('#tab-battle').classList.toggle('active', tab === 'battle');
   $('#tab-online').classList.toggle('active', tab === 'online');
   $('#tab-manual').classList.toggle('active', tab === 'manual');
+  $('#tab-settings').classList.toggle('active', tab === 'settings');
   if (tab === 'manual') renderManual();
+  if (tab === 'settings') renderCloudStatus();
   if (tab === 'battle' && !battle.isActive()) {
     showSetup();
   }
@@ -178,24 +181,30 @@ function main(): void {
   $('#tab-manual').addEventListener('click', () => switchTab('manual'));
   $('#tab-battle').addEventListener('click', () => switchTab('battle'));
   $('#tab-online').addEventListener('click', () => switchTab('online'));
+  $('#tab-settings').addEventListener('click', () => switchTab('settings'));
+
   const resetBtn = $('#btn-reset');
   resetBtn.addEventListener('click', () => {
     // confirmが使えない環境(公開版のiframe等)があるため2度押し確認
     if (resetBtn.dataset.arm === '1') {
       resetBtn.dataset.arm = '';
-      resetBtn.textContent = '初期化';
+      resetBtn.textContent = '初期化する';
       // クラウド側のセーブを消してから名前を手放す(順番が逆だと本人確認に失敗する)
       void deleteCloudSave().then(() => releaseNickname());
       resetSave();
       renderNickField(); // ニックネームも再登録できるようになる
+      $('#reset-msg').textContent =
+        '初期化した。ニックネームとランキングの記録も解放された。';
       showToast('セーブデータを初期化した。ニックネームも解放され、再設定できる。');
     } else {
       resetBtn.dataset.arm = '1';
-      resetBtn.textContent = '本当に初期化?';
+      resetBtn.textContent = '本当に初期化する? (取り消せない)';
+      $('#reset-msg').textContent = 'もう一度押すと実行される。';
       setTimeout(() => {
         resetBtn.dataset.arm = '';
-        resetBtn.textContent = '初期化';
-      }, 2500);
+        resetBtn.textContent = '初期化する';
+        $('#reset-msg').textContent = '';
+      }, 4000);
     }
   });
 

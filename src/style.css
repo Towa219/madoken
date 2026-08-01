@@ -186,6 +186,14 @@ button.tab.active { background: #5533aa; border-color: #7755cc; }
 .recipe-row.unfound { border-left: 3px solid #444466; color: #8888aa; }
 .recipe-row .rname { font-weight: bold; color: #88ddaa; }
 
+/* 設定画面 */
+#reset-panel { margin-top: 12px; }
+#reset-panel .danger {
+  background: #5a2030; border-color: #8b3550; color: #ffdde5;
+}
+#reset-panel .danger:hover { background: #74283c; }
+#reset-msg { color: #ffbb88; min-height: 16px; margin-top: 6px; }
+
 /* クラウドセーブ(引き継ぎ) */
 #cloud-panel { margin-top: 12px; }
 #cloud-panel .cloud-row { display: flex; gap: 8px; flex-wrap: wrap; margin: 8px 0; }

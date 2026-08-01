@@ -89,6 +89,24 @@ export function submitScore(name: string, score: number, spells: string[]): void
   })();
 }
 
+// 記録を消す(キャラ初期化でニックネームを手放したとき)。
+// 消さないと、その名前を次に取った人のスコアとして残ってしまう。
+export async function removeScore(name: string): Promise<void> {
+  const key = name.slice(0, 12);
+  const idx = local.findIndex(e => e.name === key);
+  if (idx >= 0) {
+    local.splice(idx, 1);
+    saveLocal();
+  }
+  if (!persistent) return;
+  try {
+    await redis(['ZREM', ZKEY, key]);
+    await redis(['HDEL', HKEY, key]);
+  } catch (err) {
+    console.error('[ランキング] 削除に失敗:', (err as Error).message);
+  }
+}
+
 export async function topRanking(n: number): Promise<RankEntry[]> {
   if (!persistent) return local.slice(0, n);
   try {

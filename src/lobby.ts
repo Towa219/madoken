@@ -106,6 +106,24 @@ export function initOnline(): void {
     void refreshRooms();
     void refreshRanking();
   });
+
+  // ニックネーム登録済みなら、ゲームを開いた時点で自動的にオンラインへ。
+  // (プレイ中の人はそのまま「オンライン接続中」として扱われ、
+  //  セーブも常にサーバーへ保存される)
+  if (state.nickname) {
+    autoConnect = true;
+    void connect();
+  }
+}
+
+// 自動接続で入った場合は、切断されたら黙って繋ぎ直す
+let autoConnect = false;
+let reconnectTimer: number | undefined;
+
+function scheduleReconnect(): void {
+  if (!autoConnect || !state.nickname || lobbyRoom) return;
+  if (reconnectTimer) window.clearTimeout(reconnectTimer);
+  reconnectTimer = window.setTimeout(() => void connect(), 15_000);
 }
 
 // ---- 接続 ----
@@ -170,6 +188,7 @@ async function connect(): Promise<void> {
     });
     wireLobby(lobbyRoom);
 
+    autoConnect = true; // 以後は切断されても自動で繋ぎ直す
     $('#online-login').classList.add('hidden');
     $('#online-lobby').classList.remove('hidden');
     $('#online-msg').textContent = '';
@@ -180,8 +199,11 @@ async function connect(): Promise<void> {
     void pushCloudSave(); // 接続できた時点でサーバーにも保存しておく
   } catch (err) {
     console.error(err);
-    $('#online-msg').textContent =
-      'サーバーに接続できない。サーバーが起動しているか確認してください。';
+    const msg = (err as { message?: string })?.message;
+    $('#online-msg').textContent = msg
+      ? `接続できなかった: ${msg}`
+      : 'サーバーに接続できない。少し待つと自動で繋ぎ直します。';
+    scheduleReconnect();
   } finally {
     connecting = false;
     connectBtn.disabled = false;
@@ -198,7 +220,10 @@ function wireLobby(room: Room): void {
     $('#online-lobby').classList.add('hidden');
     $('#coop-view').classList.add('hidden');
     $('#online-login').classList.remove('hidden');
-    $('#online-msg').textContent = '切断された。もう一度接続してください。';
+    $('#online-msg').textContent = autoConnect
+      ? '切断された。自動で繋ぎ直します…'
+      : '切断された。もう一度接続してください。';
+    scheduleReconnect();
   });
 }
 
