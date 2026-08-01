@@ -1,9 +1,9 @@
 // エントリポイント: 画面切替・出撃準備・戦闘結果の処理
 
 import { BattleManager } from './battle';
-import { ELEMENTS } from '../shared/data';
+import { ELEMENTS, isBossStage } from '../shared/data';
 import { initLab, renderLab, showToast } from './lab';
-import { initOnline, coopTryCast, renderNickField } from './lobby';
+import { initOnline, coopTryCast, duelTryCast, renderNickField } from './lobby';
 import {
   combatPower, spellDisplayName, spellMagicValue, statsSummary,
 } from '../shared/spellcraft';
@@ -21,13 +21,15 @@ let lastStage = 1;
 
 // ===== タブ切替 =====
 
-type Tab = 'lab' | 'battle' | 'online';
+type Tab = 'lab' | 'book' | 'battle' | 'online';
 
 function switchTab(tab: Tab): void {
   $('#lab-screen').classList.toggle('hidden', tab !== 'lab');
+  $('#book-screen').classList.toggle('hidden', tab !== 'book');
   $('#battle-screen').classList.toggle('hidden', tab !== 'battle');
   $('#online-screen').classList.toggle('hidden', tab !== 'online');
   $('#tab-lab').classList.toggle('active', tab === 'lab');
+  $('#tab-book').classList.toggle('active', tab === 'book');
   $('#tab-battle').classList.toggle('active', tab === 'battle');
   $('#tab-online').classList.toggle('active', tab === 'online');
   if (tab === 'battle' && !battle.isActive()) {
@@ -64,18 +66,31 @@ function renderSetup(): void {
   sel.innerHTML = '';
   for (let i = 1; i <= state.maxStage; i++) {
     const b = document.createElement('button');
-    b.textContent = i % 5 === 0 ? `${i} 👑` : `${i}`;
-    if (i % 5 === 0) b.className = 'boss';
+    const boss = isBossStage(i);
+    b.textContent = boss ? `${i} 👑` : `${i}`;
+    if (boss) {
+      b.className = 'boss';
+      b.disabled = true;
+      b.title = 'ボス戦は共闘(2人以上)専用';
+    }
     b.addEventListener('click', () => startBattle(i));
     sel.appendChild(b);
   }
-  $('#setup-msg').textContent = '';
+  const nextIsBoss = isBossStage(state.maxStage);
+  $('#setup-msg').textContent = nextIsBoss
+    ? `👑 ステージ${state.maxStage}はボス戦。オンラインで2人以上の共闘でのみ挑戦できる。`
+    : '';
 }
 
 async function startBattle(stage: number): Promise<void> {
   const spells = equippedSpells();
   if (spells.length === 0) {
     $('#setup-msg').textContent = '魔法を1つ以上装備しないと出撃できない。';
+    return;
+  }
+  if (isBossStage(stage)) {
+    $('#setup-msg').textContent =
+      'ボス戦はソロでは挑めない。オンラインで2人以上の共闘部屋を作ろう。';
     return;
   }
   lastStage = stage;
@@ -102,7 +117,7 @@ function onBattleEnd(r: BattleResult): void {
     ? r.drops.map(d =>
         `<span class="drop-chip" style="color:${ELEMENTS[d].cssColor}">${ELEMENTS[d].name}</span>`,
       ).join('')
-    : '<span style="color:#8888aa">なし</span>';
+    : '<span style="color:#8888aa">なし(ソロ戦ではエレメントは手に入らない)</span>';
 
   overlay.innerHTML =
     `<div class="result-box">` +
@@ -112,8 +127,10 @@ function onBattleEnd(r: BattleResult): void {
     `<div style="color:#ffdd66">研究P +${r.rp}</div>` +
     `<div style="margin-top:16px; display:flex; gap:8px; justify-content:center">` +
     `<button id="btn-again">${r.win ? 'もう一度' : '再挑戦'}</button>` +
-    (r.win && r.stage + 1 <= state.maxStage
+    (r.win && r.stage + 1 <= state.maxStage && !isBossStage(r.stage + 1)
       ? `<button id="btn-next">次のステージへ</button>` : '') +
+    (r.win && isBossStage(r.stage + 1)
+      ? `<div class="note" style="margin-top:8px">次はボス戦。共闘(2人以上)で挑もう。</div>` : '') +
     `<button id="btn-back">準備画面へ</button>` +
     `</div></div>`;
   overlay.classList.remove('hidden');
@@ -148,6 +165,7 @@ function main(): void {
   initOnline();
 
   $('#tab-lab').addEventListener('click', () => switchTab('lab'));
+  $('#tab-book').addEventListener('click', () => switchTab('book'));
   $('#tab-battle').addEventListener('click', () => switchTab('battle'));
   $('#tab-online').addEventListener('click', () => switchTab('online'));
   const resetBtn = $('#btn-reset');
@@ -175,6 +193,7 @@ function main(): void {
     if (!(n >= 1 && n <= 5)) return;
     if (!$('#battle-view').classList.contains('hidden')) battle.tryCast(n - 1);
     else if (!$('#coop-view').classList.contains('hidden')) coopTryCast(n - 1);
+    else if (!$('#duel-view').classList.contains('hidden')) duelTryCast(n - 1);
   });
 
   onChange(() => {

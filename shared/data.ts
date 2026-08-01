@@ -1,4 +1,4 @@
-import type { ElementCounts, ElementId, SpellStats } from './types';
+import type { ElementCounts, ElementId, Rarity, SpellStats } from './types';
 
 // ===== エレメント定義 =====
 // effect: 1個あたりの寄与
@@ -104,6 +104,20 @@ export const RECIPES: RecipeDef[] = [
     apply: s => { s.kind = 'shield'; s.targetAll = true; },
   },
   {
+    id: 'shugo', name: '守護系', spellNoun: '護符',
+    hint: '水を重ね氷で封じれば、その力は身を弾く (水×2+氷×1以上)',
+    desc: 'この魔法の属性に対する耐性を自分に付与(12秒)。敵の攻撃属性を見て選ぼう。',
+    check: c => n(c, 'water') >= 2 && n(c, 'ice') >= 1,
+    apply: s => { s.kind = 'ward'; },
+  },
+  {
+    id: 'banshou', name: '万象護符系', spellNoun: '万象護符',
+    hint: '水と氷に風を通せば、守りは全てに及ぶ (水×2+氷×1+風×1以上)',
+    desc: '全属性への耐性をパーティ全員に付与(12秒・効果は単体版の70%)。',
+    check: c => n(c, 'water') >= 2 && n(c, 'ice') >= 1 && n(c, 'wind') >= 1,
+    apply: s => { s.kind = 'ward'; s.targetAll = true; },
+  },
+  {
     id: 'chiyu', name: '治癒系', spellNoun: '治癒光',
     hint: '光を三つ重ねると癒しに転じる (光×3以上)',
     desc: '攻撃せず、最も傷ついた味方(ソロでは自分)のHPを回復する。',
@@ -165,7 +179,53 @@ export function affinitySymbol(g: AffinityGrade): string {
   }
 }
 
+// ===== 魔法のレアリティ =====
+// 調合時にごく稀に上位品質が生まれる。品質は性能全体に倍率がかかる。
+
+export interface RarityDef {
+  name: string;
+  mul: number;       // 性能倍率
+  cssColor: string;
+  chance: number;    // 基礎出現率(素材構成でボーナス)
+}
+
+export const RARITIES: Record<Rarity, RarityDef> = {
+  normal: { name: '', mul: 1, cssColor: '#ddddee', chance: 0 },
+  rare: { name: 'レア', mul: 1.2, cssColor: '#66aaff', chance: 0.02 },
+  epic: { name: 'エピック', mul: 1.5, cssColor: '#cc77ff', chance: 0.002 },
+  legend: { name: 'レジェンド', mul: 2.0, cssColor: '#ffcc44', chance: 0.0002 },
+};
+
+// 素材が多く、希少エレメント(光・闇)を使うほど上位品質が出やすい
+export function rarityBonus(counts: ElementCounts): number {
+  let used = 0;
+  for (const id of ELEMENT_ORDER) used += n(counts, id);
+  const rare = n(counts, 'light') + n(counts, 'dark');
+  return 1 + Math.max(0, used - 2) * 0.6 + rare * 0.8;
+}
+
+export function rollRarity(counts: ElementCounts): Rarity {
+  const b = rarityBonus(counts);
+  const r = Math.random();
+  if (r < RARITIES.legend.chance * b) return 'legend';
+  if (r < RARITIES.epic.chance * b) return 'epic';
+  if (r < RARITIES.rare.chance * b) return 'rare';
+  return 'normal';
+}
+
 // ===== 敵定義 =====
+
+// 見た目の形状(描画は battle.ts の makeEnemySprite が担当)
+export type EnemyShape =
+  | 'blob' | 'imp' | 'golem' | 'wisp' | 'orb' | 'beast' | 'bird'
+  | 'plant' | 'undead' | 'knight' | 'serpent' | 'insect' | 'eye' | 'fish';
+
+// 形状ごとの頭頂Y(スケール前・負値)。名前/HPバーの位置決めに使う
+export const SHAPE_TOP: Record<EnemyShape, number> = {
+  blob: -33, imp: -46, golem: -56, wisp: -42, orb: -64, beast: -44,
+  bird: -52, plant: -54, undead: -58, knight: -62, serpent: -56,
+  insect: -38, eye: -46, fish: -40,
+};
 
 export interface EnemyDef {
   id: string;
@@ -177,53 +237,236 @@ export interface EnemyDef {
   attackAttr: ElementId; // 敵の攻撃魔法の属性(弾の見た目に使用)
   color: number;
   size: number;        // 描画スケール
-  topY: number;        // 見た目の頭頂Y(スケール前・負値)。名前/HPバーの位置決めに使う
-  drops: ElementId[];  // ドロップ候補
+  shape: EnemyShape;
+  tier: number;        // 出現帯(1〜8)
+  drops: ElementId[];  // ボス撃破時の報酬候補
 }
 
 // 敵の頭上に置く要素のY(接地点からの相対値)
-export const enemyTopY = (def: EnemyDef) => def.topY * def.size;
+export const enemyTopY = (def: EnemyDef) => SHAPE_TOP[def.shape] * def.size;
 
 export const ENEMIES: EnemyDef[] = [
-  {
-    id: 'slime', name: 'スライム', hp: 26, atk: 7, interval: 3.2,
+  // --- tier1 (ステージ1〜4) ---
+  { id: 'slime', name: 'スライム', hp: 26, atk: 7, interval: 3.2, tier: 1,
     affinity: { fire: 2, thunder: 1, ice: -1, water: -2 },
-    attackAttr: 'water', color: 0x55cc66, size: 1.0, topY: -33,
-    drops: ['water', 'water', 'fire', 'wind'],
-  },
-  {
-    id: 'imp', name: 'インプ', hp: 20, atk: 9, interval: 2.6,
+    attackAttr: 'water', color: 0x55cc66, size: 1.0, shape: 'blob', drops: ['water'] },
+  { id: 'imp', name: 'インプ', hp: 20, atk: 9, interval: 2.6, tier: 1,
     affinity: { light: 2, wind: 1, fire: -1, dark: -2 },
-    attackAttr: 'dark', color: 0xdd6688, size: 0.95, topY: -46,
-    drops: ['fire', 'dark', 'wind'],
-  },
-  {
-    id: 'golem', name: 'ゴーレム', hp: 48, atk: 8, interval: 4.0,
+    attackAttr: 'dark', color: 0xdd6688, size: 0.95, shape: 'imp', drops: ['dark'] },
+  { id: 'golem', name: 'ゴーレム', hp: 48, atk: 8, interval: 4.0, tier: 1,
     affinity: { thunder: 2, water: 1, fire: -1, earth: -2 },
-    attackAttr: 'earth', color: 0x998877, size: 1.25, topY: -56,
-    drops: ['earth', 'earth', 'thunder'],
-  },
-  {
-    id: 'wisp', name: 'ウィスプ', hp: 16, atk: 7, interval: 2.2,
+    attackAttr: 'earth', color: 0x998877, size: 1.25, shape: 'golem', drops: ['earth'] },
+  { id: 'wisp', name: 'ウィスプ', hp: 16, atk: 7, interval: 2.2, tier: 1,
     affinity: { dark: 2, fire: 1, wind: -1, light: -2 },
-    attackAttr: 'light', color: 0xaaddff, size: 0.8, topY: -42,
-    drops: ['light', 'ice', 'wind'],
-  },
+    attackAttr: 'light', color: 0xaaddff, size: 0.8, shape: 'wisp', drops: ['light'] },
+  { id: 'bat', name: 'ヨルコウモリ', hp: 18, atk: 8, interval: 2.0, tier: 1,
+    affinity: { light: 2, fire: 1, wind: -1, dark: -1 },
+    attackAttr: 'dark', color: 0x8877aa, size: 0.85, shape: 'bird', drops: ['dark'] },
+
+  // --- tier2 (5〜9) ---
+  { id: 'wolf', name: 'モリオオカミ', hp: 42, atk: 12, interval: 2.4, tier: 2,
+    affinity: { fire: 2, ice: 1, wind: -1, earth: -1 },
+    attackAttr: 'wind', color: 0x778899, size: 1.05, shape: 'beast', drops: ['wind'] },
+  { id: 'poisonflower', name: 'ドクバナ', hp: 38, atk: 10, interval: 3.0, tier: 2,
+    affinity: { fire: 2, light: 1, water: -2, earth: -1 },
+    attackAttr: 'earth', color: 0xaa66bb, size: 1.0, shape: 'plant', drops: ['earth'] },
+  { id: 'skeleton', name: 'ガイコツ兵', hp: 46, atk: 11, interval: 2.8, tier: 2,
+    affinity: { light: 2, earth: 1, dark: -2, ice: -1 },
+    attackAttr: 'dark', color: 0xddddcc, size: 1.05, shape: 'undead', drops: ['dark'] },
+  { id: 'salamander', name: 'ヒトカゲリ', hp: 40, atk: 13, interval: 2.6, tier: 2,
+    affinity: { water: 2, ice: 1, fire: -2, earth: -1 },
+    attackAttr: 'fire', color: 0xff7733, size: 0.95, shape: 'serpent', drops: ['fire'] },
+  { id: 'spider', name: 'オオグモ', hp: 36, atk: 12, interval: 2.2, tier: 2,
+    affinity: { fire: 2, wind: 1, dark: -1, earth: -1 },
+    attackAttr: 'earth', color: 0x664466, size: 1.0, shape: 'insect', drops: ['earth'] },
+
+  // --- tier3 (10〜14) ---
+  { id: 'icewolf', name: 'ヒョウガロウ', hp: 62, atk: 16, interval: 2.4, tier: 3,
+    affinity: { fire: 2, thunder: 1, ice: -2, water: -1 },
+    attackAttr: 'ice', color: 0x99ddff, size: 1.1, shape: 'beast', drops: ['ice'] },
+  { id: 'thunderbird', name: 'ライメイチョウ', hp: 54, atk: 18, interval: 2.0, tier: 3,
+    affinity: { earth: 2, ice: 1, thunder: -2, wind: -1 },
+    attackAttr: 'thunder', color: 0xffdd66, size: 1.05, shape: 'bird', drops: ['thunder'] },
+  { id: 'sandgolem', name: 'スナゴーレム', hp: 90, atk: 15, interval: 3.8, tier: 3,
+    affinity: { water: 2, thunder: 1, earth: -2, fire: -1 },
+    attackAttr: 'earth', color: 0xddbb77, size: 1.3, shape: 'golem', drops: ['earth'] },
+  { id: 'acidslime', name: 'フショクスライム', hp: 70, atk: 14, interval: 3.0, tier: 3,
+    affinity: { ice: 2, light: 1, water: -2, dark: -1 },
+    attackAttr: 'water', color: 0xaacc33, size: 1.15, shape: 'blob', drops: ['water'] },
+  { id: 'ghostknight', name: 'ボウレイ騎士', hp: 76, atk: 17, interval: 2.9, tier: 3,
+    affinity: { light: 2, fire: 1, dark: -2, earth: -1 },
+    attackAttr: 'dark', color: 0x6688aa, size: 1.15, shape: 'knight', drops: ['dark'] },
+
+  // --- tier4 (15〜19) ---
+  { id: 'lavabeast', name: 'ヨウガンジュウ', hp: 105, atk: 22, interval: 2.7, tier: 4,
+    affinity: { water: 2, ice: 2, fire: -2, earth: -1 },
+    attackAttr: 'fire', color: 0xff5522, size: 1.2, shape: 'beast', drops: ['fire'] },
+  { id: 'deepfish', name: 'シンカイギョ', hp: 98, atk: 20, interval: 2.5, tier: 4,
+    affinity: { thunder: 2, light: 1, water: -2, ice: -1 },
+    attackAttr: 'water', color: 0x3366aa, size: 1.1, shape: 'fish', drops: ['water'] },
+  { id: 'sylph', name: 'カゼノセイ', hp: 84, atk: 19, interval: 1.9, tier: 4,
+    affinity: { earth: 2, ice: 1, wind: -2, light: -1 },
+    attackAttr: 'wind', color: 0x99ffcc, size: 0.95, shape: 'wisp', drops: ['wind'] },
+  { id: 'basilisk', name: 'セキカヘビ', hp: 112, atk: 21, interval: 3.1, tier: 4,
+    affinity: { water: 2, wind: 1, earth: -2, dark: -1 },
+    attackAttr: 'earth', color: 0x77aa55, size: 1.2, shape: 'serpent', drops: ['earth'] },
+  { id: 'necromancer', name: 'シジュツシ', hp: 92, atk: 23, interval: 2.8, tier: 4,
+    affinity: { light: 2, fire: 1, dark: -2, ice: -1 },
+    attackAttr: 'dark', color: 0x554466, size: 1.1, shape: 'undead', drops: ['dark'] },
+
+  // --- tier5 (20〜24) ---
+  { id: 'flamedragon', name: 'ゴウカリュウ', hp: 150, atk: 28, interval: 2.6, tier: 5,
+    affinity: { water: 2, ice: 1, fire: -2, thunder: -1 },
+    attackAttr: 'fire', color: 0xdd3311, size: 1.35, shape: 'serpent', drops: ['fire'] },
+  { id: 'frostknight', name: 'ヒョウケツ騎士', hp: 165, atk: 26, interval: 3.0, tier: 5,
+    affinity: { fire: 2, thunder: 1, ice: -2, water: -1 },
+    attackAttr: 'ice', color: 0x88ccee, size: 1.25, shape: 'knight', drops: ['ice'] },
+  { id: 'stormlord', name: 'ライチョウオウ', hp: 140, atk: 30, interval: 2.1, tier: 5,
+    affinity: { earth: 2, dark: 1, thunder: -2, wind: -1 },
+    attackAttr: 'thunder', color: 0xffee88, size: 1.2, shape: 'bird', drops: ['thunder'] },
+  { id: 'treant', name: 'タイジュノケシン', hp: 195, atk: 25, interval: 3.6, tier: 5,
+    affinity: { fire: 2, ice: 1, earth: -2, water: -2 },
+    attackAttr: 'earth', color: 0x669955, size: 1.4, shape: 'plant', drops: ['earth'] },
+  { id: 'shadoweater', name: 'カゲクライ', hp: 145, atk: 29, interval: 2.4, tier: 5,
+    affinity: { light: 2, fire: 1, dark: -2, wind: -1 },
+    attackAttr: 'dark', color: 0x442255, size: 1.15, shape: 'eye', drops: ['dark'] },
+
+  // --- tier6 (25〜29) ---
+  { id: 'infernogiant', name: 'シャクネツキョジン', hp: 240, atk: 36, interval: 3.2, tier: 6,
+    affinity: { water: 2, ice: 2, fire: -2, earth: -1 },
+    attackAttr: 'fire', color: 0xff6600, size: 1.5, shape: 'golem', drops: ['fire'] },
+  { id: 'glacierdragon', name: 'ゼツヒョウリュウ', hp: 230, atk: 34, interval: 2.8, tier: 6,
+    affinity: { fire: 2, thunder: 1, ice: -2, water: -2 },
+    attackAttr: 'ice', color: 0x66bbee, size: 1.45, shape: 'serpent', drops: ['ice'] },
+  { id: 'tempestlord', name: 'アラシノヌシ', hp: 210, atk: 38, interval: 2.2, tier: 6,
+    affinity: { earth: 2, light: 1, wind: -2, thunder: -2 },
+    attackAttr: 'wind', color: 0x88ffdd, size: 1.35, shape: 'wisp', drops: ['wind'] },
+  { id: 'terralord', name: 'ダイチノヌシ', hp: 280, atk: 33, interval: 3.8, tier: 6,
+    affinity: { water: 2, wind: 1, earth: -2, thunder: -1 },
+    attackAttr: 'earth', color: 0xbb8844, size: 1.55, shape: 'beast', drops: ['earth'] },
+  { id: 'voideye', name: 'キョムノメ', hp: 215, atk: 37, interval: 2.5, tier: 6,
+    affinity: { light: 2, thunder: 1, dark: -2, ice: -1 },
+    attackAttr: 'dark', color: 0x331144, size: 1.3, shape: 'eye', drops: ['dark'] },
+
+  // --- tier7 (30〜34) ---
+  { id: 'flameemperor', name: 'エンオウ', hp: 340, atk: 45, interval: 2.9, tier: 7,
+    affinity: { water: 2, ice: 1, fire: -2, light: -1 },
+    attackAttr: 'fire', color: 0xff3300, size: 1.5, shape: 'knight', drops: ['fire'] },
+  { id: 'iceemperor', name: 'ヒョウオウ', hp: 350, atk: 43, interval: 3.0, tier: 7,
+    affinity: { fire: 2, earth: 1, ice: -2, water: -1 },
+    attackAttr: 'ice', color: 0x44aaff, size: 1.5, shape: 'knight', drops: ['ice'] },
+  { id: 'thunderemperor', name: 'ライオウ', hp: 320, atk: 48, interval: 2.3, tier: 7,
+    affinity: { earth: 2, water: 1, thunder: -2, wind: -1 },
+    attackAttr: 'thunder', color: 0xffcc00, size: 1.45, shape: 'bird', drops: ['thunder'] },
+  { id: 'earthemperor', name: 'チオウ', hp: 400, atk: 42, interval: 3.9, tier: 7,
+    affinity: { thunder: 2, wind: 1, earth: -2, fire: -1 },
+    attackAttr: 'earth', color: 0x996633, size: 1.6, shape: 'golem', drops: ['earth'] },
+  { id: 'darkemperor', name: 'アンオウ', hp: 330, atk: 47, interval: 2.6, tier: 7,
+    affinity: { light: 2, fire: 1, dark: -2, earth: -1 },
+    attackAttr: 'dark', color: 0x552277, size: 1.5, shape: 'undead', drops: ['dark'] },
+
+  // --- tier8 (35以上) ---
+  { id: 'skydragon', name: 'テンクウリュウ', hp: 480, atk: 55, interval: 2.7, tier: 8,
+    affinity: { dark: 2, earth: 1, light: -2, wind: -2 },
+    attackAttr: 'light', color: 0xffffcc, size: 1.6, shape: 'serpent', drops: ['light'] },
+  { id: 'abyssdragon', name: 'シンエンリュウ', hp: 490, atk: 56, interval: 2.7, tier: 8,
+    affinity: { light: 2, thunder: 1, dark: -2, water: -2 },
+    attackAttr: 'dark', color: 0x223355, size: 1.6, shape: 'serpent', drops: ['dark'] },
+  { id: 'holyknight', name: 'セイコウ騎士', hp: 520, atk: 52, interval: 3.1, tier: 8,
+    affinity: { dark: 2, earth: 1, light: -2, fire: -1 },
+    attackAttr: 'light', color: 0xffffaa, size: 1.55, shape: 'knight', drops: ['light'] },
+  { id: 'chaosbeast', name: 'コントンジュウ', hp: 540, atk: 54, interval: 2.9, tier: 8,
+    affinity: { light: 1, dark: 1, fire: -1, ice: -1 },
+    attackAttr: 'dark', color: 0x883366, size: 1.65, shape: 'beast', drops: ['dark'] },
+  { id: 'endeye', name: 'シュウエンノメ', hp: 500, atk: 58, interval: 2.5, tier: 8,
+    affinity: { light: 2, water: 1, dark: -2, thunder: -1 },
+    attackAttr: 'dark', color: 0x110022, size: 1.55, shape: 'eye', drops: ['dark'] },
 ];
 
-export const BOSS: EnemyDef = {
-  id: 'core', name: '魔導核', hp: 150, atk: 12, interval: 2.8,
-  affinity: { light: 1, dark: 1 },
-  attackAttr: 'dark', color: 0xee66ff, size: 1.5, topY: -64,
-  drops: ['light', 'dark', 'thunder', 'ice'],
-};
+// ===== ボス(5の倍数ステージ・共闘2人以上専用) =====
 
-// ステージ補正
-export const stageHpMul = (stage: number) => Math.pow(1.30, stage - 1);
-export const stageAtkMul = (stage: number) => Math.pow(1.15, stage - 1);
+export const BOSSES: EnemyDef[] = [
+  { id: 'core', name: '魔導核', hp: 150, atk: 14, interval: 2.8, tier: 1,
+    affinity: { light: 1, dark: 1 },
+    attackAttr: 'dark', color: 0xee66ff, size: 1.5, shape: 'orb',
+    drops: ['light', 'dark', 'thunder', 'ice'] },
+  { id: 'stoneguardian', name: '石の守護者', hp: 300, atk: 20, interval: 3.4, tier: 2,
+    affinity: { thunder: 2, water: 1, earth: -2, fire: -1 },
+    attackAttr: 'earth', color: 0x889988, size: 1.6, shape: 'golem',
+    drops: ['earth', 'earth', 'thunder', 'light'] },
+  { id: 'crimsondragon', name: '紅蓮竜', hp: 480, atk: 28, interval: 2.9, tier: 3,
+    affinity: { water: 2, ice: 2, fire: -2, wind: -1 },
+    attackAttr: 'fire', color: 0xcc2222, size: 1.7, shape: 'serpent',
+    drops: ['fire', 'fire', 'dark', 'light'] },
+  { id: 'icequeen', name: '氷獄女王', hp: 700, atk: 34, interval: 2.8, tier: 4,
+    affinity: { fire: 2, thunder: 1, ice: -2, water: -2 },
+    attackAttr: 'ice', color: 0x99ddff, size: 1.65, shape: 'knight',
+    drops: ['ice', 'ice', 'water', 'light'] },
+  { id: 'thunderking', name: '雷帝', hp: 950, atk: 42, interval: 2.2, tier: 5,
+    affinity: { earth: 2, dark: 1, thunder: -2, wind: -2 },
+    attackAttr: 'thunder', color: 0xffee44, size: 1.7, shape: 'bird',
+    drops: ['thunder', 'thunder', 'wind', 'dark'] },
+  { id: 'gaia', name: '大地母神', hp: 1400, atk: 46, interval: 3.6, tier: 6,
+    affinity: { water: 2, wind: 1, earth: -2, ice: -1 },
+    attackAttr: 'earth', color: 0x88bb66, size: 1.8, shape: 'plant',
+    drops: ['earth', 'earth', 'water', 'light'] },
+  { id: 'seraph', name: '光輝天使', hp: 1800, atk: 54, interval: 2.7, tier: 7,
+    affinity: { dark: 2, fire: 1, light: -2, thunder: -1 },
+    attackAttr: 'light', color: 0xffffdd, size: 1.75, shape: 'knight',
+    drops: ['light', 'light', 'light', 'dark'] },
+  { id: 'abysslord', name: '深淵の主', hp: 2300, atk: 60, interval: 2.6, tier: 8,
+    affinity: { light: 2, water: 1, dark: -2, earth: -1 },
+    attackAttr: 'dark', color: 0x221133, size: 1.8, shape: 'eye',
+    drops: ['dark', 'dark', 'dark', 'light'] },
+  { id: 'stareater', name: '星喰らい', hp: 3000, atk: 68, interval: 2.5, tier: 8,
+    affinity: { light: 1, dark: 1, thunder: -1 },
+    attackAttr: 'dark', color: 0x4422aa, size: 1.85, shape: 'orb',
+    drops: ['light', 'dark', 'thunder', 'ice'] },
+  { id: 'endcore', name: '終焉の魔導核', hp: 4000, atk: 76, interval: 2.4, tier: 8,
+    affinity: { light: 1, dark: 1 },
+    attackAttr: 'light', color: 0xff66cc, size: 1.9, shape: 'orb',
+    drops: ['light', 'light', 'dark', 'dark'] },
+];
+
+export const isBossStage = (stage: number) => stage % 5 === 0;
+
+export function bossForStage(stage: number): EnemyDef {
+  const idx = Math.max(0, Math.floor(stage / 5) - 1);
+  return BOSSES[Math.min(idx, BOSSES.length - 1)];
+}
+
+// ステージに応じた通常敵の抽選(高ステージほど上位tierが出る)
+export function pickEnemiesForStage(stage: number): EnemyDef[] {
+  const tier = Math.max(1, Math.min(8, Math.ceil(stage / 5)));
+  const pool = ENEMIES.filter(e => e.tier === tier || e.tier === tier - 1);
+  const src = pool.length > 0 ? pool : ENEMIES;
+  const count = Math.min(3, 1 + Math.floor((stage - 1) / 2));
+  const out: EnemyDef[] = [];
+  for (let i = 0; i < count; i++) {
+    out.push(src[Math.floor(Math.random() * src.length)]);
+  }
+  return out;
+}
+
+// 全ての敵(図鑑・描画辞書用)
+export const ALL_ENEMIES: EnemyDef[] = [...ENEMIES, ...BOSSES];
+
+// ステージ補正(tier別の基礎値で強さを表すため、伸びは緩やかに)
+export const stageHpMul = (stage: number) => Math.pow(1.20, stage - 1);
+export const stageAtkMul = (stage: number) => Math.pow(1.09, stage - 1);
 
 // 採取・スロット解放コスト
-export const GATHER_COST = 15;
-export const SLOT4_COST = 80;
-export const SLOT5_COST = 300;
-export const DISCOVERY_BONUS_RP = 20;
+export const GATHER_COST = 35;   // 採取は高価に(エレメントは貴重)
+export const GATHER_COUNT = 1;   // 1回の採取で得られる数(ランダム1個)
+export const SLOT4_COST = 120;
+export const SLOT5_COST = 400;
+export const SLOT4_BOSS_STAGE = 10;  // 第4スロットに必要なボス撃破ステージ
+export const SLOT5_BOSS_STAGE = 20;
+export const DISCOVERY_BONUS_RP = 25;
+export const DISASSEMBLE_RATE = 0.4; // 分解時に素材1個が戻る確率
+
+// 戦闘報酬の研究P
+export function battleRP(stage: number, win: boolean): number {
+  if (!win) return 2 + stage;
+  return 6 + 3 * stage + (isBossStage(stage) ? 25 : 0);
+}

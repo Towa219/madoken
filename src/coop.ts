@@ -3,13 +3,13 @@
 import { Application, Container, Graphics, Text } from 'pixi.js';
 import type { Room } from 'colyseus.js';
 import {
-  affinitySymbol, BOSS, ELEMENTS, ELEMENT_ORDER, ENEMIES, enemyTopY,
+  affinitySymbol, ALL_ENEMIES, ELEMENTS, ELEMENT_ORDER, enemyTopY,
 } from '../shared/data';
 import type { AffinityGrade, EnemyDef } from '../shared/data';
 import { makeEnemySprite, makePlayerSprite, makeProjectileGfx } from './battle';
 import { spellCooldown, spellDisplayName } from '../shared/spellcraft';
 import { showToast } from './lab';
-import { addElements, equippedSpells, notify, state } from './state';
+import { addElements, equippedSpells, markBossCleared, notify, state } from './state';
 import type { ElementId, Spell } from '../shared/types';
 
 const W = 960;
@@ -18,7 +18,7 @@ const GROUND_Y = 460;
 const PLAYER_XS = [110, 165, 220];
 
 const DEF_BY_ID: Record<string, EnemyDef> = {};
-for (const d of [...ENEMIES, BOSS]) DEF_BY_ID[d.id] = d;
+for (const d of ALL_ENEMIES) DEF_BY_ID[d.id] = d;
 
 interface Anim {
   g: Graphics;
@@ -195,10 +195,13 @@ export class CoopView {
           `<span style="color:${ELEMENTS[id].cssColor}">${ELEMENTS[id].name}</span>` +
           `${affinitySymbol(g)}</span>`;
       }).join('');
+      const atk = def ? ELEMENTS[def.attackAttr] : null;
       card.innerHTML =
         `<div class="ecard-head"><span class="ecard-name">${esc(e.name)}</span>` +
         `<span class="ecard-hp"></span></div>` +
         `<div class="ecard-hpbar"><div class="ecard-hpfill"></div></div>` +
+        (atk ? `<div class="ecard-atk">攻撃属性: ` +
+          `<span style="color:${atk.cssColor}">${atk.name}</span></div>` : '') +
         `<div class="ecard-affs">${chips}</div>`;
       box.appendChild(card);
       this.statusEls.push({
@@ -303,6 +306,22 @@ export class CoopView {
       this.addPopup(PLAYER_XS[p.slot] ?? 110, GROUND_Y - 120, `咆哮! ヘイト+${m.amount}`, 0xffaa66);
     });
 
+    room.onMessage('ward', (m: { sid: string; pct: number; attr: string }) => {
+      const st: any = room.state;
+      const p = st?.players?.get(m.sid);
+      if (!p) return;
+      const label = m.attr
+        ? `${ELEMENTS[m.attr as ElementId]?.name ?? ''}耐性${m.pct}%`
+        : `全属性耐性${m.pct}%`;
+      this.addPopup(PLAYER_XS[p.slot] ?? 110, GROUND_Y - 128, label, 0x88ffcc);
+    });
+
+    room.onMessage('wardhit', (m: { sid: string; amount: number }) => {
+      const st: any = room.state;
+      const p = st?.players?.get(m.sid);
+      if (p) this.addPopup(PLAYER_XS[p.slot] ?? 110, GROUND_Y - 128, `耐性 -${m.amount}`, 0x88ffcc);
+    });
+
     room.onMessage('shieldhit', (m: { sid: string; amount: number }) => {
       const st: any = room.state;
       const p = st?.players?.get(m.sid);
@@ -311,16 +330,21 @@ export class CoopView {
     });
 
     // ステージクリア: 報酬を受け取り、自動で次ステージへ(サーバー主導)
-    room.onMessage('stageclear', (m: { stage: number; drops: ElementId[]; rp: number }) => {
+    room.onMessage('stageclear', (m: {
+      stage: number; drops: ElementId[]; rp: number; boss?: boolean;
+    }) => {
       addElements(m.drops);
       state.researchP += m.rp;
       state.bestStage = Math.max(state.bestStage, m.stage);
       state.maxStage = Math.max(state.maxStage, m.stage + 1);
+      if (m.boss) markBossCleared(m.stage);
       notify();
       const dropStr = m.drops.length > 0
-        ? m.drops.map(d => ELEMENTS[d].name).join('・')
-        : 'なし';
-      showToast(`⚔ ステージ${m.stage}クリア! 研究P+${m.rp} 素材:${dropStr} — まもなく次のステージ`);
+        ? ` 素材:${m.drops.map(d => ELEMENTS[d].name).join('・')}`
+        : '';
+      showToast(
+        `${m.boss ? '👑 ボス撃破!' : '⚔'} ステージ${m.stage}クリア! 研究P+${m.rp}${dropStr}`,
+      );
     });
 
     // 誰かが離脱 → 前ステージまでのクリア扱いで全員ロビーへ
@@ -499,7 +523,7 @@ export class CoopView {
     }
     while (this.eViews.length < enemies.length) {
       const e = enemies[this.eViews.length];
-      const def = DEF_BY_ID[e.defId] ?? ENEMIES[0];
+      const def = DEF_BY_ID[e.defId] ?? ALL_ENEMIES[0];
       const { cont, body } = makeEnemySprite(def);
       cont.position.set(e.x, GROUND_Y);
       const nameT = new Text({
@@ -541,13 +565,18 @@ export class CoopView {
     st.players.forEach((p: any) => {
       rows.push(`<div class="eq-row">${esc(p.name)} ${p.ready ? '— 準備完了!' : '— 待機中…'}</div>`);
     });
+    const boss = Number(st.stage) % 5 === 0;
+    const needMore = boss && st.players.size < 2;
     const html =
       `<div class="result-box">` +
-      `<h2>出撃準備 (ステージ ${st.stage})</h2>` +
+      `<h2>出撃準備 (ステージ ${st.stage}${boss ? ' 👑ボス戦' : ''})</h2>` +
       rows.join('') +
-      `<p class="note" style="margin:10px 0">全員が準備完了になると開始。最大3人まで途中参加できる。</p>` +
+      (needMore
+        ? `<p class="chance-mid" style="margin:10px 0">👑 ボス戦は2人以上でないと開始できない。仲間を待とう。</p>`
+        : `<p class="note" style="margin:10px 0">全員が準備完了になると開始。最大3人まで途中参加できる。</p>`) +
       `<div style="display:flex; gap:8px; justify-content:center">` +
-      `<button id="btn-coop-ready" ${me?.ready ? 'disabled' : ''}>${me?.ready ? '開始を待っている…' : '準備完了!'}</button>` +
+      `<button id="btn-coop-ready" ${me?.ready ? 'disabled' : ''}>` +
+      `${me?.ready ? (needMore ? '仲間を待っている…' : '開始を待っている…') : '準備完了!'}</button>` +
       `<button id="btn-coop-leave">退出</button>` +
       `</div></div>`;
     if (html !== this.waitingHtml) {

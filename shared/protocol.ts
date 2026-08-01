@@ -1,12 +1,13 @@
 // クライアント⇔サーバー間のメッセージ型定義
 
-import type { ElementCounts, ElementId } from './types';
+import type { ElementCounts, ElementId, Rarity } from './types';
 
-// 参加時に送る魔法(レシピ+強化Lv。性能はサーバーが再計算する=改竄対策)
+// 参加時に送る魔法(レシピ+強化Lv+品質。性能はサーバーが再計算する=改竄対策)
 export interface SpellPayload {
   name: string;
   recipe: ElementCounts;
-  level?: number; // 強化レベル(サーバー側で0〜9にクランプ)
+  level?: number;   // 強化レベル(サーバー側で0〜9にクランプ)
+  rarity?: Rarity;  // 品質(サーバー側で既知の値のみ採用)
 }
 
 export interface CoopJoinOptions {

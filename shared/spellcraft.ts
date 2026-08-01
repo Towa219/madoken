@@ -1,6 +1,6 @@
-import { ELEMENTS, ELEMENT_ORDER, RECIPES } from './data';
+import { ELEMENTS, ELEMENT_ORDER, RARITIES, RECIPES } from './data';
 import type { RecipeDef } from './data';
-import type { ElementCounts, ElementId, SpellStats } from './types';
+import type { ElementCounts, ElementId, Rarity, SpellStats } from './types';
 
 // 属性ごとの命名用一文字
 const ATTR_CHAR: Record<ElementId, string> = {
@@ -18,7 +18,7 @@ export interface CraftResult {
 export function computeSpell(counts: ElementCounts): CraftResult {
   const s: SpellStats = {
     kind: 'attack', barrier: 0, healPower: 0, hateGain: 0, targetAll: false,
-    quake: false,
+    quake: false, wardPct: 0,
     power: 10, castTime: 1.3, manaCost: 12, projSpeed: 260,
     radius: 0, pierce: false, chain: 0, critRate: 5,
     lifesteal: 0, freeze: 0, slow: 0, selfDamage: 0,
@@ -90,23 +90,42 @@ export function computeSpell(counts: ElementCounts): CraftResult {
 
 export const ENHANCE_MAX = 9;
 
-// 強化1段階ごとに威力+8%・詠唱-2%。護盾/回復/ヘイトは威力に連動して再計算
-export function applyEnhance(base: SpellStats, level: number): SpellStats {
+// 強化(1段階ごとに威力+8%・詠唱-2%)と品質倍率をまとめて適用する
+export function finalStats(
+  counts: ElementCounts, level: number, rarity: Rarity = 'normal',
+): SpellStats {
+  const base = computeSpell(counts).stats;
   const L = Math.max(0, Math.min(ENHANCE_MAX, Math.floor(level || 0)));
+  const rDef = RARITIES[rarity] ?? RARITIES.normal;
   const s: SpellStats = { ...base };
-  if (L === 0) return s;
-  s.power = Math.round(base.power * (1 + 0.08 * L));
+
+  const mul = (1 + 0.08 * L) * rDef.mul;
+  s.power = Math.max(1, Math.round(base.power * mul));
   s.castTime = Math.max(0.35, Math.round(base.castTime * (1 - 0.02 * L) * 100) / 100);
+  s.critRate = Math.min(80, Math.round(base.critRate + (rDef.mul - 1) * 20));
+
+  // 派生値は最終威力から再計算
   if (s.kind === 'shield') s.barrier = Math.round(s.power * 2.2);
   if (s.kind === 'heal') s.healPower = Math.round(s.power * 1.8 + 10);
   if (s.kind === 'taunt') s.hateGain = Math.round(s.power * 10);
+  if (s.kind === 'ward') s.wardPct = wardPctOf(s);
   return s;
 }
 
-// 表示名(強化値付き)
-export function spellDisplayName(sp: { name: string; level?: number }): string {
+// 耐性値(威力から換算・上限70%。全属性版は7割の効き)
+export function wardPctOf(s: SpellStats): number {
+  const base = Math.min(70, 25 + s.power * 0.5);
+  return Math.round(s.targetAll ? base * 0.7 : base);
+}
+
+// 表示名(品質+強化値付き)
+export function spellDisplayName(
+  sp: { name: string; level?: number; rarity?: Rarity },
+): string {
   const lv = sp.level ?? 0;
-  return lv > 0 ? `${sp.name} +${lv}` : sp.name;
+  const rName = RARITIES[sp.rarity ?? 'normal']?.name ?? '';
+  const head = rName ? `【${rName}】` : '';
+  return `${head}${sp.name}${lv > 0 ? ` +${lv}` : ''}`;
 }
 
 // クールダウン(秒)。攻撃は詠唱依存、護盾/治癒は固定で長め
@@ -114,6 +133,7 @@ export function spellCooldown(s: SpellStats): number {
   if (s.kind === 'shield') return 6;
   if (s.kind === 'heal') return 5;
   if (s.kind === 'taunt') return 8;
+  if (s.kind === 'ward') return 10;
   if (s.quake) return 7;
   return 1.2 + s.castTime * 0.5;
 }
@@ -139,6 +159,8 @@ export function spellMagicValue(s: SpellStats): number {
     v = ((s.barrier * (s.targetAll ? 1.9 : 1)) / cycle) * 9;
   } else if (s.kind === 'heal') {
     v = ((s.healPower * (s.targetAll ? 1.9 : 1)) / cycle) * 9;
+  } else if (s.kind === 'ward') {
+    v = s.wardPct * (s.targetAll ? 2.6 : 1.6);
   } else {
     v = (s.hateGain / cycle) * 1.4 + 25;   // 挑発
   }
@@ -177,6 +199,17 @@ export function statsSummary(s: SpellStats): string {
     ];
     if (s.selfDamage > 0) parts.push(`自傷${s.selfDamage}`);
     parts.push(`属性:${ELEMENTS[s.attr].name}`);
+    return parts.join(' / ');
+  }
+  if (s.kind === 'ward') {
+    const parts = [
+      s.targetAll
+        ? `【万象護符】全属性耐性${s.wardPct}%`
+        : `【護符】${ELEMENTS[s.attr].name}属性の被ダメ-${s.wardPct}%`,
+      s.targetAll ? '対象:パーティ全員・12秒' : '対象:自分・12秒',
+      `詠唱${s.castTime.toFixed(2)}秒`, `MP${s.manaCost}`, '再使用10秒',
+    ];
+    if (s.selfDamage > 0) parts.push(`自傷${s.selfDamage}`);
     return parts.join(' / ');
   }
   if (s.kind === 'taunt') {

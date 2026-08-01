@@ -9,7 +9,8 @@ import colyseusPkg from 'colyseus';
 import wsTransportPkg from '@colyseus/ws-transport';
 import { LobbyChatRoom } from './rooms/LobbyChatRoom';
 import { CoopRoom } from './rooms/CoopRoom';
-import { topRanking } from './ranking';
+import { DuelRoom } from './rooms/DuelRoom';
+import { persistent, topRanking } from './ranking';
 
 const { Server } = colyseusPkg;
 const { WebSocketTransport } = wsTransportPkg;
@@ -22,7 +23,9 @@ app.use(express.json());
 
 // ランキングAPI(上位5件)
 app.get('/api/ranking', (_req, res) => {
-  res.json(topRanking(5));
+  void topRanking(5)
+    .then(entries => res.json({ persistent, entries }))
+    .catch(() => res.json({ persistent, entries: [] }));
 });
 
 // プレイ中人数: クライアントが定期的に叩く簡易ハートビート
@@ -52,7 +55,13 @@ const gameServer = new Server({
 
 gameServer.define('lobby_chat', LobbyChatRoom);
 gameServer.define('coop', CoopRoom);
+gameServer.define('duel', DuelRoom);
 
 httpServer.listen(port, () => {
   console.log(`[魔導研究記サーバー] ポート${port}で待機中 (http://localhost:${port})`);
+  console.log(
+    persistent
+      ? '[ランキング] Upstashに恒久保存します'
+      : '[ランキング] 一時保存(再起動でリセット)。UPSTASH_REDIS_REST_URL/TOKEN未設定',
+  );
 });

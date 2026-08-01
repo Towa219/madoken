@@ -3,18 +3,19 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>魔導研究記 — Phase 0 試作</title>
+  <title>魔導研究記(まどけん)試作版</title>
   <link rel="stylesheet" href="/src/style.css">
 </head>
 <body>
   <div id="app">
     <header id="topbar">
-      <span id="game-title">魔導研究記 <small>Phase 0 試作</small></span>
+      <span id="game-title">魔導研究記(まどけん)<small>試作版</small></span>
       <span id="rp-display">研究P: 0</span>
       <span id="power-display">戦闘力: 0</span>
       <span id="online-count">🟢 プレイ中: -人</span>
       <nav>
         <button id="tab-lab" class="tab active">研究室</button>
+        <button id="tab-book" class="tab">発見図鑑</button>
         <button id="tab-battle" class="tab">戦闘</button>
         <button id="tab-online" class="tab">オンライン</button>
         <button id="btn-reset" title="セーブデータを初期化">初期化</button>
@@ -46,9 +47,18 @@
       </section>
 
       <section id="panel-book" class="panel">
-        <h2>魔導書 <small>(装備は4つまで)</small></h2>
+        <h2>魔導書 <small>(装備は4つまで)</small>
+          <button id="btn-sort-spells" title="並び替え">取得順</button>
+        </h2>
         <div id="spell-list"></div>
-        <h2>発見図鑑</h2>
+      </section>
+    </main>
+
+    <!-- ===== 発見図鑑 ===== -->
+    <main id="book-screen" class="hidden">
+      <section class="panel">
+        <h2>発見図鑑 <small id="recipe-progress"></small></h2>
+        <p class="note">エレメントの組み合わせで生まれる系統。ヒントを頼りに未知の反応を探そう。</p>
         <div id="recipe-list"></div>
       </section>
     </main>
@@ -102,12 +112,13 @@
             <button id="btn-refresh-rooms">一覧更新</button>
           </div>
           <div id="room-list"></div>
+          <h2>⚔ 決闘 (1対1)</h2>
+          <p class="note">装備中の魔法で対人戦。空いている決闘場に自動で入り、相手が来たら開始。</p>
+          <button id="btn-duel">決闘に参加</button>
           <div id="lobby-msg"></div>
           <h2>🏆 共闘ランキング TOP5</h2>
-          <p class="note">
-            スコア = クリアステージ×10 + 与ダメージ/20。共闘の終了時(全滅・中断・退出)に記録。<br>
-            ※無料サーバーのため、バージョン更新やサーバー再起動でリセットされます。
-          </p>
+          <p class="note">スコア = クリアステージ×10 + 与ダメージ/20。共闘の終了時に記録。</p>
+          <p id="ranking-note" class="note"></p>
           <div id="ranking-list"></div>
         </section>
       </div>
@@ -118,6 +129,13 @@
         <div id="coop-bar"></div>
         <div id="coop-waiting" class="hidden"></div>
         <div id="coop-overlay" class="hidden"></div>
+      </div>
+
+      <div id="duel-view" class="hidden">
+        <div id="duel-canvas"></div>
+        <div id="duel-bar"></div>
+        <div id="duel-waiting" class="hidden"></div>
+        <div id="duel-overlay" class="hidden"></div>
       </div>
     </main>
 

@@ -164,7 +164,53 @@ async function main(): Promise<void> {
   if (!rejected) fail('未到達ステージの部屋に入れてしまった');
   void roomHigh.leave();
 
-  // ---- 7. 後片付け ----
+  // ---- 7. ボス戦は2人以上でないと開始できない ----
+  const bossRoom: Room = await clientA.create('coop', {
+    name: 'テストA', spells: spellsA, stage: 5, maxStage: 5,
+  });
+  bossRoom.send('ready');
+  await sleep(1200);
+  if ((bossRoom.state as any)?.phase !== 'ready') {
+    fail('ボス戦が1人で開始してしまった');
+  }
+  ok('ボスステージは1人では開始しない(phase=ready のまま)');
+  void bossRoom.leave();
+  await sleep(300);
+
+  // ---- 8. 決闘(PvP) ----
+  const duelA: Room = await clientA.joinOrCreate('duel', { name: 'テストA', spells: spellsA });
+  const duelB: Room = await clientB.joinOrCreate('duel', { name: 'テストB', spells: spellsB });
+  await waitFor(() => (duelA.state as any)?.players?.size === 2, '決闘場に2人が入る');
+  ok('決闘場に2人が入室');
+
+  let duelEnd: { win: boolean } | null = null;
+  duelA.onMessage('duelend', (m: { win: boolean }) => { duelEnd = m; });
+  duelB.onMessage('duelend', () => { /* 相手側 */ });
+  duelA.onMessage('dproj', () => { /* 弾 */ });
+  duelA.onMessage('dhit', () => { /* 命中 */ });
+  duelB.onMessage('dproj', () => { /* 弾 */ });
+  duelB.onMessage('dhit', () => { /* 命中 */ });
+
+  duelA.send('ready');
+  duelB.send('ready');
+  await waitFor(() => (duelA.state as any)?.phase === 'fight', '決闘開始(カウント後にfight)', 15_000);
+  ok('両者準備完了→カウントダウン→決闘開始');
+
+  const duelCaster = setInterval(() => {
+    for (const room of [duelA, duelB]) {
+      const st: any = room.state;
+      const me = st?.players?.get(room.sessionId);
+      if (st?.phase === 'fight' && me?.alive && me.castingIdx === -1) {
+        room.send('cast', { idx: 0 });
+      }
+    }
+  }, 400);
+  await waitFor(() => duelEnd !== null, '決闘の決着', 90_000);
+  clearInterval(duelCaster);
+  ok(`決闘が決着(Aの結果: ${(duelEnd as unknown as { win: boolean }).win ? '勝ち' : '負け'})`);
+  void duelB.leave();
+
+  // ---- 9. 後片付け ----
   // leaveは投げっぱなし(本番のプロキシ経由では応答が返らず固まることがある)
   try {
     void roomB.leave();

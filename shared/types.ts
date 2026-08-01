@@ -6,7 +6,10 @@ export type ElementId =
 
 export type ElementCounts = Partial<Record<ElementId, number>>;
 
-export type SpellKind = 'attack' | 'shield' | 'heal' | 'taunt';
+export type SpellKind = 'attack' | 'shield' | 'heal' | 'taunt' | 'ward';
+
+// 調合時にごく稀に生まれる品質
+export type Rarity = 'normal' | 'rare' | 'epic' | 'legend';
 
 // 調合で決まる魔法の性能
 export interface SpellStats {
@@ -16,6 +19,7 @@ export interface SpellStats {
   hateGain: number;   // ヘイト増加量(kind=taunt)
   targetAll: boolean; // true=パーティ全体対象(shield/heal)
   quake: boolean;     // true=地震(弾を飛ばさず敵全体に威力75%・画面が揺れる)
+  wardPct: number;    // 属性耐性(%)。kind=ward で使用
   power: number;      // 威力
   castTime: number;   // 詠唱時間(秒)
   manaCost: number;   // 消費MP
@@ -38,6 +42,7 @@ export interface Spell {
   stats: SpellStats;       // 強化適用済みの性能
   discoveries: string[];   // 成立した系統レシピID
   level: number;           // 強化レベル(同一レシピ再調合で+1、最大9)
+  rarity: Rarity;          // 品質
 }
 
 export interface GameState {
@@ -51,6 +56,8 @@ export interface GameState {
   slots: number;           // 調合スロット数(3〜5)
   maxStage: number;        // 挑戦可能ステージ
   bestStage: number;       // 最高クリアステージ
+  bossCleared: number[];   // 撃破したボスステージ(共闘でのみ撃破可能)
+  sortByPower: boolean;    // 魔導書を魔導値順に並べるか
 }
 
 export interface BattleResult {

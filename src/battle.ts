@@ -5,8 +5,8 @@
 
 import { Application, Container, Graphics, Text } from 'pixi.js';
 import {
-  affinityMul, affinitySymbol, BOSS, ELEMENTS, ELEMENT_ORDER, ENEMIES,
-  enemyTopY, stageAtkMul, stageHpMul,
+  affinityMul, affinitySymbol, battleRP, bossForStage, ELEMENTS, ELEMENT_ORDER,
+  enemyTopY, isBossStage, pickEnemiesForStage, stageAtkMul, stageHpMul,
 } from '../shared/data';
 import type { AffinityGrade, EnemyDef } from '../shared/data';
 import { spellCooldown, spellDisplayName } from '../shared/spellcraft';
@@ -81,9 +81,13 @@ export class BattleManager {
   private mpRegen = 5;
   private shield = 0;
   private shieldTimer = 0;
+  // 属性耐性(ward): attr=null なら全属性
+  private ward: { attr: ElementId | null; pct: number; timer: number } | null = null;
 
   private casting: { spell: Spell; t: number } | null = null;
   private cooldowns = new Map<string, number>();
+  private countdown = 0;      // 開始前カウントダウン(秒)
+  private countText!: Text;
 
   private playerCont!: Container;
   private barsG!: Graphics;
@@ -124,6 +128,7 @@ export class BattleManager {
     this.mp = this.maxMp;
     this.shield = 0;
     this.shieldTimer = 0;
+    this.ward = null;
     this.casting = null;
     this.cooldowns.clear();
     this.enemies = [];
@@ -136,6 +141,7 @@ export class BattleManager {
     this.time = 0;
     this.endTimer = -1;
     this.endResult = null;
+    this.countdown = 3.6; // 3→2→1→開始!
 
     this.buildScene();
     this.buildSpellBar();
@@ -161,10 +167,13 @@ export class BattleManager {
           `<span style="color:${ELEMENTS[id].cssColor}">${ELEMENTS[id].name}</span>` +
           `${affinitySymbol(g)}</span>`;
       }).join('');
+      const atk = ELEMENTS[e.def.attackAttr];
       card.innerHTML =
         `<div class="ecard-head"><span class="ecard-name">${e.def.name}</span>` +
         `<span class="ecard-hp"></span></div>` +
         `<div class="ecard-hpbar"><div class="ecard-hpfill"></div></div>` +
+        `<div class="ecard-atk">攻撃属性: ` +
+        `<span style="color:${atk.cssColor}">${atk.name}</span></div>` +
         `<div class="ecard-affs">${chips}</div>`;
       box.appendChild(card);
       this.statusEls.push({
@@ -283,16 +292,22 @@ export class BattleManager {
     });
     this.infoText.position.set(16, 64);
     this.uiLayer.addChild(this.infoText);
+
+    this.countText = new Text({
+      text: '',
+      style: {
+        fill: 0xffdd66, fontSize: 96, fontFamily: 'Meiryo, sans-serif', fontWeight: 'bold',
+        stroke: { color: 0x000000, width: 8 },
+      },
+    });
+    this.countText.anchor.set(0.5);
+    this.countText.position.set(W / 2, H / 2 - 30);
+    this.uiLayer.addChild(this.countText);
   }
 
   private pickEnemies(): EnemyDef[] {
-    if (this.stage % 5 === 0) return [BOSS];
-    const count = Math.min(3, 1 + Math.floor((this.stage - 1) / 2));
-    const defs: EnemyDef[] = [];
-    for (let i = 0; i < count; i++) {
-      defs.push(ENEMIES[Math.floor(Math.random() * ENEMIES.length)]);
-    }
-    return defs;
+    if (isBossStage(this.stage)) return [bossForStage(this.stage)];
+    return pickEnemiesForStage(this.stage);
   }
 
   // ===== 魔法バー(DOM) =====
@@ -330,12 +345,13 @@ export class BattleManager {
       const overlay = b.querySelector('.cd-overlay') as HTMLElement;
       overlay.style.width = cd > 0 ? `${(cd / total) * 100}%` : '0%';
       b.disabled =
-        !!this.casting || cd > 0 || this.mp < sp.stats.manaCost || this.endResult !== null;
+        !!this.casting || cd > 0 || this.mp < sp.stats.manaCost
+        || this.endResult !== null || this.countdown > 0;
     });
   }
 
   tryCast(i: number): void {
-    if (!this.active || this.endResult !== null) return;
+    if (!this.active || this.endResult !== null || this.countdown > 0) return;
     const sp = this.spells[i];
     if (!sp) return;
     if (this.casting) return;
@@ -360,6 +376,20 @@ export class BattleManager {
       if (this.endTimer <= 0) this.finish();
       return;
     }
+
+    // 開始前カウントダウン(この間は敵味方とも行動しない)
+    if (this.countdown > 0) {
+      this.countdown -= dt;
+      const n = Math.ceil(this.countdown - 0.6);
+      this.countText.text = n > 0 ? String(n) : '開始!';
+      const frac = (this.countdown - 0.6) - Math.floor(this.countdown - 0.6);
+      this.countText.scale.set(n > 0 ? 1 + (1 - frac) * 0.35 : 1.2);
+      this.countText.alpha = 1;
+      this.drawBars();
+      this.updateSpellBar();
+      return;
+    }
+    this.countText.text = '';
 
     // MP回復
     this.mp = Math.min(this.maxMp, this.mp + this.mpRegen * dt);
@@ -395,6 +425,17 @@ export class BattleManager {
           const heal = st.healPower;
           this.hp = Math.min(this.maxHp, this.hp + heal);
           this.addPopup(PLAYER_X, GROUND_Y - 115, `+${heal}`, 0x88ddaa);
+        } else if (st.kind === 'ward') {
+          this.ward = {
+            attr: st.targetAll ? null : st.attr,
+            pct: st.wardPct,
+            timer: 12,
+          };
+          this.addPopup(
+            PLAYER_X, GROUND_Y - 115,
+            st.targetAll ? `全属性耐性${st.wardPct}%` : `${ELEMENTS[st.attr].name}耐性${st.wardPct}%`,
+            0x88ffcc,
+          );
         } else if (st.quake) {
           this.castQuake(st);
         } else {
@@ -404,10 +445,14 @@ export class BattleManager {
       }
     }
 
-    // 護盾の持続時間
+    // 護盾・耐性の持続時間
     if (this.shieldTimer > 0) {
       this.shieldTimer -= dt;
       if (this.shieldTimer <= 0) this.shield = 0;
+    }
+    if (this.ward) {
+      this.ward.timer -= dt;
+      if (this.ward.timer <= 0) this.ward = null;
     }
 
     // 敵の行動
@@ -469,7 +514,7 @@ export class BattleManager {
       } else {
         if (p.x <= PLAYER_X + 12) {
           p.dead = true;
-          this.onPlayerHit(p.dmg!);
+          this.onPlayerHit(p.dmg!, p.attr);
         }
         if (p.x < -40) p.dead = true;
       }
@@ -664,8 +709,16 @@ export class BattleManager {
     }
   }
 
-  private onPlayerHit(dmg: number): void {
+  private onPlayerHit(dmg: number, attr?: ElementId): void {
     if (this.endResult !== null) return;
+    // 属性耐性で軽減
+    if (this.ward && (this.ward.attr === null || this.ward.attr === attr)) {
+      const before = dmg;
+      dmg = Math.max(1, Math.round(dmg * (1 - this.ward.pct / 100)));
+      if (before > dmg) {
+        this.addPopup(PLAYER_X, GROUND_Y - 128, `耐性 -${before - dmg}`, 0x88ffcc);
+      }
+    }
     // 護盾が先にダメージを受け止める
     if (this.shield > 0) {
       const absorbed = Math.min(this.shield, dmg);
@@ -755,20 +808,9 @@ export class BattleManager {
     this.active = false;
     this.endResult = null;
 
-    // ドロップ計算
+    // ソロ戦ではエレメントは手に入らない(研究Pのみ)
     const drops: ElementId[] = [];
-    if (win) {
-      for (const def of this.defeated) {
-        const count = 1 + (Math.random() < 0.5 ? 1 : 0);
-        for (let i = 0; i < count; i++) {
-          drops.push(def.drops[Math.floor(Math.random() * def.drops.length)]);
-        }
-      }
-      if (this.stage % 5 === 0) drops.push('light', 'dark'); // ボス確定ドロップ
-    }
-    const rp = win
-      ? 12 + 6 * this.stage + (this.stage % 5 === 0 ? 30 : 0)
-      : 4 + 2 * this.stage;
+    const rp = battleRP(this.stage, win);
 
     const result: BattleResult = { win, escaped, stage: this.stage, drops, rp };
     this.onEnd?.(result);
@@ -846,34 +888,118 @@ export function makePlayerSprite(): Container {
 export function makeEnemySprite(def: EnemyDef): { cont: Container; body: Graphics } {
   const cont = new Container();
   const body = new Graphics();
-  switch (def.id) {
-    case 'slime':
-      body.ellipse(0, -16, 22, 17).fill(def.color);
+  const c = def.color;
+  switch (def.shape) {
+    case 'blob': // ぷるぷるした不定形
+      body.ellipse(0, -16, 22, 17).fill(c);
+      body.ellipse(-6, -22, 7, 4).fill({ color: 0xffffff, alpha: 0.35 });
       body.circle(-7, -20, 3).fill(0x113311);
       body.circle(7, -20, 3).fill(0x113311);
       break;
-    case 'imp':
-      body.poly([-15, 0, 15, 0, 0, -38]).fill(def.color);
-      body.poly([-8, -34, -14, -46, -4, -38]).fill(def.color);
-      body.poly([8, -34, 14, -46, 4, -38]).fill(def.color);
+    case 'imp': // 角の生えた小鬼
+      body.poly([-15, 0, 15, 0, 0, -38]).fill(c);
+      body.poly([-8, -34, -14, -46, -4, -38]).fill(c);
+      body.poly([8, -34, 14, -46, 4, -38]).fill(c);
       body.circle(-4, -22, 2.5).fill(0x330011);
       body.circle(4, -22, 2.5).fill(0x330011);
       break;
-    case 'golem':
-      body.roundRect(-19, -42, 38, 42, 6).fill(def.color);
-      body.roundRect(-13, -56, 26, 18, 4).fill(def.color);
+    case 'golem': // 岩の巨体
+      body.roundRect(-19, -42, 38, 42, 6).fill(c);
+      body.roundRect(-13, -56, 26, 18, 4).fill(c);
       body.circle(0, -48, 4).fill(0xffdd44);
+      body.rect(-19, -26, 38, 3).fill({ color: 0x000000, alpha: 0.25 });
       break;
-    case 'wisp':
-      body.circle(0, -24, 18).fill({ color: def.color, alpha: 0.3 });
-      body.circle(0, -24, 11).fill(def.color);
+    case 'wisp': // 漂う光球
+      body.circle(0, -24, 18).fill({ color: c, alpha: 0.3 });
+      body.circle(0, -24, 11).fill(c);
       body.circle(0, -24, 4).fill(0xffffff);
       break;
-    default: // core(ボス)
-      body.circle(0, -34, 30).fill({ color: def.color, alpha: 0.35 });
-      body.circle(0, -34, 22).fill(def.color);
+    case 'orb': // 魔導核(ボス)
+      body.circle(0, -34, 30).fill({ color: c, alpha: 0.35 });
+      body.circle(0, -34, 22).fill(c);
       body.circle(0, -34, 26).stroke({ width: 2, color: 0xffffff, alpha: 0.6 });
       body.circle(0, -34, 8).fill(0xffffff);
+      break;
+    case 'beast': // 四足獣
+      body.ellipse(0, -22, 24, 14).fill(c);
+      body.circle(-17, -30, 10).fill(c);
+      body.poly([-24, -36, -20, -46, -14, -36]).fill(c);
+      body.poly([-12, -36, -8, -45, -4, -36]).fill(c);
+      body.rect(-16, -10, 5, 10).fill(c);
+      body.rect(10, -10, 5, 10).fill(c);
+      body.poly([22, -26, 34, -34, 24, -20]).fill(c);
+      body.circle(-20, -31, 2.5).fill(0x221100);
+      break;
+    case 'bird': // 翼を広げた鳥
+      body.ellipse(0, -30, 12, 16).fill(c);
+      body.poly([-10, -34, -34, -46, -8, -24]).fill({ color: c, alpha: 0.85 });
+      body.poly([10, -34, 34, -46, 8, -24]).fill({ color: c, alpha: 0.85 });
+      body.poly([0, -46, 8, -38, -8, -38]).fill(c);
+      body.poly([0, -40, 10, -36, 0, -34]).fill(0xffaa33);
+      body.circle(-3, -40, 2).fill(0x221100);
+      break;
+    case 'plant': // 花・樹木
+      body.rect(-4, -30, 8, 30).fill(0x66884a);
+      body.poly([-4, -18, -22, -26, -4, -12]).fill(0x77aa55);
+      body.poly([4, -20, 22, -28, 4, -14]).fill(0x77aa55);
+      for (let i = 0; i < 6; i++) {
+        const a = (Math.PI * 2 * i) / 6;
+        body.ellipse(Math.cos(a) * 13, -40 + Math.sin(a) * 13, 8, 6).fill(c);
+      }
+      body.circle(0, -40, 7).fill(0xffdd66);
+      break;
+    case 'undead': // 骸骨
+      body.rect(-3, -34, 6, 34).fill(0xddddcc);
+      body.rect(-14, -30, 28, 4).fill(0xddddcc);
+      body.circle(0, -46, 12).fill(c);
+      body.circle(-4, -48, 3).fill(0x110000);
+      body.circle(4, -48, 3).fill(0x110000);
+      body.rect(-5, -40, 10, 3).fill(0x110000);
+      break;
+    case 'knight': // 鎧の戦士
+      body.poly([-16, 0, 16, 0, 12, -40, -12, -40]).fill(c);
+      body.rect(-20, -40, 40, 6).fill(c);
+      body.circle(0, -50, 11).fill(c);
+      body.rect(-8, -52, 16, 4).fill(0x221100);
+      body.poly([-2, -62, 2, -62, 0, -74]).fill(0xffdd66);
+      body.rect(18, -44, 4, 44).fill(0xaaaacc);
+      body.poly([16, -44, 24, -44, 20, -62]).fill(0xccccee);
+      break;
+    case 'serpent': // 蛇・竜
+      body.ellipse(0, -20, 26, 12).fill(c);
+      body.ellipse(-20, -34, 14, 10).fill(c);
+      body.poly([-30, -40, -24, -52, -18, -38]).fill(c);
+      body.poly([8, -28, 24, -50, 14, -24]).fill({ color: c, alpha: 0.8 });
+      body.poly([20, -20, 38, -14, 20, -12]).fill(c);
+      body.circle(-24, -35, 2.5).fill(0xffee00);
+      break;
+    case 'insect': // 多脚の虫
+      body.ellipse(0, -18, 16, 12).fill(c);
+      body.circle(-12, -22, 8).fill(c);
+      for (let i = 0; i < 3; i++) {
+        body.moveTo(-4 + i * 7, -14).lineTo(-12 + i * 9, 0).stroke({ width: 2, color: c });
+        body.moveTo(-4 + i * 7, -22).lineTo(-12 + i * 9, -34).stroke({ width: 2, color: c });
+      }
+      body.circle(-15, -24, 2.5).fill(0xff3333);
+      body.circle(-9, -25, 2.5).fill(0xff3333);
+      break;
+    case 'eye': // 単眼の異形
+      body.circle(0, -26, 20).fill(c);
+      body.circle(0, -26, 12).fill(0xffffff);
+      body.circle(0, -26, 6).fill(0x110011);
+      for (let i = 0; i < 8; i++) {
+        const a = (Math.PI * 2 * i) / 8;
+        body.moveTo(Math.cos(a) * 20, -26 + Math.sin(a) * 20)
+          .lineTo(Math.cos(a) * 30, -26 + Math.sin(a) * 30)
+          .stroke({ width: 2, color: c });
+      }
+      break;
+    default: // fish
+      body.ellipse(0, -20, 20, 12).fill(c);
+      body.poly([18, -20, 32, -30, 32, -10]).fill(c);
+      body.poly([-4, -30, 4, -30, 0, -40]).fill({ color: c, alpha: 0.85 });
+      body.circle(-11, -23, 3).fill(0xffffff);
+      body.circle(-11, -23, 1.5).fill(0x110011);
       break;
   }
   body.scale.set(def.size);

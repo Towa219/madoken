@@ -1,16 +1,17 @@
 // 研究室(調合・魔導書・図鑑)のDOM UI
 
 import {
-  DISCOVERY_BONUS_RP, ELEMENTS, ELEMENT_ORDER, GATHER_COST,
-  RECIPES, SLOT4_COST, SLOT5_COST,
+  DISASSEMBLE_RATE, DISCOVERY_BONUS_RP, ELEMENTS, ELEMENT_ORDER,
+  GATHER_COST, GATHER_COUNT, RARITIES, RECIPES, rollRarity,
+  SLOT4_BOSS_STAGE, SLOT4_COST, SLOT5_BOSS_STAGE, SLOT5_COST,
 } from '../shared/data';
 import {
-  applyEnhance, computeSpell, ENHANCE_MAX, spellDisplayName,
+  computeSpell, ENHANCE_MAX, finalStats, spellDisplayName,
   spellMagicValue, statsSummary,
 } from '../shared/spellcraft';
 import {
-  addElements, addSpell, deleteSpell, notify, spendElements,
-  state, toggleEquip, totalInventory,
+  addElements, addSpell, deleteSpell, hasBossCleared, notify,
+  spendElements, state, toggleEquip, totalInventory,
 } from './state';
 import type { ElementCounts, ElementId, Spell } from '../shared/types';
 
@@ -59,6 +60,10 @@ function findSameRecipeSpell(counts: ElementCounts): Spell | undefined {
 export function initLab(): void {
   $('#btn-craft').addEventListener('click', craft);
   $('#btn-gather').addEventListener('click', gather);
+  $('#btn-sort-spells').addEventListener('click', () => {
+    state.sortByPower = !state.sortByPower;
+    notify();
+  });
   renderLab();
 }
 
@@ -123,28 +128,30 @@ function renderSlots(): void {
 
   const unlock = $('#slot-unlock');
   unlock.innerHTML = '';
-  if (state.slots === 3) {
+  const spec = state.slots === 3
+    ? { next: 4, cost: SLOT4_COST, boss: SLOT4_BOSS_STAGE }
+    : state.slots === 4
+      ? { next: 5, cost: SLOT5_COST, boss: SLOT5_BOSS_STAGE }
+      : null;
+  if (spec) {
+    const bossOk = hasBossCleared(spec.boss);
     const b = document.createElement('button');
-    b.textContent = `第4スロット解放 (研究P${SLOT4_COST})`;
-    b.disabled = state.researchP < SLOT4_COST;
+    b.textContent = `第${spec.next}スロット解放 (研究P${spec.cost})`;
+    b.disabled = !bossOk || state.researchP < spec.cost;
     b.addEventListener('click', () => {
-      state.researchP -= SLOT4_COST;
-      state.slots = 4;
-      showToast('第4スロットを解放した!');
+      if (!hasBossCleared(spec.boss) || state.researchP < spec.cost) return;
+      state.researchP -= spec.cost;
+      state.slots = spec.next;
+      showToast(`第${spec.next}スロットを解放した!`);
       notify();
     });
     unlock.appendChild(b);
-  } else if (state.slots === 4) {
-    const b = document.createElement('button');
-    b.textContent = `第5スロット解放 (研究P${SLOT5_COST})`;
-    b.disabled = state.researchP < SLOT5_COST;
-    b.addEventListener('click', () => {
-      state.researchP -= SLOT5_COST;
-      state.slots = 5;
-      showToast('第5スロットを解放した! 深淵の調合が可能に…');
-      notify();
-    });
-    unlock.appendChild(b);
+    const cond = document.createElement('div');
+    cond.className = bossOk ? 'note chance-high' : 'note chance-mid';
+    cond.textContent = bossOk
+      ? `条件クリア: ステージ${spec.boss}のボスを撃破済み`
+      : `条件: ステージ${spec.boss}のボス撃破が必要(ボスは共闘2人以上で挑戦)`;
+    unlock.appendChild(cond);
   }
 }
 
@@ -179,7 +186,7 @@ function renderPreview(): void {
         `<div class="pwarn">この魔法はすでに最大強化(+${ENHANCE_MAX})に達している。</div>`;
       return;
     }
-    const next = applyEnhance(computeSpell(same.recipe).stats, same.level + 1);
+    const next = finalStats(same.recipe, same.level + 1, same.rarity);
     const ch = craftChance(counts, same.level);
     craftBtn.textContent = `強化する (+${same.level} → +${same.level + 1})`;
     box.innerHTML =
@@ -292,7 +299,7 @@ function resolveCraft(counts: ElementCounts, same: Spell | undefined): void {
   // 成功: 同一レシピなら強化
   if (same) {
     same.level += 1;
-    same.stats = applyEnhance(computeSpell(same.recipe).stats, same.level);
+    same.stats = finalStats(same.recipe, same.level, same.rarity);
     slotSel = slotSel.map(() => null);
     showToast(`⚗ 強化成功!「${spellDisplayName(same)}」`);
     msgEl.textContent = `「${spellDisplayName(same)}」に強化した。`;
@@ -300,7 +307,9 @@ function resolveCraft(counts: ElementCounts, same: Spell | undefined): void {
     return;
   }
 
-  const { stats, matched, autoName } = computeSpell(counts);
+  const { matched, autoName } = computeSpell(counts);
+  const rarity = rollRarity(counts);
+  const stats = finalStats(counts, 0, rarity);
   const name = autoName;
 
   // 新発見チェック
@@ -319,16 +328,19 @@ function resolveCraft(counts: ElementCounts, same: Spell | undefined): void {
     id: `sp_${Date.now()}_${Math.floor(Math.random() * 10000)}`,
     name, recipe: counts, stats,
     discoveries: matched.map(r => r.id),
-    level: 0,
+    level: 0, rarity,
   };
   addSpell(spell);
 
   slotSel = slotSel.map(() => null);
 
-  if (newFound.length > 0) {
+  if (rarity !== 'normal') {
+    showToast(`🌟 ${RARITIES[rarity].name}品質の魔法が生まれた!「${name}」`);
+  } else if (newFound.length > 0) {
     showToast(`✨ 新系統発見!「${newFound.join('」「')}」 (研究P+${bonus})`);
   }
-  $('#craft-msg').textContent = `「${name}」を調合した。魔導書に記録済み。`;
+  $('#craft-msg').textContent =
+    `「${spellDisplayName(spell)}」を調合した。魔導書に記録済み。`;
   notify();
 }
 
@@ -346,12 +358,14 @@ function gather(): void {
     if (state.researchP < GATHER_COST) return;
     state.researchP -= GATHER_COST;
   }
+  // 希少な光・闇は出にくい
   const pool: ElementId[] = [
-    'fire', 'fire', 'water', 'water', 'wind', 'wind', 'earth', 'earth',
-    'thunder', 'ice', 'light', 'dark',
+    'fire', 'fire', 'fire', 'water', 'water', 'water',
+    'wind', 'wind', 'wind', 'earth', 'earth', 'earth',
+    'thunder', 'thunder', 'ice', 'ice', 'light', 'dark',
   ];
   const got: ElementId[] = [];
-  for (let i = 0; i < 3; i++) {
+  for (let i = 0; i < GATHER_COUNT; i++) {
     got.push(pool[Math.floor(Math.random() * pool.length)]);
   }
   addElements(got);
@@ -362,20 +376,30 @@ function gather(): void {
 
 // ---- 魔導書 ----
 function renderSpellbook(): void {
+  const sortBtn = $<HTMLButtonElement>('#btn-sort-spells');
+  sortBtn.textContent = state.sortByPower ? '魔導値順 ▼' : '取得順';
+  sortBtn.classList.toggle('active-sort', state.sortByPower);
+
   const list = $('#spell-list');
   list.innerHTML = '';
   if (state.spells.length === 0) {
     list.innerHTML = '<div class="empty-note">まだ魔法がない。素材を2つ以上調合してみよう。</div>';
     return;
   }
-  for (const sp of state.spells) {
+
+  const shown = state.sortByPower
+    ? [...state.spells].sort((a, b) => spellMagicValue(b.stats) - spellMagicValue(a.stats))
+    : state.spells;
+
+  for (const sp of shown) {
     const equipped = state.equipped.includes(sp.id);
     const card = document.createElement('div');
-    card.className = 'spell-card' + (equipped ? ' equipped' : '');
+    card.className = `spell-card rarity-${sp.rarity}` + (equipped ? ' equipped' : '');
     const recipeStr = (Object.entries(sp.recipe) as [ElementId, number][])
       .map(([id, cnt]) => `${ELEMENTS[id].name}×${cnt}`).join(' ');
     card.innerHTML =
-      `<div class="sname">${equipped ? '<span class="star">★</span> ' : ''}${spellDisplayName(sp)}` +
+      `<div class="sname">${equipped ? '<span class="star">★</span> ' : ''}` +
+      `<span style="color:${RARITIES[sp.rarity].cssColor}">${spellDisplayName(sp)}</span>` +
       ` <span class="mval">魔導値 ${spellMagicValue(sp.stats)}</span>` +
       ` <small style="color:#777799">(${recipeStr})</small></div>` +
       `<div class="sstats">${statsSummary(sp.stats)}</div>`;
@@ -389,18 +413,17 @@ function renderSpellbook(): void {
     btns.appendChild(eqBtn);
 
     const delBtn = document.createElement('button');
-    delBtn.textContent = '破棄';
+    delBtn.textContent = '分解';
     delBtn.addEventListener('click', () => {
       // confirmが使えない環境(公開版のiframe等)があるため2度押し確認
       if (delBtn.dataset.arm === '1') {
-        deleteSpell(sp.id);
-        notify();
+        disassemble(sp);
       } else {
         delBtn.dataset.arm = '1';
-        delBtn.textContent = '本当に破棄?';
+        delBtn.textContent = '本当に分解?';
         setTimeout(() => {
           delBtn.dataset.arm = '';
-          delBtn.textContent = '破棄';
+          delBtn.textContent = '分解';
         }, 2500);
       }
     });
@@ -411,10 +434,30 @@ function renderSpellbook(): void {
   }
 }
 
+// 分解: 使った素材が低確率で戻る(強化・品質が高いほど戻りやすい)
+function disassemble(sp: Spell): void {
+  const bonus = 1 + sp.level * 0.05 + (RARITIES[sp.rarity].mul - 1) * 0.5;
+  const rate = Math.min(0.9, DISASSEMBLE_RATE * bonus);
+  const got: ElementId[] = [];
+  for (const [id, cnt] of Object.entries(sp.recipe) as [ElementId, number][]) {
+    for (let i = 0; i < cnt; i++) {
+      if (Math.random() < rate) got.push(id);
+    }
+  }
+  addElements(got);
+  deleteSpell(sp.id);
+  $('#craft-msg').textContent = got.length > 0
+    ? `分解して ${got.map(g => ELEMENTS[g].name).join('・')} を回収した。`
+    : '分解したが、何も回収できなかった…';
+  notify();
+}
+
 // ---- 発見図鑑 ----
 function renderRecipes(): void {
   const list = $('#recipe-list');
   list.innerHTML = '';
+  const found = RECIPES.filter(r => state.discovered.includes(r.id)).length;
+  $('#recipe-progress').textContent = `(${found} / ${RECIPES.length} 系統を発見)`;
   for (const r of RECIPES) {
     const found = state.discovered.includes(r.id);
     const row = document.createElement('div');

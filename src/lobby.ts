@@ -3,6 +3,7 @@
 import { Client } from 'colyseus.js';
 import type { Room } from 'colyseus.js';
 import { CoopView } from './coop';
+import { DuelView } from './duel';
 import { spellDisplayName } from '../shared/spellcraft';
 import { equippedSpells, notify, state } from './state';
 import type { SpellPayload } from '../shared/protocol';
@@ -14,9 +15,14 @@ let client: Client | null = null;
 let lobbyRoom: Room | null = null;
 let nick = '';
 const coop = new CoopView();
+const duel = new DuelView();
 
 export function coopTryCast(i: number): void {
   coop.tryCast(i);
+}
+
+export function duelTryCast(i: number): void {
+  duel.tryCast(i);
 }
 
 // APIのベースURL(開発時はサーバーが別ポート)
@@ -71,6 +77,7 @@ export function initOnline(): void {
     if (ev.key === 'Enter') sendChat();
   });
   $('#btn-create-room').addEventListener('click', () => void createRoom());
+  $('#btn-duel').addEventListener('click', () => void joinDuel());
   $('#btn-refresh-rooms').addEventListener('click', () => {
     void refreshRooms();
     void refreshRanking();
@@ -203,7 +210,7 @@ function addChatLine(name: string, text: string): void {
 
 function spellPayload(): SpellPayload[] {
   return equippedSpells().map(sp => ({
-    name: spellDisplayName(sp), recipe: sp.recipe, level: sp.level,
+    name: spellDisplayName(sp), recipe: sp.recipe, level: sp.level, rarity: sp.rarity,
   }));
 }
 
@@ -258,9 +265,16 @@ async function refreshRanking(): Promise<void> {
   const list = $('#ranking-list');
   try {
     const res = await fetch(`${apiBase()}/api/ranking`);
-    const entries = await res.json() as {
-      name: string; score: number; spells: string[]; date: string;
-    }[];
+    const data = await res.json() as {
+      persistent: boolean;
+      entries: { name: string; score: number; spells: string[]; date: string }[];
+    };
+    const entries = data.entries ?? [];
+    const note = $('#ranking-note');
+    note.textContent = data.persistent
+      ? '記録は恒久保存されます(ニックネームごとに自己ベスト1件)。'
+      : '※現在は一時保存。サーバー更新でリセットされます。';
+    note.className = data.persistent ? 'note chance-high' : 'note chance-mid';
     if (entries.length === 0) {
       list.innerHTML = '<div class="empty-note">まだ記録がない。共闘で最初の記録を作ろう!</div>';
       return;
@@ -323,6 +337,35 @@ async function refreshRooms(): Promise<void> {
   } catch (err) {
     console.error(err);
     list.innerHTML = '<div class="empty-note">部屋一覧を取得できなかった。</div>';
+  }
+}
+
+// ---- 決闘(1対1) ----
+
+async function joinDuel(): Promise<void> {
+  if (!client) return;
+  const spells = spellPayload();
+  if (spells.length === 0) {
+    $('#lobby-msg').textContent = '先に研究室で魔法を調合・装備してから。';
+    return;
+  }
+  try {
+    const room = await client.joinOrCreate('duel', { name: nick, spells });
+    $('#lobby-msg').textContent = '';
+    $('#online-lobby').classList.add('hidden');
+    $('#duel-view').classList.remove('hidden');
+    void duel.start(room, () => {
+      $('#duel-view').classList.add('hidden');
+      if (lobbyRoom) {
+        $('#online-lobby').classList.remove('hidden');
+        void refreshRanking();
+      } else {
+        $('#online-login').classList.remove('hidden');
+      }
+    });
+  } catch (err) {
+    console.error(err);
+    $('#lobby-msg').textContent = '決闘場に入れなかった。';
   }
 }
 

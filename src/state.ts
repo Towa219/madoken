@@ -17,6 +17,8 @@ function initialState(): GameState {
     slots: 3,
     maxStage: 1,
     bestStage: 0,
+    bossCleared: [],
+    sortByPower: false,
   };
 }
 
@@ -31,8 +33,11 @@ function load(): GameState {
     const merged = { ...initialState(), ...parsed };
     for (const sp of merged.spells) {
       if (typeof (sp as { level?: unknown }).level !== 'number') sp.level = 0;
+      if (typeof (sp as { rarity?: unknown }).rarity !== 'string') sp.rarity = 'normal';
     }
     if (typeof merged.nickname !== 'string') merged.nickname = '';
+    if (!Array.isArray(merged.bossCleared)) merged.bossCleared = [];
+    if (typeof merged.sortByPower !== 'boolean') merged.sortByPower = false;
     return merged;
   } catch {
     return initialState();
@@ -88,6 +93,14 @@ export function addSpell(spell: Spell): void {
   state.spells.push(spell);
   // 空きがあれば自動装備
   if (state.equipped.length < 4) state.equipped.push(spell.id);
+}
+
+export function hasBossCleared(stage: number): boolean {
+  return state.bossCleared.includes(stage);
+}
+
+export function markBossCleared(stage: number): void {
+  if (!state.bossCleared.includes(stage)) state.bossCleared.push(stage);
 }
 
 export function deleteSpell(id: string): void {

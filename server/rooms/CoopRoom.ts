@@ -9,10 +9,12 @@ import { Schema, MapSchema, ArraySchema, defineTypes } from '@colyseus/schema';
 import type { Client } from 'colyseus';
 
 const { Room } = colyseusPkg;
-import { applyEnhance, computeSpell, spellCooldown } from '../../shared/spellcraft';
+import { finalStats, spellCooldown } from '../../shared/spellcraft';
+import { parseSpells } from '../spellPayload';
 import { submitScore } from '../ranking';
 import {
-  affinityMul, BOSS, ENEMIES, stageAtkMul, stageHpMul,
+  affinityMul, battleRP, bossForStage, isBossStage, pickEnemiesForStage,
+  stageAtkMul, stageHpMul,
 } from '../../shared/data';
 import type { AffinityGrade, EnemyDef } from '../../shared/data';
 import type { ElementCounts, ElementId, SpellStats } from '../../shared/types';
@@ -81,6 +83,9 @@ interface PInternal {
   cooldowns: number[];
   shieldT: number;
   hate: number;      // ヘイト(敵対心)。与ダメ/護盾/回復/挑発で増加、毎秒5%減衰
+  wardAttr: ElementId | null; // 耐性の対象属性(nullなら全属性)
+  wardPct: number;
+  wardT: number;
   score: number;     // 戦闘スコア(クリアステージ×10+与ダメ/20)
   submitted: boolean; // ランキング送信済みか(二重送信防止)
 }
@@ -141,19 +146,10 @@ export class CoopRoom extends Room<CoopState> {
     this.state.players.set(client.sessionId, p);
 
     // 魔法: レシピからサーバー側で再計算
-    const raw = Array.isArray(options?.spells) ? (options.spells as unknown[]).slice(0, 4) : [];
-    const spells = raw.map(s => {
-      const obj = s as { name?: unknown; recipe?: unknown; level?: unknown };
-      const level = Math.max(0, Math.min(9, Math.floor(Number(obj?.level) || 0)));
-      return {
-        name: String(obj?.name ?? '魔弾').slice(0, 24),
-        stats: applyEnhance(
-          computeSpell((obj?.recipe ?? {}) as ElementCounts).stats, level,
-        ),
-      };
-    });
+    const spells = parseSpells(options?.spells);
     this.internals.set(client.sessionId, {
       spells, cooldowns: [0, 0, 0, 0], shieldT: 0, hate: 0,
+      wardAttr: null, wardPct: 0, wardT: 0,
       score: 0, submitted: false,
     });
   }
@@ -211,6 +207,8 @@ export class CoopRoom extends Room<CoopState> {
     const ps: PlayerS[] = [];
     this.state.players.forEach(p => ps.push(p));
     if (ps.length === 0) return;
+    // ボス戦は2人以上でないと開始できない
+    if (isBossStage(this.state.stage) && ps.length < 2) return;
     if (ps.every(p => p.ready)) this.startFight();
   }
 
@@ -222,16 +220,9 @@ export class CoopRoom extends Room<CoopState> {
 
   private spawnEnemies(): void {
     const stage = this.state.stage;
-    let defs: EnemyDef[];
-    if (stage % 5 === 0) {
-      defs = [BOSS];
-    } else {
-      const count = Math.min(3, 1 + Math.floor((stage - 1) / 2));
-      defs = [];
-      for (let i = 0; i < count; i++) {
-        defs.push(ENEMIES[Math.floor(Math.random() * ENEMIES.length)]);
-      }
-    }
+    const defs: EnemyDef[] = isBossStage(stage)
+      ? [bossForStage(stage)]
+      : pickEnemiesForStage(stage);
     const xs = defs.length === 1 ? [770] : defs.length === 2 ? [690, 860] : [630, 755, 875];
 
     // 人数に応じて敵HPを増強(1人=等倍, 2人=1.5倍, 3人=2倍)
@@ -298,6 +289,10 @@ export class CoopRoom extends Room<CoopState> {
         internal.shieldT -= dt;
         if (internal.shieldT <= 0) p.shield = 0;
       }
+      if (internal.wardT > 0) {
+        internal.wardT -= dt;
+        if (internal.wardT <= 0) internal.wardPct = 0;
+      }
       // ヘイト減衰(毎秒5%)と同期
       internal.hate = Math.max(0, internal.hate * (1 - 0.05 * dt));
       p.hate = Math.round(internal.hate);
@@ -352,6 +347,27 @@ export class CoopRoom extends Room<CoopState> {
     if (st.selfDamage > 0) this.damagePlayer(sid, st.selfDamage);
 
     const casterInternal = this.internals.get(sid);
+
+    // 護符: 属性耐性を付与(全属性版はパーティ全員)
+    if (st.kind === 'ward') {
+      const apply = (qsid: string) => {
+        const qi = this.internals.get(qsid);
+        if (!qi) return;
+        qi.wardAttr = st.targetAll ? null : st.attr;
+        qi.wardPct = st.wardPct;
+        qi.wardT = 12;
+        this.broadcast('ward', {
+          sid: qsid, pct: st.wardPct, attr: st.targetAll ? '' : st.attr,
+        });
+      };
+      if (st.targetAll) {
+        this.state.players.forEach((q, qsid) => { if (q.alive) apply(qsid); });
+      } else {
+        apply(sid);
+      }
+      if (casterInternal) casterInternal.hate += st.wardPct * 3;
+      return;
+    }
 
     // 挑発: 自分のヘイトを大きく上げる
     if (st.kind === 'taunt') {
@@ -556,14 +572,23 @@ export class CoopRoom extends Room<CoopState> {
     this.pending.push({
       t: delayMs / 1000,
       fn: () => {
-        if (this.state.phase === 'fight') this.damagePlayer(target.sid, dmg);
+        if (this.state.phase === 'fight') {
+          this.damagePlayer(target.sid, dmg, ei.def.attackAttr);
+        }
       },
     });
   }
 
-  private damagePlayer(sid: string, dmg: number): void {
+  private damagePlayer(sid: string, dmg: number, attr?: ElementId): void {
     const p = this.state.players.get(sid);
     if (!p || !p.alive) return;
+    // 属性耐性で軽減
+    const wi = this.internals.get(sid);
+    if (wi && wi.wardPct > 0 && (wi.wardAttr === null || wi.wardAttr === attr)) {
+      const before = dmg;
+      dmg = Math.max(1, Math.round(dmg * (1 - wi.wardPct / 100)));
+      if (before > dmg) this.broadcast('wardhit', { sid, amount: before - dmg });
+    }
     // 護盾が先にダメージを受け止める
     if (p.shield > 0) {
       const absorbed = Math.min(p.shield, dmg);
@@ -589,19 +614,21 @@ export class CoopRoom extends Room<CoopState> {
     if (win) {
       // ステージクリア: 報酬を配って4秒後に自動で次ステージへ
       this.state.phase = 'clear';
-      const rp = 12 + 6 * stage + (stage % 5 === 0 ? 30 : 0);
+      const rp = battleRP(stage, true);
+      const boss = isBossStage(stage);
       for (const client of this.clients) {
         const internal = this.internals.get(client.sessionId);
         if (internal) internal.score += stage * 10; // クリアスコア
+        // エレメントはボス撃破時のみ手に入る
         const drops: ElementId[] = [];
-        for (const ei of this.eInternals) {
-          const count = 1 + (Math.random() < 0.5 ? 1 : 0);
-          for (let i = 0; i < count; i++) {
-            drops.push(ei.def.drops[Math.floor(Math.random() * ei.def.drops.length)]);
+        if (boss) {
+          const pool = this.eInternals[0]?.def.drops ?? [];
+          const count = 2 + Math.floor(Math.random() * 2);
+          for (let i = 0; i < count && pool.length > 0; i++) {
+            drops.push(pool[Math.floor(Math.random() * pool.length)]);
           }
         }
-        if (stage % 5 === 0) drops.push('light', 'dark');
-        client.send('stageclear', { stage, drops, rp });
+        client.send('stageclear', { stage, drops, rp, boss });
       }
       this.pending.push({ t: 4, fn: () => this.nextStage() });
       return;
@@ -610,7 +637,7 @@ export class CoopRoom extends Room<CoopState> {
     // 全滅: ここで終了。スコアをランキングへ記録
     this.ended = true;
     this.state.phase = 'done';
-    const rp = 4 + 2 * stage;
+    const rp = battleRP(stage, false);
     for (const client of this.clients) {
       this.submitToRanking(client.sessionId);
       client.send('result', { win: false, drops: [], rp });
