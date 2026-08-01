@@ -13,9 +13,12 @@ body {
 
 /* ===== ヘッダー ===== */
 #topbar {
-  display: flex; align-items: center; gap: 16px;
+  display: flex; align-items: center; gap: 8px 16px; flex-wrap: wrap;
   padding: 8px 12px; margin-bottom: 8px;
   background: #1a1a30; border-radius: 8px;
+}
+#topbar-info {
+  display: flex; align-items: baseline; gap: 4px 14px; flex-wrap: wrap;
 }
 #game-title { font-size: 18px; font-weight: bold; color: #bb99ff; }
 #game-title small { font-size: 11px; color: #8888aa; margin-left: 6px; }
@@ -32,7 +35,7 @@ body {
 
 #nick-row { display: flex; gap: 8px; max-width: 420px; }
 #nick-note { margin-top: 6px; }
-#topbar nav { margin-left: auto; display: flex; gap: 6px; }
+#topbar nav { margin-left: auto; display: flex; gap: 6px; flex-wrap: wrap; }
 
 button {
   background: #2a2a4a; color: #ddddee; border: 1px solid #44446a;
@@ -326,4 +329,25 @@ button.tab.active { background: #5533aa; border-color: #7755cc; }
 @media (max-width: 900px) {
   #lab-screen { flex-direction: column; }
   #panel-inventory, #panel-book { flex: 1; width: 100%; }
+  #online-lobby { flex-direction: column; }
+  #lobby-chat-panel, #lobby-rooms-panel { width: 100%; }
+}
+
+/* スマホ幅: ヘッダーを「情報 → ボタン」の2段にして横はみ出しを防ぐ */
+@media (max-width: 700px) {
+  #app { padding: 6px; }
+  #topbar { flex-direction: column; align-items: stretch; gap: 8px; }
+  #topbar-info { justify-content: center; font-size: 12px; }
+  #game-title { font-size: 15px; width: 100%; text-align: center; }
+  #topbar nav { margin-left: 0; width: 100%; justify-content: center; }
+  #topbar nav button {
+    flex: 1 1 0; min-width: 0; padding: 7px 4px; font-size: 12px;
+  }
+  #btn-reset { font-size: 12px; opacity: 0.7; }
+
+  /* 戦闘まわりも横幅に収める */
+  .spell-btn { min-width: 0; flex: 1 1 45%; }
+  .enemy-card { min-width: 0; flex: 1 1 100%; }
+  #stage-select button { padding: 6px 10px; }
+  #nick-row { flex-wrap: wrap; }
 }
