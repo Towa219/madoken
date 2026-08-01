@@ -27,6 +27,7 @@ class PlayerS extends Schema {
   declare mp: number;
   declare maxMp: number;
   declare shield: number;
+  declare hate: number;
   declare alive: boolean;
   declare ready: boolean;
   declare slot: number;
@@ -36,7 +37,7 @@ class PlayerS extends Schema {
 }
 defineTypes(PlayerS, {
   name: 'string', hp: 'number', maxHp: 'number', mp: 'number', maxMp: 'number',
-  shield: 'number', alive: 'boolean', ready: 'boolean', slot: 'number',
+  shield: 'number', hate: 'number', alive: 'boolean', ready: 'boolean', slot: 'number',
   castingIdx: 'number', castT: 'number', castTotal: 'number',
 });
 
@@ -78,6 +79,7 @@ interface PInternal {
   spells: { name: string; stats: SpellStats }[];
   cooldowns: number[];
   shieldT: number;
+  hate: number; // ヘイト(敵対心)。与ダメ/護盾/回復/挑発で増加、毎秒5%減衰
 }
 
 interface EInternal {
@@ -122,6 +124,7 @@ export class CoopRoom extends Room<CoopState> {
     p.maxHp = 120; p.hp = 120;
     p.maxMp = 100; p.mp = 100;
     p.shield = 0;
+    p.hate = 0;
     p.alive = true; p.ready = false;
     p.castingIdx = -1; p.castT = 0; p.castTotal = 0;
 
@@ -142,7 +145,9 @@ export class CoopRoom extends Room<CoopState> {
         stats: computeSpell((obj?.recipe ?? {}) as ElementCounts).stats,
       };
     });
-    this.internals.set(client.sessionId, { spells, cooldowns: [0, 0, 0, 0], shieldT: 0 });
+    this.internals.set(client.sessionId, {
+      spells, cooldowns: [0, 0, 0, 0], shieldT: 0, hate: 0,
+    });
   }
 
   onLeave(client: Client): void {
@@ -245,6 +250,9 @@ export class CoopRoom extends Room<CoopState> {
         internal.shieldT -= dt;
         if (internal.shieldT <= 0) p.shield = 0;
       }
+      // ヘイト減衰(毎秒5%)と同期
+      internal.hate = Math.max(0, internal.hate * (1 - 0.05 * dt));
+      p.hate = Math.round(internal.hate);
       if (p.castingIdx >= 0) {
         p.castT += dt;
         const sp = internal.spells[p.castingIdx];
@@ -295,29 +303,66 @@ export class CoopRoom extends Room<CoopState> {
   private resolveCast(sid: string, p: PlayerS, st: SpellStats): void {
     if (st.selfDamage > 0) this.damagePlayer(sid, st.selfDamage);
 
-    // 護盾: 自分にシールドを張る
-    if (st.kind === 'shield') {
-      const internal = this.internals.get(sid);
-      if (internal && p.alive) {
-        p.shield = Math.max(p.shield, st.barrier);
-        internal.shieldT = 10;
-        this.broadcast('shieldup', { sid, amount: st.barrier });
+    const casterInternal = this.internals.get(sid);
+
+    // 挑発: 自分のヘイトを大きく上げる
+    if (st.kind === 'taunt') {
+      if (casterInternal && p.alive) {
+        casterInternal.hate += st.hateGain;
+        this.broadcast('taunt', { sid, amount: st.hateGain });
       }
       return;
     }
 
-    // 治癒: 最も傷ついた生存中の味方を回復
-    if (st.kind === 'heal') {
-      const alive: { sid: string; p: PlayerS; ratio: number }[] = [];
-      this.state.players.forEach((q, qsid) => {
-        if (q.alive) alive.push({ sid: qsid, p: q, ratio: q.hp / q.maxHp });
-      });
-      alive.sort((a, b) => a.ratio - b.ratio);
-      const target = alive[0];
-      if (target) {
-        target.p.hp = Math.min(target.p.maxHp, target.p.hp + st.healPower);
-        this.broadcast('heal', { sid: target.sid, amount: st.healPower });
+    // 護盾: 自分(または全体護盾なら全員)にシールドを張る
+    if (st.kind === 'shield') {
+      if (!casterInternal || !p.alive) return;
+      if (st.targetAll) {
+        const each = Math.round(st.barrier * 0.6);
+        this.state.players.forEach((q, qsid) => {
+          if (!q.alive) return;
+          const qi = this.internals.get(qsid);
+          if (!qi) return;
+          q.shield = Math.max(q.shield, each);
+          qi.shieldT = 10;
+          this.broadcast('shieldup', { sid: qsid, amount: each });
+        });
+      } else {
+        p.shield = Math.max(p.shield, st.barrier);
+        casterInternal.shieldT = 10;
+        this.broadcast('shieldup', { sid, amount: st.barrier });
       }
+      casterInternal.hate += st.barrier * 2.0;
+      return;
+    }
+
+    // 治癒: 最も傷ついた味方(全体治癒なら全員)を回復
+    if (st.kind === 'heal') {
+      let healedTotal = 0;
+      if (st.targetAll) {
+        const each = Math.round(st.healPower * 0.6);
+        this.state.players.forEach((q, qsid) => {
+          if (!q.alive) return;
+          const before = q.hp;
+          q.hp = Math.min(q.maxHp, q.hp + each);
+          healedTotal += q.hp - before;
+          this.broadcast('heal', { sid: qsid, amount: each });
+        });
+      } else {
+        const alive: { sid: string; p: PlayerS; ratio: number }[] = [];
+        this.state.players.forEach((q, qsid) => {
+          if (q.alive) alive.push({ sid: qsid, p: q, ratio: q.hp / q.maxHp });
+        });
+        alive.sort((a, b) => a.ratio - b.ratio);
+        const target = alive[0];
+        if (target) {
+          const before = target.p.hp;
+          target.p.hp = Math.min(target.p.maxHp, target.p.hp + st.healPower);
+          healedTotal = target.p.hp - before;
+          this.broadcast('heal', { sid: target.sid, amount: st.healPower });
+        }
+      }
+      if (casterInternal) casterInternal.hate += healedTotal * 1.2;
       return;
     }
 
@@ -392,6 +437,9 @@ export class CoopRoom extends Room<CoopState> {
     const final = Math.max(1, Math.round(dmg));
 
     e.hp = Math.max(0, e.hp - final);
+    // 与ダメージ分のヘイト
+    const atkInternal = this.internals.get(sid);
+    if (atkInternal) atkInternal.hate += final;
     let note = '';
     if (grade === 2) note = ' 大弱点!!';
     else if (grade === 1) note = ' 弱点!';
@@ -417,10 +465,24 @@ export class CoopRoom extends Room<CoopState> {
   }
 
   private enemyAttack(idx: number, ei: EInternal): void {
-    const alive: { sid: string }[] = [];
-    this.state.players.forEach((p, sid) => { if (p.alive) alive.push({ sid }); });
+    const alive: { sid: string; hate: number }[] = [];
+    this.state.players.forEach((p, sid) => {
+      if (p.alive) alive.push({ sid, hate: this.internals.get(sid)?.hate ?? 0 });
+    });
     if (alive.length === 0) return;
-    const target = alive[Math.floor(Math.random() * alive.length)];
+    // ヘイト制: 70%で最高ヘイトを、30%でヘイト比例の抽選
+    let target: { sid: string; hate: number };
+    if (Math.random() < 0.7) {
+      target = alive.reduce((a, b) => (b.hate > a.hate ? b : a));
+    } else {
+      const total = alive.reduce((sum, a) => sum + a.hate + 1, 0);
+      let r = Math.random() * total;
+      target = alive[alive.length - 1];
+      for (const a of alive) {
+        r -= a.hate + 1;
+        if (r <= 0) { target = a; break; }
+      }
+    }
     const delayMs = 500;
     this.broadcast('eproj', { i: idx, targetSid: target.sid, delayMs });
     const dmg = Math.round(

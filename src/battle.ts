@@ -378,7 +378,13 @@ export class BattleManager {
           this.hp -= st.selfDamage;
           this.addPopup(PLAYER_X, GROUND_Y - 100, `-${st.selfDamage}`, 0xbb77ee);
         }
-        if (st.kind === 'shield') {
+        if (st.kind === 'taunt') {
+          // ソロでは挑発は小さな護盾に変わる
+          const small = Math.round(st.power * 1.2);
+          this.shield = Math.max(this.shield, small);
+          this.shieldTimer = 5;
+          this.addPopup(PLAYER_X, GROUND_Y - 115, `咆哮! 護盾+${small}`, 0xffaa66);
+        } else if (st.kind === 'shield') {
           this.shield = Math.max(this.shield, st.barrier);
           this.shieldTimer = 10;
           this.addPopup(PLAYER_X, GROUND_Y - 115, `護盾+${st.barrier}`, 0x88ccff);

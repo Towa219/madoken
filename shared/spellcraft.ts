@@ -17,7 +17,7 @@ export interface CraftResult {
 // エレメント構成から魔法の性能を算出する(調合の核)
 export function computeSpell(counts: ElementCounts): CraftResult {
   const s: SpellStats = {
-    kind: 'attack', barrier: 0, healPower: 0,
+    kind: 'attack', barrier: 0, healPower: 0, hateGain: 0, targetAll: false,
     power: 10, castTime: 1.3, manaCost: 12, projSpeed: 260,
     radius: 0, pierce: false, chain: 0, critRate: 5,
     lifesteal: 0, freeze: 0, slow: 0, selfDamage: 0,
@@ -55,9 +55,10 @@ export function computeSpell(counts: ElementCounts): CraftResult {
   s.projSpeed = Math.round(s.projSpeed);
   s.critRate = Math.min(80, Math.round(s.critRate));
 
-  // 防御系の性能は威力から換算
+  // 防御・支援系の性能は威力から換算
   if (s.kind === 'shield') s.barrier = Math.round(s.power * 2.2);
   if (s.kind === 'heal') s.healPower = Math.round(s.power * 1.8 + 10);
+  if (s.kind === 'taunt') s.hateGain = Math.round(s.power * 10);
 
   // 自動命名: 主属性(+副属性)接頭辞 + 系統名 + 威力による階級
   // 例: 火2+風1 →「炎風の魔弾」 / 火3 →「炎の爆裂弾・改」
@@ -87,14 +88,18 @@ export function computeSpell(counts: ElementCounts): CraftResult {
 export function spellCooldown(s: SpellStats): number {
   if (s.kind === 'shield') return 6;
   if (s.kind === 'heal') return 5;
+  if (s.kind === 'taunt') return 8;
   return 1.2 + s.castTime * 0.5;
 }
 
 // 性能の表示用テキスト(研究室・戦闘の両方で使用)
 export function statsSummary(s: SpellStats): string {
   if (s.kind === 'shield') {
+    const head = s.targetAll
+      ? `【全体護盾】全員に耐久${Math.round(s.barrier * 0.6)}`
+      : `【護盾】耐久${s.barrier}`;
     const parts = [
-      `【護盾】耐久${s.barrier}`, '持続10秒',
+      head, '持続10秒',
       `詠唱${s.castTime.toFixed(2)}秒`, `MP${s.manaCost}`, `再使用6秒`,
     ];
     if (s.selfDamage > 0) parts.push(`自傷${s.selfDamage}`);
@@ -102,9 +107,21 @@ export function statsSummary(s: SpellStats): string {
     return parts.join(' / ');
   }
   if (s.kind === 'heal') {
+    const head = s.targetAll
+      ? `【全体治癒】全員回復${Math.round(s.healPower * 0.6)}`
+      : `【治癒】回復${s.healPower}`;
     const parts = [
-      `【治癒】回復${s.healPower}`, '対象:最も傷ついた味方',
+      head, s.targetAll ? '対象:パーティ全員' : '対象:最も傷ついた味方',
       `詠唱${s.castTime.toFixed(2)}秒`, `MP${s.manaCost}`, `再使用5秒`,
+    ];
+    if (s.selfDamage > 0) parts.push(`自傷${s.selfDamage}`);
+    parts.push(`属性:${ELEMENTS[s.attr].name}`);
+    return parts.join(' / ');
+  }
+  if (s.kind === 'taunt') {
+    const parts = [
+      `【挑発】ヘイト+${s.hateGain}`, '敵の狙いを自分へ',
+      `詠唱${s.castTime.toFixed(2)}秒`, `MP${s.manaCost}`, `再使用8秒`,
     ];
     if (s.selfDamage > 0) parts.push(`自傷${s.selfDamage}`);
     parts.push(`属性:${ELEMENTS[s.attr].name}`);

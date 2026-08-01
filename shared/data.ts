@@ -76,6 +76,13 @@ export const RECIPES: RecipeDef[] = [
     apply: s => { s.lifesteal += 30; },
   },
   {
+    id: 'chouhatsu', name: '挑発系', spellNoun: '咆哮',
+    hint: '大地を踏み鳴らし火を噴けば、敵は君を見る (土×2+火×1以上)',
+    desc: '敵の注意を自分に集める(ヘイト+威力×10)。共闘でタンク役の要。ソロでは小さな護盾に変わる。',
+    check: c => n(c, 'earth') >= 2 && n(c, 'fire') >= 1,
+    apply: s => { s.kind = 'taunt'; },
+  },
+  {
     id: 'gojun', name: '護盾系', spellNoun: '護盾',
     hint: '大地と氷は身を守る術を知る (土×2+氷×1以上)',
     desc: '攻撃せず、ダメージを肩代わりする護盾を張る(耐久=威力×2.2・持続10秒)。',
@@ -83,11 +90,25 @@ export const RECIPES: RecipeDef[] = [
     apply: s => { s.kind = 'shield'; },
   },
   {
+    id: 'seiiki', name: '聖域系', spellNoun: '聖域盾',
+    hint: '守りの大地に光を灯すと、盾は皆を包む (土×2+氷×1+光×1以上)',
+    desc: 'パーティ全員に護盾を張る(各自に耐久60%・持続10秒)。ソロでは通常の護盾。',
+    check: c => n(c, 'earth') >= 2 && n(c, 'ice') >= 1 && n(c, 'light') >= 1,
+    apply: s => { s.kind = 'shield'; s.targetAll = true; },
+  },
+  {
     id: 'chiyu', name: '治癒系', spellNoun: '治癒光',
     hint: '光を三つ重ねると癒しに転じる (光×3以上)',
     desc: '攻撃せず、最も傷ついた味方(ソロでは自分)のHPを回復する。',
     check: c => n(c, 'light') >= 3,
     apply: s => { s.kind = 'heal'; },
+  },
+  {
+    id: 'jiu', name: '慈雨系', spellNoun: '慈雨',
+    hint: '癒しの光が水を得て、雨となり皆に降り注ぐ (光×3+水×1以上)',
+    desc: 'パーティ全員を回復する(各自に回復量の60%)。ソロでは自分を回復。',
+    check: c => n(c, 'light') >= 3 && n(c, 'water') >= 1,
+    apply: s => { s.kind = 'heal'; s.targetAll = true; },
   },
   {
     id: 'konton', name: '混沌系', spellNoun: '混沌撃',

@@ -205,6 +205,16 @@ button.tab.active { background: #5533aa; border-color: #7755cc; }
 #online-lobby { display: flex; gap: 8px; align-items: flex-start; }
 #lobby-chat-panel { flex: 1.2; }
 #lobby-rooms-panel { flex: 1; }
+#online-members {
+  display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
+  margin-bottom: 12px; min-height: 26px;
+}
+.member-chip {
+  background: #2a2a4a; border: 1px solid #5533aa; border-radius: 12px;
+  padding: 2px 12px; font-size: 12px; color: #ccbbee;
+}
+.member-count { font-size: 11px; color: #8888aa; margin-left: 4px; }
+
 #chat-log {
   height: 300px; overflow-y: auto; background: #101020; border: 1px solid #2a2a45;
   border-radius: 6px; padding: 8px; margin-bottom: 8px; font-size: 13px;

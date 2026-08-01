@@ -274,6 +274,13 @@ export class CoopView {
       this.addPopup(PLAYER_XS[p.slot] ?? 110, GROUND_Y - 115, `護盾+${m.amount}`, 0x88ccff);
     });
 
+    room.onMessage('taunt', (m: { sid: string; amount: number }) => {
+      const st: any = room.state;
+      const p = st?.players?.get(m.sid);
+      if (!p) return;
+      this.addPopup(PLAYER_XS[p.slot] ?? 110, GROUND_Y - 120, `咆哮! ヘイト+${m.amount}`, 0xffaa66);
+    });
+
     room.onMessage('shieldhit', (m: { sid: string; amount: number }) => {
       const st: any = room.state;
       const p = st?.players?.get(m.sid);
@@ -534,9 +541,20 @@ export class CoopView {
       g.rect(16, 38, 220 * Math.max(0, me.mp / me.maxMp), 12).fill(0x5588ee);
     }
 
+    // 最もヘイトが高い(狙われやすい)プレイヤーに▼マーク
+    let topSid = '';
+    let topHate = 0;
+    st.players.forEach((p: any, sid: string) => {
+      if (p.alive && p.hate > topHate) { topHate = p.hate; topSid = sid; }
+    });
+
     // 各プレイヤーの頭上バー
-    st.players.forEach((p: any) => {
+    st.players.forEach((p: any, sid: string) => {
       const x = PLAYER_XS[p.slot] ?? 110;
+      if (sid === topSid && st.phase === 'fight') {
+        g.poly([x - 7, GROUND_Y - 132, x + 7, GROUND_Y - 132, x, GROUND_Y - 121])
+          .fill(0xff8844);
+      }
       g.rect(x - 26, GROUND_Y - 108, 52, 6).fill(0x222238);
       g.rect(x - 26, GROUND_Y - 108, 52 * Math.max(0, p.hp / p.maxHp), 6).fill(0x55cc66);
       if (p.shield > 0) {

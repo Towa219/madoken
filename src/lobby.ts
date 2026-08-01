@@ -61,6 +61,7 @@ function wireLobby(room: Room): void {
   room.onMessage('chat', (msg: { name: string; text: string }) => {
     addChatLine(msg.name, msg.text);
   });
+  room.onStateChange(() => renderMembers());
   room.onLeave(() => {
     lobbyRoom = null;
     $('#online-lobby').classList.add('hidden');
@@ -68,6 +69,33 @@ function wireLobby(room: Room): void {
     $('#online-login').classList.remove('hidden');
     $('#online-msg').textContent = '切断された。もう一度接続してください。';
   });
+}
+
+// 現在オンラインのメンバー一覧
+function renderMembers(): void {
+  const box = $('#online-members');
+  if (!lobbyRoom) {
+    box.innerHTML = '';
+    return;
+  }
+  const st = lobbyRoom.state as { players?: { forEach(cb: (p: { name: string }) => void): void } };
+  const names: string[] = [];
+  st?.players?.forEach(p => names.push(p.name));
+  if (names.length === 0) {
+    box.innerHTML = '<span class="empty-note">読み込み中…</span>';
+    return;
+  }
+  box.innerHTML = '';
+  for (const n of names) {
+    const chip = document.createElement('span');
+    chip.className = 'member-chip';
+    chip.textContent = n;
+    box.appendChild(chip);
+  }
+  const count = document.createElement('span');
+  count.className = 'member-count';
+  count.textContent = `${names.length}人`;
+  box.appendChild(count);
 }
 
 function renderStageOptions(): void {

@@ -6,13 +6,15 @@ export type ElementId =
 
 export type ElementCounts = Partial<Record<ElementId, number>>;
 
-export type SpellKind = 'attack' | 'shield' | 'heal';
+export type SpellKind = 'attack' | 'shield' | 'heal' | 'taunt';
 
 // 調合で決まる魔法の性能
 export interface SpellStats {
-  kind: SpellKind;    // attack=攻撃 / shield=護盾 / heal=回復
+  kind: SpellKind;    // attack=攻撃 / shield=護盾 / heal=回復 / taunt=挑発
   barrier: number;    // 護盾耐久(kind=shield)
   healPower: number;  // 回復量(kind=heal)
+  hateGain: number;   // ヘイト増加量(kind=taunt)
+  targetAll: boolean; // true=パーティ全体対象(shield/heal)
   power: number;      // 威力
   castTime: number;   // 詠唱時間(秒)
   manaCost: number;   // 消費MP
