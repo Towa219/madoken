@@ -1,9 +1,6 @@
 {
-  "_使い方": "このファイルを manifest.json という名前でコピーし、実際に置いた画像の行だけ残す。書かなかったものは図形描画のまま。",
-
   "player": "player.png",
   "background": "bg/field.jpg",
-
   "enemies": {
     "blob": "enemy/blob.png",
     "imp": "enemy/imp.png",
@@ -20,7 +17,6 @@
     "eye": "enemy/eye.png",
     "fish": "enemy/fish.png"
   },
-
   "projectiles": {
     "fire": "proj/fire.png",
     "water": "proj/water.png",

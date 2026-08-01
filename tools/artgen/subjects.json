@@ -1,0 +1,68 @@
+{
+  "_説明": "生成する画像の一覧。Animagine XL はタグ形式で学習されているので、英文ではなくタグを並べる。画風・品質・背景の指定は gen.py が共通で付ける。",
+  "_プレイヤーの性別": "player.prompt の先頭を 1girl / 1boy で切り替えられる。",
+
+  "style": "anime style, game asset, cel shading, crisp lineart, vivid colors, fantasy",
+
+  "_flip": "生成物の向きが逆だったものをここに書くと左右反転する(プレイヤーは右向き・敵は左向きが正しい)。",
+  "flip": ["player", "enemy:beast", "enemy:bird"],
+
+  "_negative": "他の敵と絵柄が被るときに、その敵だけ追加で禁止する指定。",
+  "negative": {
+    "enemy:imp": "dragon, wyvern, large monster, huge, serpent, long neck",
+    "enemy:insect": "dragon, humanoid, human, biped, standing on two legs, arms, hands, abstract, formless, blob, wings",
+    "enemy:fish": "dragon, wyvern, feathers, wings, humanoid",
+    "enemy:undead": "dragon, abstract, formless, feathers"
+  },
+
+
+  "player": {
+    "out": "player.png",
+    "height": 400,
+    "prompt": "1girl, magic researcher, witch, dark blue long coat, gold trim, holding open spellbook, glowing magic circle, short black hair, standing, full body, from side, facing right, bright lighting, detailed face"
+  },
+
+  "background": {
+    "out": "bg/field.jpg",
+    "width": 1344,
+    "height": 768,
+    "final_width": 960,
+    "final_height": 540,
+
+    "_後処理": "背景に徹させるための補正。数値を上げ下げして好みに合わせられる。",
+    "darken": 0.5,
+    "saturation": 0.72,
+    "contrast": 0.88,
+    "blur": 1.4,
+
+    "prompt": "no humans, fantasy landscape, ancient stone ruins, grassland, distant mountains, night, dark blue night sky, moonlight, floating magic particles, muted colors, few details, wide shot, empty flat foreground, scenery"
+  },
+
+  "enemies": {
+    "blob": "no humans, monster, green slime, (bright green:1.3) translucent gelatinous body, round blob, small eyes, glossy, full body, from side, facing left",
+    "imp": "no humans, monster, chibi imp demon, small goblin devil, short stubby body, big head, crimson skin, tiny bat wings, small horns, pointed tail, grinning, standing on two legs, full body, from side, facing left",
+    "golem": "no humans, monster, stone golem, gray cracked rocky body, glowing runes, massive arms, heavy, full body, from side, facing left",
+    "wisp": "no humans, monster, will-o-wisp, pale blue glowing floating orb, ethereal flame, trailing light, no legs, floating, from side, facing left",
+    "orb": "no humans, monster, floating arcane orb, violet sphere of magic energy, orbiting runic rings, glowing, no legs, floating, from side, facing left",
+    "beast": "no humans, monster, quadruped beast, gray shaggy fur, fangs, claws, snarling, full body, from side, facing left",
+    "bird": "no humans, monster, giant bird, dark purple feathers, spread wings, sharp beak, talons, flying, from side, facing left",
+    "plant": "no humans, monster, carnivorous plant, green vines, giant purple toothed flower head, leaves, full body, from side, facing left",
+    "undead": "no humans, monster, skeleton warrior, white bone body, skull head, empty glowing eye sockets, tattered brown cloak, holding rusty sword, standing on two legs, full body, from side, facing left",
+    "knight": "no humans, monster, cursed armor, dark steel blue full plate armor, greatsword, glowing visor, empty armor, full body, from side, facing left",
+    "serpent": "no humans, monster, giant serpent, red scales, coiling body, horned head, fangs, dragon, full body, from side, facing left",
+    "insect": "no humans, monster, giant stag beetle, bug, dark purple glossy hard shell, six short jointed legs on the ground, long antennae, huge pincer mandibles, segmented insect body, crawling low, animal anatomy, full body, from side, facing left",
+    "eye": "no humans, monster, floating eyeball, single giant eye, violet iris, writhing tentacles, no legs, floating, from side, facing left",
+    "fish": "no humans, monster, giant piranha, anglerfish, deep blue scaled fish body, huge jaws, jagged teeth, dorsal fin, tail fin, gills, swimming, full body, from side, facing left"
+  },
+
+  "projectiles": {
+    "fire": "no humans, a single round fireball, glowing orange flame ball, sparks, energy projectile",
+    "water": "no humans, a single water sphere, swirling blue water ball, droplets, energy projectile",
+    "wind": "no humans, a single wind sphere, spiraling pale green air ball, gusts, energy projectile",
+    "earth": "no humans, a single rock shard, jagged glowing brown stone, dust, energy projectile",
+    "thunder": "no humans, a single ball of lightning, crackling yellow electric sphere, sparks, energy projectile",
+    "ice": "no humans, a single ice shard, glowing pale blue crystal, frost mist, energy projectile",
+    "light": "no humans, a single holy light orb, radiant golden white glowing ball, energy projectile",
+    "dark": "no humans, a single dark magic orb, bright glowing violet sphere, purple aura, wispy tendrils, energy projectile"
+  }
+}

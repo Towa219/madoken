@@ -9,7 +9,7 @@
 //   enemy/<形状>.png    … 敵14形状(blob/imp/golem/wisp/orb/beast/bird/plant/
 //                          undead/knight/serpent/insect/eye/fish)
 //   proj/<属性>.png     … 弾8種(fire/water/wind/earth/thunder/ice/light/dark)
-//   bg/field.png        … 戦闘背景(1000x420目安)
+//   bg/field.jpg        … 戦闘背景(960x540目安・透過不要なのでJPEG)
 
 import { Assets, Sprite, Texture } from 'pixi.js';
 import type { ElementId } from '../shared/types';
