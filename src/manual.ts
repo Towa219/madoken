@@ -4,6 +4,7 @@
 // バランスを変更すれば説明書の記述も自動的に追従する。
 
 import {
+  battleRP,
   DISASSEMBLE_RATE, DISCOVERY_BONUS_RP, ELEMENTS, ELEMENT_ORDER, ENEMIES,
   ENEMY_HP_MUL, BOSSES, DUEL_MAX_HP, GATHER_COST, GATHER_COUNT,
   LIBRARY_BONUS_FULL_KINDS, LIBRARY_BONUS_MAX, LIBRARY_BONUS_PER_KIND,
@@ -105,6 +106,9 @@ export function renderManual(): void {
     <li>敵には<b>5段階の属性相性</b>があります: ◎2.0倍 / ○1.5倍 / −等倍 / △0.6倍 / ✕0.25倍</li>
     <li>敵カードの<b>攻撃属性</b>を見て、その属性の耐性(護符)を張ると被害を抑えられます</li>
     <li>敵は通常${ENEMIES.length}種+ボス${BOSSES.length}種。ステージが上がるほど強い種類が出ます(敵HPは基礎の${ENEMY_HP_MUL}倍から、さらにステージ補正)</li>
+    <li>研究Pが手に入るのは<b>勝ったときだけ</b>です(ステージ1で${battleRP(1, true)}、
+    ステージが上がるほど増加。ボスは+25)。<b>敗北・撤退では0</b>です</li>
+    <li>素材が尽きて研究Pも足りなくなった場合だけ、<b>採取が1回無料</b>になります(詰み防止)</li>
   </ul>
 </section>
 

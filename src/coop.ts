@@ -416,7 +416,9 @@ export class CoopView {
       `<h2 class="${m.win ? 'win' : 'lose'}">${m.win ? '共闘勝利!' : '全滅…'}</h2>` +
       `<div>${m.win ? `ステージ ${stage}` : `ステージ ${stage} まで到達`}</div>` +
       `<div class="drops">獲得エレメント: ${dropChips}</div>` +
-      `<div style="color:#ffdd66">研究P +${m.rp}</div>` +
+      (m.rp > 0
+        ? `<div style="color:#ffdd66">研究P +${m.rp}</div>`
+        : `<div style="color:#8888aa">全滅したため研究Pは得られない。</div>`) +
       `<div style="margin-top:16px">` +
       `<button id="btn-coop-back">ロビーへ戻る</button>` +
       `</div></div>`;

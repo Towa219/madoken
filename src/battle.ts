@@ -893,7 +893,7 @@ export class BattleManager {
 
     // ソロ戦ではエレメントは手に入らない(研究Pのみ)
     const drops: ElementId[] = [];
-    const rp = battleRP(this.stage, win);
+    const rp = battleRP(this.stage, win, escaped);
 
     const result: BattleResult = { win, escaped, stage: this.stage, drops, rp };
     this.onEnd?.(result);

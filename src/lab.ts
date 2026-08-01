@@ -400,15 +400,21 @@ let gathering = false;
 function renderGather(): void {
   if (gathering) return; // 採取中はボタン表示を上書きしない
   const btn = $<HTMLButtonElement>('#btn-gather');
-  const pity = totalInventory() === 0 && state.spells.length === 0;
+  const pity = canFreeGather();
   btn.textContent = pity ? '採取に出る (無料)' : `採取に出る (研究P${GATHER_COST})`;
   btn.disabled = !pity && state.researchP < GATHER_COST;
+}
+
+// 詰み防止: 素材が尽き、採取する研究Pも無いときは無料で採取できる
+// (勝利以外は研究Pが入らないため、この救済がないと再起不能になる)
+export function canFreeGather(): boolean {
+  return totalInventory() === 0 && state.researchP < GATHER_COST;
 }
 
 // 採取(調合と同じように進行バーが進んでから完了)
 function gather(): void {
   if (gathering) return;
-  const pity = totalInventory() === 0 && state.spells.length === 0;
+  const pity = canFreeGather();
   if (!pity && state.researchP < GATHER_COST) return;
 
   gathering = true;

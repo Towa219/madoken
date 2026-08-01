@@ -138,7 +138,9 @@ function onBattleEnd(r: BattleResult): void {
     `<h2 class="${titleClass}">${title}</h2>` +
     `<div>ステージ ${r.stage}</div>` +
     `<div class="drops">獲得エレメント: ${dropChips}</div>` +
-    `<div style="color:#ffdd66">研究P +${r.rp}</div>` +
+    (r.rp > 0
+      ? `<div style="color:#ffdd66">研究P +${r.rp}</div>`
+      : `<div style="color:#8888aa">${r.escaped ? '撤退' : '敗北'}したため研究Pは得られない。</div>`) +
     `<div style="margin-top:16px; display:flex; gap:8px; justify-content:center">` +
     `<button id="btn-again">${r.win ? 'もう一度' : '再挑戦'}</button>` +
     (r.win && r.stage + 1 <= state.maxStage && !isBossStage(r.stage + 1)

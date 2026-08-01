@@ -548,8 +548,9 @@ export const SLOT5_BOSS_STAGE = 20;
 export const DISCOVERY_BONUS_RP = 25;
 export const DISASSEMBLE_RATE = 0.4; // 分解時に素材1個が戻る確率
 
-// 戦闘報酬の研究P
-export function battleRP(stage: number, win: boolean): number {
-  if (!win) return 2 + stage;
+// 戦闘報酬の研究P。成果(勝利)にだけ支払う。
+// 撤退も敗北も0(逃げ得・負け得をなくす)。
+export function battleRP(stage: number, win: boolean, _escaped = false): number {
+  if (!win) return 0;
   return 6 + 3 * stage + (isBossStage(stage) ? 25 : 0);
 }
