@@ -13,6 +13,8 @@ import { DuelRoom } from './rooms/DuelRoom';
 import { persistent, topRanking } from './ranking';
 import { recentConnections } from './connlog';
 import { discordEnabled, sendNow, startDiscordReports } from './discord';
+import { presenceSnapshot } from './presence';
+import { BUILD_DATE, VERSION } from '../shared/version';
 
 const { Server } = colyseusPkg;
 const { WebSocketTransport } = wsTransportPkg;
@@ -67,6 +69,20 @@ app.get('/api/heartbeat', (req, res) => {
   const id = String(req.query.id ?? '').slice(0, 40);
   if (id) heartbeats.set(id, Date.now());
   res.json({ count: onlineCount() });
+});
+
+// サーバーの稼働状態(秘密情報は含めない・動作確認用)
+app.get('/api/status', (_req, res) => {
+  res.json({
+    version: VERSION,
+    build: BUILD_DATE,
+    rankingPersistent: persistent,
+    discordEnabled,
+    online: onlineCount(),
+    rooms: presenceSnapshot().map(r => ({
+      type: r.type, label: r.label, count: r.names.length,
+    })),
+  });
 });
 
 // Discordへ今すぐ1回送る(ADMIN_KEY必須・動作確認用)
