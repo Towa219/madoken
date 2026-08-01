@@ -166,8 +166,15 @@ export class CoopView {
     const esc2 = document.createElement('button');
     esc2.id = 'btn-escape';
     esc2.textContent = '退出';
-    esc2.addEventListener('click', () => void this.room?.leave());
+    esc2.addEventListener('click', () => this.exitNow());
     bar.appendChild(esc2);
+    bar.classList.remove('hidden');
+  }
+
+  // どんな状態でも確実に共闘画面から抜ける(サーバーへのleaveは投げっぱなし)
+  private exitNow(): void {
+    try { void this.room?.leave(); } catch { /* 切断済みでも無視 */ }
+    this.handleExit();
   }
 
   private buildEnemyStatus(enemies: { defId: string; name: string }[]): void {
@@ -311,7 +318,7 @@ export class CoopView {
       `</div></div>`;
     overlay.classList.remove('hidden');
     overlay.querySelector('#btn-coop-back')?.addEventListener('click', () => {
-      void this.room?.leave();
+      this.exitNow();
     });
   }
 
@@ -320,6 +327,7 @@ export class CoopView {
     this.exited = true;
     this.room = null;
     this.$('#coop-bar').innerHTML = '';
+    this.$('#coop-bar').classList.remove('hidden');
     this.$('#coop-enemy-status').innerHTML = '';
     this.$('#coop-waiting').classList.add('hidden');
     this.$('#coop-overlay').classList.add('hidden');
@@ -435,6 +443,8 @@ export class CoopView {
 
   private updateWaiting(st: any): void {
     const waiting = this.$('#coop-waiting');
+    // 準備待ち中は下の魔法バーを隠す(オーバーレイ越しに見えても押せないため)
+    this.$('#coop-bar').classList.toggle('hidden', st.phase === 'ready');
     if (st.phase !== 'ready') {
       waiting.classList.add('hidden');
       this.waitingHtml = '';
@@ -460,7 +470,7 @@ export class CoopView {
         this.room?.send('ready');
       });
       waiting.querySelector('#btn-coop-leave')?.addEventListener('click', () => {
-        void this.room?.leave();
+        this.exitNow();
       });
       this.waitingHtml = html;
     }
