@@ -4,7 +4,7 @@
 import { Client } from 'colyseus.js';
 import type { Room } from 'colyseus.js';
 
-const ENDPOINT = 'ws://localhost:2567';
+const ENDPOINT = process.env.MADOKEN_ENDPOINT ?? 'ws://localhost:2567';
 const TIMEOUT_MS = 90_000;
 
 function fail(msg: string): never {
