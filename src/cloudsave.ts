@@ -172,6 +172,30 @@ export function renderCloudStatus(): void {
   (box as HTMLElement).style.color = cloudMsgErr ? '#ff9977' : '#88bbaa';
 }
 
+// 「ニックネーム / 引き継ぎコード」の1行を読み解く。
+// 区切りは半角/全角スラッシュ・空白のどれでも受け付ける。
+export function parseTransferCode(
+  raw: string,
+): { name: string; token: string; error?: string } {
+  const line = raw.trim();
+  if (!line) {
+    return { name: '', token: '', error: '引き継ぎコードを貼り付けてください。' };
+  }
+  const m = /^(.+?)\s*[/／]\s*(.+)$/.exec(line);
+  if (!m) {
+    return {
+      name: '', token: '',
+      error: '「ニックネーム / 引き継ぎコード」の形式で貼り付けてください。',
+    };
+  }
+  const name = m[1].trim();
+  const token = m[2].trim();
+  if (!name || !token) {
+    return { name, token, error: 'ニックネームとコードの両方が必要です。' };
+  }
+  return { name, token };
+}
+
 // 引き継ぎコードの表示・復元フォームの初期化
 export function initCloudUI(): void {
   const codeBox = $('#transfer-code');
@@ -201,10 +225,11 @@ export function initCloudUI(): void {
   });
 
   restoreBtn.addEventListener('click', () => {
-    const name = $<HTMLInputElement>('#restore-name').value.trim();
-    const token = $<HTMLInputElement>('#restore-code').value.trim();
-    if (!name || !token) {
-      setCloudMsg('ニックネームと引き継ぎコードの両方を入力してください。', true);
+    const { name, token, error } = parseTransferCode(
+      $<HTMLInputElement>('#restore-code').value,
+    );
+    if (error) {
+      setCloudMsg(error, true);
       return;
     }
     if (restoreBtn.dataset.arm !== '1') {
