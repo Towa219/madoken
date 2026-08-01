@@ -68,6 +68,30 @@ button.tab.active { background: #5533aa; border-color: #7755cc; }
 }
 .elem-card:hover { background: #26264a; }
 .elem-card.empty { opacity: 0.35; cursor: default; }
+/* 入手したエレメントを一瞬光らせる */
+.elem-card.elem-gained {
+  border-color: #88ffaa;
+  animation: elem-gain 1.2s ease-out;
+}
+@keyframes elem-gain {
+  0%   { background: #2c4a35; box-shadow: 0 0 0 0 rgba(136,255,170,0.85); }
+  25%  { background: #2c4a35; box-shadow: 0 0 0 6px rgba(136,255,170,0.35); }
+  100% { background: #1d1d35; box-shadow: 0 0 0 14px rgba(136,255,170,0); }
+}
+.gain-badge {
+  float: right; margin-right: 6px; color: #88ffaa;
+  font-size: 12px; font-weight: bold;
+  animation: gain-badge 1.6s ease-out forwards;
+}
+@keyframes gain-badge {
+  0%   { opacity: 1; }
+  70%  { opacity: 1; }
+  100% { opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .elem-card.elem-gained, .gain-badge { animation: none; }
+}
+
 .elem-card .ename { font-weight: bold; font-size: 15px; }
 .elem-card .ecount { float: right; color: #ffdd66; }
 .elem-card .edesc { font-size: 10px; color: #9999bb; margin-top: 3px; }

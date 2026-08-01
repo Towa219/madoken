@@ -21,6 +21,14 @@ const $ = <T extends HTMLElement = HTMLElement>(sel: string) =>
 // 調合スロットの選択状態(セーブ対象外)
 let slotSel: (ElementId | null)[] = [];
 
+// 直前に増えたエレメント(素材庫で光らせる用)。描画時に消費される
+const gained = new Map<ElementId, number>();
+
+// エレメントを入手して素材庫を光らせる(採取・分解・共闘のドロップから呼ぶ)
+export function markGained(ids: ElementId[]): void {
+  for (const id of ids) gained.set(id, (gained.get(id) ?? 0) + 1);
+}
+
 let toastTimer: number | undefined;
 export function showToast(msg: string): void {
   const el = $('#toast');
@@ -88,10 +96,12 @@ function renderInventory(): void {
     const def = ELEMENTS[id];
     const have = state.inventory[id] ?? 0;
     const free = have - placedOf(id);
+    const got = gained.get(id) ?? 0;
     const card = document.createElement('div');
-    card.className = 'elem-card' + (free <= 0 ? ' empty' : '');
+    card.className = 'elem-card' + (free <= 0 ? ' empty' : '') + (got > 0 ? ' elem-gained' : '');
     card.innerHTML =
       `<span class="ename" style="color:${def.cssColor}">${def.name}</span>` +
+      (got > 0 ? `<span class="gain-badge">+${got}</span>` : '') +
       `<span class="ecount">×${free}</span>` +
       `<div class="edesc">${def.desc}</div>`;
     if (free > 0) {
@@ -104,6 +114,7 @@ function renderInventory(): void {
     }
     grid.appendChild(card);
   }
+  gained.clear(); // 光らせるのは1回だけ
 }
 
 // ---- 調合スロット ----
@@ -254,7 +265,7 @@ function craft(): void {
   const fill = $('#craft-bar-fill');
   const msgEl = $('#craft-msg');
   msgEl.textContent = '';
-  msgEl.style.color = '';
+  msgEl.style.color = '#88ddaa';
   bar.classList.remove('hidden');
   fill.style.width = '0%';
 
@@ -403,8 +414,11 @@ function resolveGather(pity: boolean): void {
     got.push(pool[Math.floor(Math.random() * pool.length)]);
   }
   addElements(got);
-  $('#craft-msg').textContent =
-    `採取で ${got.map(g => ELEMENTS[g].name).join('・')} を手に入れた。`;
+  markGained(got);
+  const msg = $('#craft-msg');
+  msg.style.color = '#88ffaa';
+  msg.textContent = `✨ 採取で ${got.map(g => ELEMENTS[g].name).join('・')} を手に入れた!`;
+  showToast(`✨ ${got.map(g => ELEMENTS[g].name).join('・')} を入手`);
   notify();
 }
 
@@ -479,9 +493,12 @@ function disassemble(sp: Spell): void {
     }
   }
   addElements(got);
+  markGained(got);
   deleteSpell(sp.id);
-  $('#craft-msg').textContent = got.length > 0
-    ? `分解して ${got.map(g => ELEMENTS[g].name).join('・')} を回収した。`
+  const msg = $('#craft-msg');
+  msg.style.color = got.length > 0 ? '#88ffaa' : '#ff8877';
+  msg.textContent = got.length > 0
+    ? `♻ 分解して ${got.map(g => ELEMENTS[g].name).join('・')} を回収した。`
     : '分解したが、何も回収できなかった…';
   notify();
 }

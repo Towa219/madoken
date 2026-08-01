@@ -8,7 +8,7 @@ import {
 import type { AffinityGrade, EnemyDef } from '../shared/data';
 import { makeEnemySprite, makePlayerSprite, makeProjectileGfx } from './battle';
 import { spellCooldown, spellDisplayName } from '../shared/spellcraft';
-import { showToast } from './lab';
+import { markGained, showToast } from './lab';
 import { addElements, equippedSpells, markBossCleared, notify, state } from './state';
 import type { ElementId, Spell } from '../shared/types';
 
@@ -334,6 +334,7 @@ export class CoopView {
       stage: number; drops: ElementId[]; rp: number; boss?: boolean;
     }) => {
       addElements(m.drops);
+      markGained(m.drops);
       state.researchP += m.rp;
       state.bestStage = Math.max(state.bestStage, m.stage);
       state.maxStage = Math.max(state.maxStage, m.stage + 1);
