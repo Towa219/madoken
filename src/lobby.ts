@@ -11,7 +11,7 @@ import {
 import { isBossStage } from '../shared/data';
 import { CODE_REPLACED } from '../shared/netcodes';
 import { equippedSpells, notify, state } from './state';
-import { pushCloudSave } from './cloudsave';
+import { pushCloudSave, submitMagicRanking } from './cloudsave';
 import { playBgm } from './sound';
 import type { SpellPayload } from '../shared/protocol';
 
@@ -215,6 +215,8 @@ async function connect(): Promise<void> {
     void refreshRooms();
     void refreshRanking();
     void pushCloudSave(); // 接続できた時点でサーバーにも保存しておく
+    // 接続時に一度は順位を登録しておく。調合していない日でも一覧に載るように。
+    void submitMagicRanking().then(() => refreshRanking());
   } catch (err) {
     console.error(err);
     const msg = (err as { message?: string })?.message;
@@ -416,7 +418,8 @@ async function refreshRanking(): Promise<void> {
       : '※現在は一時保存。サーバー更新でリセットされます。';
     note.className = data.persistent ? 'note chance-high' : 'note chance-mid';
     if (entries.length === 0) {
-      list.innerHTML = '<div class="empty-note">まだ記録がない。共闘で最初の記録を作ろう!</div>';
+      list.innerHTML =
+        '<div class="empty-note">まだ記録がない。研究室で魔法を調合して最初の記録を作ろう!</div>';
       return;
     }
     list.innerHTML = '';
@@ -434,11 +437,11 @@ async function refreshRanking(): Promise<void> {
       nameEl.textContent = e.name;
       const scoreEl = document.createElement('span');
       scoreEl.className = 'rank-score';
-      scoreEl.textContent = `${e.score}pt`;
+      scoreEl.textContent = `魔導値 ${e.score}`;
       head.append(medalEl, nameEl, scoreEl);
       const spellsEl = document.createElement('div');
       spellsEl.className = 'rank-spells';
-      spellsEl.textContent = e.spells.length > 0 ? e.spells.join(' / ') : '(装備不明)';
+      spellsEl.textContent = e.spells.length > 0 ? e.spells.join(' / ') : '(魔法不明)';
       row.append(head, spellsEl);
       list.appendChild(row);
     });

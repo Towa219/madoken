@@ -1,4 +1,8 @@
-// オンラインランキング(共闘スコア)
+// オンラインランキング(魔導値)
+//
+// スコア = 持っている魔法のうち魔導値の高い上位4つの合計。
+// 装備中の4つではないので、装備を入れ替えても順位は変わらない。
+// 「一番強い4本を作れたか」を競う。
 //
 // 保存先は2通り:
 //   1. Upstash Redis (環境変数 UPSTASH_REDIS_REST_URL / UPSTASH_REDIS_REST_TOKEN がある場合)
@@ -11,18 +15,26 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { persistent, redis } from './upstash';
 import { clampNickname } from '../shared/nickname';
+import { finalStats, spellMagicValue } from '../shared/spellcraft';
+import type { ElementCounts, Rarity } from '../shared/types';
+
+const RARITY_VALUES: Rarity[] = ['normal', 'rare', 'epic', 'legend'];
+const TOP_N = 4;        // 合計する魔法の数
+const MAX_SPELLS = 200; // 1回に受け取る魔法の上限(送りつけ対策)
 
 export { persistent };
 
 export interface RankEntry {
   name: string;
   score: number;
-  spells: string[]; // 装備魔法の表示名(最大4)
+  spells: string[]; // 魔導値の高い上位4つの表示名
   date: string;
 }
 
-const ZKEY = 'madoken:ranking:v1';   // sorted set: member=ニックネーム, score=スコア
-const HKEY = 'madoken:rankmeta:v1';  // hash: ニックネーム → {spells,date}
+// v1 は共闘スコア(クリアステージ×10+与ダメージ/20)だった。魔導値とは桁も意味も
+// 違うので、キーを分けて作り直す。同じキーを使い回すと両方が混ざって並ぶ。
+const ZKEY = 'madoken:ranking:v2';   // sorted set: member=ニックネーム, score=魔導値
+const HKEY = 'madoken:rankmeta:v2';  // hash: ニックネーム → {spells,date}
 const KEEP = 20;
 
 // ---- ファイル/メモリ(フォールバック) ----
@@ -134,4 +146,28 @@ export async function topRanking(n: number): Promise<RankEntry[]> {
     console.error('[ランキング] Upstashからの取得に失敗:', (err as Error).message);
     return local.slice(0, n);
   }
+}
+
+// 送られてきた魔法から「魔導値の高い上位4つの合計」を出す。
+//
+// 装備中の4つではなく、持っている魔法すべてから選ぶ。装備の入れ替えで
+// 順位が動かないようにするため。性能はレシピから計算し直すので、
+// クライアントが魔導値を偽って送っても効かない。
+export function magicRankScore(raw: unknown): { total: number; names: string[] } {
+  const list = Array.isArray(raw) ? (raw as unknown[]).slice(0, MAX_SPELLS) : [];
+  const scored = list.map(item => {
+    const o = item as { name?: unknown; recipe?: unknown; level?: unknown; rarity?: unknown };
+    const level = Math.max(0, Math.min(9, Math.floor(Number(o?.level) || 0)));
+    const rarity = RARITY_VALUES.includes(o?.rarity as Rarity)
+      ? (o.rarity as Rarity)
+      : 'normal';
+    const stats = finalStats((o?.recipe ?? {}) as ElementCounts, level, rarity);
+    return { name: String(o?.name ?? '魔弾').slice(0, 24), value: spellMagicValue(stats) };
+  });
+  scored.sort((a, b) => b.value - a.value);
+  const top = scored.slice(0, TOP_N);
+  return {
+    total: top.reduce((sum, x) => sum + x.value, 0),
+    names: top.map(x => x.name),
+  };
 }

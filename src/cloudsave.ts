@@ -5,7 +5,7 @@
 //
 // 送るのは魔法の性能を除いた軽い形。性能はレシピから再計算するので送る必要がない。
 
-import { finalStats } from '../shared/spellcraft';
+import { finalStats, spellDisplayName } from '../shared/spellcraft';
 import type { GameState, Spell } from '../shared/types';
 import { applyLoadedState, state } from './state';
 
@@ -95,6 +95,7 @@ export async function pushCloudSave(): Promise<boolean> {
     }
     lastPushed = body;
     lastSyncAt = Date.now();
+    void submitMagicRanking();  // 魔法が変わったら順位も更新する
     return true;
   } catch {
     setCloudMsg('サーバーに接続できないため、この端末にのみ保存した。', true);
@@ -102,6 +103,33 @@ export async function pushCloudSave(): Promise<boolean> {
   } finally {
     syncing = false;
     renderCloudStatus();
+  }
+}
+
+// 魔導値ランキングへ登録する。
+//
+// 送るのはレシピ・強化Lv・品質だけで、魔導値そのものは送らない。
+// 順位はサーバーが計算し直すので、こちらで偽っても効かない。
+// 装備中の4つではなく持っている魔法をすべて送り、上位4つはサーバーが選ぶ。
+export async function submitMagicRanking(): Promise<void> {
+  if (!state.nickname || !state.nickToken) return;
+  try {
+    await fetch(`${apiBase()}/api/ranking/submit`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: state.nickname,
+        nickToken: state.nickToken,
+        spells: state.spells.map(sp => ({
+          name: spellDisplayName(sp),
+          recipe: sp.recipe,
+          level: sp.level,
+          rarity: sp.rarity,
+        })),
+      }),
+    });
+  } catch {
+    // 順位の登録に失敗してもゲームは続けられる
   }
 }
 

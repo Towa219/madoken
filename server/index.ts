@@ -10,7 +10,7 @@ import wsTransportPkg from '@colyseus/ws-transport';
 import { LobbyChatRoom } from './rooms/LobbyChatRoom';
 import { CoopRoom } from './rooms/CoopRoom';
 import { DuelRoom } from './rooms/DuelRoom';
-import { persistent, removeScore, topRanking } from './ranking';
+import { magicRankScore, persistent, removeScore, submitScore, topRanking } from './ranking';
 import { recentConnections } from './connlog';
 import { discordEnabled, sendNow, startDiscordReports } from './discord';
 import { presenceSnapshot } from './presence';
@@ -27,9 +27,9 @@ const app = express();
 app.use(cors());
 app.use(express.json({ limit: '1mb' })); // クラウドセーブのため少し大きめ
 
-// ランキングAPI(上位5件)
+// ランキングAPI(上位3件)
 app.get('/api/ranking', (_req, res) => {
-  void topRanking(5)
+  void topRanking(3)
     .then(entries => res.json({ persistent, entries }))
     .catch(() => res.json({ persistent, entries: [] }));
 });
@@ -52,6 +52,25 @@ app.get('/api/connlog', (req, res) => {
   void recentConnections(n)
     .then(entries => res.json({ entries }))
     .catch(() => res.json({ entries: [] }));
+});
+
+// 魔導値ランキングへの登録。
+//
+// スコアはサーバーで計算し直す。クライアントが送ってくるのはレシピ・強化Lv・品質
+// だけで、魔導値の申告は受け取らない。受け取ると、いくらでも詐称できてしまう。
+app.post('/api/ranking/submit', (req, res) => {
+  const body = req.body as { name?: unknown; nickToken?: unknown; spells?: unknown };
+  void (async () => {
+    // 名前の持ち主であることを確認する(他人の名前で登録させない)
+    const r = await claimName(body?.name, body?.nickToken);
+    if (!r.ok) {
+      res.status(403).json({ ok: false, error: r.error ?? '名前を確認できません' });
+      return;
+    }
+    const score = magicRankScore(body?.spells);
+    submitScore(String(body?.name ?? ''), score.total, score.names);
+    res.json({ ok: true, score: score.total });
+  })().catch(() => res.status(500).json({ ok: false, error: '登録に失敗しました' }));
 });
 
 // ===== ニックネーム登録簿(重複防止) =====

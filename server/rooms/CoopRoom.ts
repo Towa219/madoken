@@ -14,7 +14,6 @@ import type { IncomingMessage } from 'node:http';
 import { parseSpells } from '../spellPayload';
 import { clientIp, logConnection } from '../connlog';
 import { clearRoomPresence, setRoomPresence } from '../presence';
-import { submitScore } from '../ranking';
 import { claimName } from '../names';
 import { announce } from '../lobbyfeed';
 import { claimBattleSlot, releaseBattleSlot } from '../activeBattle';
@@ -283,12 +282,12 @@ export class CoopRoom extends Room<CoopState> {
     clearRoomPresence(this.roomId);
   }
 
+  // ランキングは魔導値で競うものに変わったので、共闘の結果は送らない。
+  // 部屋の中で出るスコア表示(クリアステージ×10+与ダメージ/20)はそのまま残す。
   private submitToRanking(sid: string): void {
     const internal = this.internals.get(sid);
-    const p = this.state.players.get(sid);
-    if (!internal || !p || internal.submitted) return;
+    if (!internal || internal.submitted) return;
     internal.submitted = true;
-    submitScore(p.name, internal.score, internal.spells.map(s => s.name));
   }
 
   // ---- 開始 ----
