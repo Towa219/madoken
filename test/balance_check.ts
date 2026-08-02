@@ -20,9 +20,12 @@ import type { ElementCounts, SpellKind } from '../shared/types';
 // 上位1割(現実的な「良い1本」の水準)が収まっているべき範囲
 const TOP_MIN = 300;
 const TOP_MAX = 470;
-// 中央値(平凡な1本)が収まっているべき範囲
+// 中央値(平凡な1本)が収まっているべき範囲。
+// 封印のように「一番弱い構成でも既に10秒止められる」種類は、
+// 構成による差が出にくいぶん中央値が高くなる。それは設計どおりなので
+// 上限は少し広めに取ってある。
 const MID_MIN = 140;
-const MID_MAX = 340;
+const MID_MAX = 360;
 
 const KIND_JA: Record<string, string> = {
   attack: '攻撃', shield: '護盾', heal: '回復', taunt: '挑発', ward: '護符',

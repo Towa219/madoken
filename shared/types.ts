@@ -24,6 +24,7 @@ export interface SpellStats {
   wardPct: number;    // 属性耐性(%)。kind=ward で使用
   hpBoost: number;    // 最大HP上昇量。kind=vigor で使用
   sealTime: number;   // 行動不能にする秒数。kind=seal で使用
+  coolTime: number;   // 再使用までの秒数。0なら種類ごとの既定値を使う
   atkBoost: number;   // 与ダメージ上昇(%)。kind=empower で使用
   mpRegenBonus: number; // MP自然回復の上乗せ(毎秒)。kind=focus で使用
   dotDps: number;     // 継続ダメージ(毎秒)。威力から算出する

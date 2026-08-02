@@ -18,7 +18,7 @@ export interface CraftResult {
 export function computeSpell(counts: ElementCounts): CraftResult {
   const s: SpellStats = {
     kind: 'attack', barrier: 0, healPower: 0, hateGain: 0, targetAll: false,
-    quake: false, wardPct: 0, hpBoost: 0, sealTime: 0, atkBoost: 0,
+    quake: false, wardPct: 0, hpBoost: 0, sealTime: 0, coolTime: 0, atkBoost: 0,
     mpRegenBonus: 0,
     dotDps: 0, dotTime: 0, dotStrong: false,
     power: 10, castTime: 1.3, manaCost: 20, projSpeed: 260,
@@ -69,7 +69,7 @@ export function computeSpell(counts: ElementCounts): CraftResult {
   // finalStats と同じ顔ぶれを揃えること。
   if (s.kind === 'ward') s.wardPct = wardPctOf(s);
   if (s.kind === 'vigor') s.hpBoost = hpBoostOf(s);
-  if (s.kind === 'seal') s.sealTime = sealTimeOf(s);
+  if (s.kind === 'seal') { s.sealTime = sealTimeOf(s); s.coolTime = sealCoolOf(0); }
   if (s.kind === 'empower') s.atkBoost = atkBoostOf(s);
   if (s.kind === 'heal') s.manaCost = Math.max(s.manaCost, healManaFloor(s));
   if (s.dotTime > 0) s.dotDps = dotDpsOf(s);
@@ -228,7 +228,8 @@ export function finalStats(
   if (s.kind === 'taunt') s.hateGain = Math.round(s.power * 10);
   if (s.kind === 'ward') s.wardPct = wardPctOf(s);
   if (s.kind === 'vigor') s.hpBoost = hpBoostOf(s);
-  if (s.kind === 'seal') s.sealTime = sealTimeOf(s);
+  // 封印は強化で「止める時間が延び、再使用が縮む」
+  if (s.kind === 'seal') { s.sealTime = sealTimeOf(s); s.coolTime = sealCoolOf(L); }
   if (s.kind === 'empower') s.atkBoost = atkBoostOf(s);
   if (s.kind === 'focus') s.mpRegenBonus = mpRegenBonusOf(s);
   // 強化で回復量が増えた分、消費MPの下限も上がる(MP1あたりの効率は一定に保つ)
@@ -275,7 +276,17 @@ export function dotDpsOf(s: SpellStats): number {
 
 // 行動不能にする秒数(威力から換算・上限6秒)
 export function sealTimeOf(s: SpellStats): number {
-  return Math.round(Math.min(6, 2.5 + s.power / 40) * 10) / 10;
+  return Math.round(Math.min(13, 6 + s.power / 11.5) * 10) / 10;
+}
+
+// 封印の再使用時間(秒)。強化するほど短くなる。
+//
+// 敵全体を止める効果は、止めている時間の割合がそのまま強さになる。
+// 10秒止めるのに再使用が16秒のままだと戦闘時間の6割を止めることになり、
+// 封印だけが突出してしまう。長く止める代わりに間隔も長い「切り札」にした。
+export function sealCoolOf(level: number): number {
+  const L = Math.max(0, Math.min(ENHANCE_MAX, Math.floor(level || 0)));
+  return Math.round((40 - 1.4 * L) * 10) / 10;
 }
 
 // 最大HP上昇量(威力から換算。全体版は7割)
@@ -302,6 +313,8 @@ export function spellDisplayName(
 
 // クールダウン(秒)。攻撃は詠唱依存、護盾/治癒は固定で長め
 export function spellCooldown(s: SpellStats): number {
+  // 魔法が自前の再使用時間を持っていればそれを使う(強化で縮むもの)
+  if (s.coolTime > 0) return s.coolTime;
   if (s.kind === 'shield') return 6;
   if (s.kind === 'heal') return 5;
   if (s.kind === 'taunt') return 8;
@@ -330,6 +343,7 @@ export function normalizeStats(raw: SpellStats): SpellStats {
     barrier: n(raw?.barrier), healPower: n(raw?.healPower), hateGain: n(raw?.hateGain),
     wardPct: n(raw?.wardPct), hpBoost: n(raw?.hpBoost), sealTime: n(raw?.sealTime),
     atkBoost: n(raw?.atkBoost), mpRegenBonus: n(raw?.mpRegenBonus),
+    coolTime: n(raw?.coolTime),
     dotDps: n(raw?.dotDps), dotTime: n(raw?.dotTime),
     dotStrong: Boolean(raw?.dotStrong),
     power: n(raw?.power), castTime: n(raw?.castTime), manaCost: n(raw?.manaCost),
@@ -466,7 +480,8 @@ export function statsSummary(s: SpellStats): string {
     const parts = [
       `【封印】敵全体を${s.sealTime.toFixed(1)}秒 行動不能`,
       '決闘では相手の詠唱を封じる',
-      `詠唱${s.castTime.toFixed(2)}秒`, `MP${s.manaCost}`, '再使用16秒',
+      `詠唱${s.castTime.toFixed(2)}秒`, `MP${s.manaCost}`,
+      `再使用${spellCooldown(s).toFixed(1)}秒`,
     ];
     if (s.selfDamage > 0) parts.push(`自傷${s.selfDamage}`);
     return parts.join(' / ');
