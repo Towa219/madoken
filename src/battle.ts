@@ -100,6 +100,9 @@ export class BattleManager {
   // 与ダメージ上昇(empower)
   private atkBoost = 0;
   private atkBoostTimer = 0;
+  // MP自然回復の上乗せ(focus)
+  private mpRegenBonus = 0;
+  private mpRegenTimer = 0;
 
   private casting: { spell: Spell; t: number } | null = null;
   private cooldowns = new Map<string, number>();
@@ -146,6 +149,8 @@ export class BattleManager {
     this.vigorTimer = 0;
     this.atkBoost = 0;
     this.atkBoostTimer = 0;
+    this.mpRegenBonus = 0;
+    this.mpRegenTimer = 0;
     this.hp = this.maxHp;
     this.mp = this.maxMp;
     this.shield = 0;
@@ -419,8 +424,8 @@ export class BattleManager {
     }
     this.countText.text = '';
 
-    // MP回復
-    this.mp = Math.min(this.maxMp, this.mp + this.mpRegen * dt);
+    // MP回復(瞑想がかかっている間は上乗せされる)
+    this.mp = Math.min(this.maxMp, this.mp + (this.mpRegen + this.mpRegenBonus) * dt);
 
     // クールダウン
     for (const [id, cd] of this.cooldowns) {
@@ -462,6 +467,14 @@ export class BattleManager {
           this.atkBoost = st.atkBoost;
           this.atkBoostTimer = 20;
           this.addPopup(PLAYER_X, cy(130), `与ダメ+${st.atkBoost}%`, 0xff8844);
+        } else if (st.kind === 'focus') {
+          // 掛け直しは上書き(重ねがけで際限なく伸びないように)
+          this.mpRegenBonus = st.mpRegenBonus;
+          this.mpRegenTimer = 20;
+          this.addPopup(
+            PLAYER_X, cy(136),
+            `瞑想 MP回復+${st.mpRegenBonus.toFixed(1)}/秒`, 0x88ccff,
+          );
         } else if (st.kind === 'vigor') {
           // 掛け直しは上書き(重ねがけで無限に増えないように)
           this.maxHp -= this.vigorBonus;
@@ -503,6 +516,10 @@ export class BattleManager {
     if (this.atkBoostTimer > 0) {
       this.atkBoostTimer -= dt;
       if (this.atkBoostTimer <= 0) this.atkBoost = 0;
+    }
+    if (this.mpRegenTimer > 0) {
+      this.mpRegenTimer -= dt;
+      if (this.mpRegenTimer <= 0) this.mpRegenBonus = 0;
     }
     if (this.vigorTimer > 0) {
       this.vigorTimer -= dt;

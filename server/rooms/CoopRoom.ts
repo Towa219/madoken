@@ -45,6 +45,7 @@ class PlayerS extends Schema {
   declare wardPct: number;    // 属性耐性(%)。0=なし
   declare atkBoost: number;   // 与ダメージ上昇(%)。0=なし
   declare vigorBonus: number; // 最大HP上昇。0=なし
+  declare mpRegenBonus: number; // MP自然回復の上乗せ(毎秒)。0=なし
   declare castT: number;
   declare castTotal: number;
 }
@@ -53,6 +54,7 @@ defineTypes(PlayerS, {
   shield: 'number', hate: 'number', alive: 'boolean', ready: 'boolean', slot: 'number',
   castingIdx: 'number', castT: 'number', castTotal: 'number', castName: 'string',
   wardPct: 'number', atkBoost: 'number', vigorBonus: 'number',
+  mpRegenBonus: 'number',
 });
 
 class EnemyS extends Schema {
@@ -105,6 +107,8 @@ interface PInternal {
   atkBoostT: number;
   vigorBonus: number; // 最大HP上昇
   vigorT: number;
+  mpRegenBonus: number; // MP自然回復の上乗せ(毎秒)
+  mpRegenT: number;
   score: number;     // 戦闘スコア(クリアステージ×10+与ダメ/20)
   submitted: boolean; // ランキング送信済みか(二重送信防止)
 }
@@ -160,7 +164,7 @@ export class CoopRoom extends Room<CoopState> {
     p.hate = 0;
     p.alive = true; p.ready = false;
     p.castingIdx = -1; p.castT = 0; p.castTotal = 0; p.castName = '';
-    p.wardPct = 0; p.atkBoost = 0; p.vigorBonus = 0;
+    p.wardPct = 0; p.atkBoost = 0; p.vigorBonus = 0; p.mpRegenBonus = 0;
 
     const used = new Set<number>();
     this.state.players.forEach(q => used.add(q.slot));
@@ -197,6 +201,7 @@ export class CoopRoom extends Room<CoopState> {
       spells, cooldowns: [0, 0, 0, 0], shieldT: 0, hate: 0,
       wardAttr: null, wardPct: 0, wardT: 0,
       atkBoost: 0, atkBoostT: 0, vigorBonus: 0, vigorT: 0,
+      mpRegenBonus: 0, mpRegenT: 0,
       score: 0, submitted: false,
     });
   }
@@ -355,7 +360,8 @@ export class CoopRoom extends Room<CoopState> {
     this.state.players.forEach((p, sid) => {
       const internal = this.internals.get(sid);
       if (!internal || !p.alive) return;
-      p.mp = Math.min(p.maxMp, p.mp + 3 * dt);
+      const regen = 3 + (internal.mpRegenT > 0 ? internal.mpRegenBonus : 0);
+      p.mp = Math.min(p.maxMp, p.mp + regen * dt);
       for (let i = 0; i < internal.cooldowns.length; i++) {
         internal.cooldowns[i] = Math.max(0, internal.cooldowns[i] - dt);
       }
@@ -370,6 +376,10 @@ export class CoopRoom extends Room<CoopState> {
       if (internal.atkBoostT > 0) {
         internal.atkBoostT -= dt;
         if (internal.atkBoostT <= 0) internal.atkBoost = 0;
+      }
+      if (internal.mpRegenT > 0) {
+        internal.mpRegenT -= dt;
+        if (internal.mpRegenT <= 0) internal.mpRegenBonus = 0;
       }
       if (internal.vigorT > 0) {
         internal.vigorT -= dt;
@@ -387,6 +397,7 @@ export class CoopRoom extends Room<CoopState> {
       p.wardPct = internal.wardT > 0 ? Math.round(internal.wardPct) : 0;
       p.atkBoost = internal.atkBoostT > 0 ? Math.round(internal.atkBoost) : 0;
       p.vigorBonus = internal.vigorT > 0 ? Math.round(internal.vigorBonus) : 0;
+      p.mpRegenBonus = internal.mpRegenT > 0 ? internal.mpRegenBonus : 0;
       if (p.castingIdx >= 0) {
         p.castT += dt;
         const sp = internal.spells[p.castingIdx];
@@ -493,6 +504,21 @@ export class CoopRoom extends Room<CoopState> {
       };
       if (st.targetAll) this.state.players.forEach((q, qsid) => { if (q.alive) apply(qsid); });
       else apply(sid);
+      return;
+    }
+
+    // 瞑想: MPの自然回復を一時的に引き上げる
+    if (st.kind === 'focus') {
+      const apply = (qsid: string) => {
+        const qi = this.internals.get(qsid);
+        if (!qi) return;
+        qi.mpRegenBonus = st.mpRegenBonus; // 掛け直しは上書き
+        qi.mpRegenT = 20;
+        this.broadcast('focus', { sid: qsid, perSec: st.mpRegenBonus });
+      };
+      if (st.targetAll) this.state.players.forEach((q, qsid) => { if (q.alive) apply(qsid); });
+      else apply(sid);
+      if (casterInternal) casterInternal.hate += st.mpRegenBonus * 6;
       return;
     }
 
@@ -834,6 +860,7 @@ export class CoopRoom extends Room<CoopState> {
         internal.cooldowns = internal.cooldowns.map(() => 0);
         internal.shieldT = 0;
         internal.atkBoost = 0; internal.atkBoostT = 0;
+        internal.mpRegenBonus = 0; internal.mpRegenT = 0;
         internal.wardPct = 0; internal.wardT = 0;
         p.maxHp -= internal.vigorBonus; // バフはステージ間で解除
         internal.vigorBonus = 0; internal.vigorT = 0;

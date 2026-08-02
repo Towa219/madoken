@@ -7,7 +7,8 @@ export type ElementId =
 export type ElementCounts = Partial<Record<ElementId, number>>;
 
 export type SpellKind =
-  | 'attack' | 'shield' | 'heal' | 'taunt' | 'ward' | 'vigor' | 'seal' | 'empower';
+  | 'attack' | 'shield' | 'heal' | 'taunt' | 'ward' | 'vigor' | 'seal' | 'empower'
+  | 'focus';
 
 // 調合時にごく稀に生まれる品質
 export type Rarity = 'normal' | 'rare' | 'epic' | 'legend';
@@ -24,6 +25,7 @@ export interface SpellStats {
   hpBoost: number;    // 最大HP上昇量。kind=vigor で使用
   sealTime: number;   // 行動不能にする秒数。kind=seal で使用
   atkBoost: number;   // 与ダメージ上昇(%)。kind=empower で使用
+  mpRegenBonus: number; // MP自然回復の上乗せ(毎秒)。kind=focus で使用
   dotDps: number;     // 継続ダメージ(毎秒)
   dotTime: number;    // 継続ダメージの持続秒数
   power: number;      // 威力

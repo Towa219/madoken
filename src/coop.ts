@@ -336,6 +336,16 @@ export class CoopView {
       const p = st?.players?.get(m.sid);
       if (p) this.addPopup(PLAYER_XS[p.slot] ?? 110, cy(136), `与ダメ+${m.pct}%`, 0xff8844);
     });
+    room.onMessage('focus', (m: { sid: string; perSec: number }) => {
+      const st: any = room.state;
+      const p = st?.players?.get(m.sid);
+      if (p) {
+        this.addPopup(
+          PLAYER_XS[p.slot] ?? 110, cy(142),
+          `瞑想 MP+${m.perSec.toFixed(1)}/秒`, 0x88ccff,
+        );
+      }
+    });
     room.onMessage('vigor', (m: { sid: string; amount: number }) => {
       const st: any = room.state;
       const p = st?.players?.get(m.sid);
@@ -556,6 +566,7 @@ export class CoopView {
       if (p.wardPct > 0) buffs.push(`◈${p.wardPct}%`);
       if (p.atkBoost > 0) buffs.push(`⚔+${p.atkBoost}%`);
       if (p.vigorBonus > 0) buffs.push(`♥+${p.vigorBonus}`);
+      if (p.mpRegenBonus > 0) buffs.push(`✦MP+${Number(p.mpRegenBonus).toFixed(1)}`);
       v.buffT.text = buffs.join(' ');
     });
     for (const [sid, v] of this.pViews) {

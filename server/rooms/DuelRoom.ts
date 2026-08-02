@@ -39,6 +39,7 @@ class DuelPlayer extends Schema {
   declare wardPct: number;    // 属性耐性(%)。0=なし
   declare atkBoost: number;   // 与ダメージ上昇(%)。0=なし
   declare vigorBonus: number; // 最大HP上昇。0=なし
+  declare mpRegenBonus: number; // MP自然回復の上乗せ(毎秒)。0=なし
   declare sealed: boolean;    // 封印されているか
   declare castT: number;
   declare castTotal: number;
@@ -48,7 +49,7 @@ defineTypes(DuelPlayer, {
   shield: 'number', guard: 'number', alive: 'boolean', ready: 'boolean',
   slot: 'number', castingIdx: 'number', castT: 'number', castTotal: 'number',
   castName: 'string', wardPct: 'number', atkBoost: 'number',
-  vigorBonus: 'number', sealed: 'boolean',
+  vigorBonus: 'number', mpRegenBonus: 'number', sealed: 'boolean',
 });
 
 class DuelState extends Schema {
@@ -81,6 +82,8 @@ interface DInternal {
   atkBoostT: number;
   vigorBonus: number;
   vigorT: number;
+  mpRegenBonus: number; // MP自然回復の上乗せ(毎秒)
+  mpRegenT: number;
   sealedT: number;   // 封印されている残り秒(詠唱不可)
   dotDps: number;
   dotT: number;
@@ -133,6 +136,7 @@ export class DuelRoom extends Room<DuelState> {
     p.alive = true; p.ready = false;
     p.castingIdx = -1; p.castT = 0; p.castTotal = 0; p.castName = '';
     p.wardPct = 0; p.atkBoost = 0; p.vigorBonus = 0; p.sealed = false;
+    p.mpRegenBonus = 0;
 
     const used = new Set<number>();
     this.state.players.forEach(q => used.add(q.slot));
@@ -156,6 +160,7 @@ export class DuelRoom extends Room<DuelState> {
       shieldT: 0, guardT: 0,
       wardAttr: null, wardPct: 0, wardT: 0,
       atkBoost: 0, atkBoostT: 0, vigorBonus: 0, vigorT: 0,
+      mpRegenBonus: 0, mpRegenT: 0,
       sealedT: 0, dotDps: 0, dotT: 0, dotTick: 0,
     });
   }
@@ -243,7 +248,8 @@ export class DuelRoom extends Room<DuelState> {
     this.state.players.forEach((p, sid) => {
       const internal = this.internals.get(sid);
       if (!internal || !p.alive) return;
-      p.mp = Math.min(p.maxMp, p.mp + 4 * dt);
+      const regen = 4 + (internal.mpRegenT > 0 ? internal.mpRegenBonus : 0);
+      p.mp = Math.min(p.maxMp, p.mp + regen * dt);
       for (let i = 0; i < internal.cooldowns.length; i++) {
         internal.cooldowns[i] = Math.max(0, internal.cooldowns[i] - dt);
       }
@@ -263,6 +269,10 @@ export class DuelRoom extends Room<DuelState> {
         internal.atkBoostT -= dt;
         if (internal.atkBoostT <= 0) internal.atkBoost = 0;
       }
+      if (internal.mpRegenT > 0) {
+        internal.mpRegenT -= dt;
+        if (internal.mpRegenT <= 0) internal.mpRegenBonus = 0;
+      }
       if (internal.vigorT > 0) {
         internal.vigorT -= dt;
         if (internal.vigorT <= 0) {
@@ -279,6 +289,7 @@ export class DuelRoom extends Room<DuelState> {
       p.wardPct = internal.wardT > 0 ? Math.round(internal.wardPct) : 0;
       p.atkBoost = internal.atkBoostT > 0 ? Math.round(internal.atkBoost) : 0;
       p.vigorBonus = internal.vigorT > 0 ? Math.round(internal.vigorBonus) : 0;
+      p.mpRegenBonus = internal.mpRegenT > 0 ? internal.mpRegenBonus : 0;
       p.sealed = internal.sealedT > 0;
       // 継続ダメージ(1秒ごと)
       if (internal.dotT > 0) {
@@ -348,6 +359,12 @@ export class DuelRoom extends Room<DuelState> {
           this.broadcast('dseal', { sid: foe0.sid, sec: fi.sealedT });
         }
       }
+      return;
+    }
+    if (st.kind === 'focus') {
+      internal.mpRegenBonus = st.mpRegenBonus; // 掛け直しは上書き
+      internal.mpRegenT = 20;
+      this.broadcast('dfocus', { sid, perSec: st.mpRegenBonus });
       return;
     }
     if (st.kind === 'empower') {

@@ -250,6 +250,16 @@ export class DuelView {
       const p = st?.players?.get(m.sid);
       if (p) this.addPopup(XS[p.slot] ?? 140, cy(145), `与ダメ+${m.pct}%`, 0xff8844);
     });
+    room.onMessage('dfocus', (m: { sid: string; perSec: number }) => {
+      const st: any = room.state;
+      const p = st?.players?.get(m.sid);
+      if (p) {
+        this.addPopup(
+          XS[p.slot] ?? 140, cy(152),
+          `瞑想 MP+${m.perSec.toFixed(1)}/秒`, 0x88ccff,
+        );
+      }
+    });
     room.onMessage('dvigor', (m: { sid: string; amount: number }) => {
       const st: any = room.state;
       const p = st?.players?.get(m.sid);
@@ -389,6 +399,7 @@ export class DuelView {
         if (p.wardPct > 0) buffs.push(`◈${p.wardPct}%`);
         if (p.atkBoost > 0) buffs.push(`⚔+${p.atkBoost}%`);
         if (p.vigorBonus > 0) buffs.push(`♥+${p.vigorBonus}`);
+        if (p.mpRegenBonus > 0) buffs.push(`✦MP+${Number(p.mpRegenBonus).toFixed(1)}`);
         if (p.sealed) buffs.push('封印中');
         buffT.text = buffs.join(' ');
       }

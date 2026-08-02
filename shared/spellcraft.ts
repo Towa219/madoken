@@ -19,6 +19,7 @@ export function computeSpell(counts: ElementCounts): CraftResult {
   const s: SpellStats = {
     kind: 'attack', barrier: 0, healPower: 0, hateGain: 0, targetAll: false,
     quake: false, wardPct: 0, hpBoost: 0, sealTime: 0, atkBoost: 0,
+    mpRegenBonus: 0,
     dotDps: 0, dotTime: 0,
     power: 10, castTime: 1.3, manaCost: 20, projSpeed: 260,
     radius: 0, pierce: false, chain: 0, critRate: 5,
@@ -62,6 +63,7 @@ export function computeSpell(counts: ElementCounts): CraftResult {
   if (s.kind === 'shield') s.barrier = Math.round(s.power * 2.2);
   if (s.kind === 'heal') s.healPower = Math.round(s.power * 1.8 + 10);
   if (s.kind === 'taunt') s.hateGain = Math.round(s.power * 10);
+  if (s.kind === 'focus') s.mpRegenBonus = mpRegenBonusOf(s);
 
   // 自動命名: 主属性接頭辞 + 系統名 + 威力階級 + 構成タグ
   // 構成タグ〈火2風〉はレシピの完全な符号なので、
@@ -219,6 +221,7 @@ export function finalStats(
   if (s.kind === 'vigor') s.hpBoost = hpBoostOf(s);
   if (s.kind === 'seal') s.sealTime = sealTimeOf(s);
   if (s.kind === 'empower') s.atkBoost = atkBoostOf(s);
+  if (s.kind === 'focus') s.mpRegenBonus = mpRegenBonusOf(s);
   // 継続ダメージ: 延焼(dotDpsの目印あり)は強め
   if (s.dotTime > 0) s.dotDps = Math.max(1, Math.round(s.power * (s.dotDps > 0 ? 0.28 : 0.18)));
   return s;
@@ -228,6 +231,13 @@ export function finalStats(
 export function atkBoostOf(s: SpellStats): number {
   const base = Math.min(60, 15 + s.power / 4);
   return Math.round(s.targetAll ? base * 0.7 : base);
+}
+
+// MP自然回復の上乗せ(毎秒)。基礎の自然回復は毎秒3なので、+3で倍になる。
+// 上限6(毎秒9=3倍)。全体版は7割。
+export function mpRegenBonusOf(s: SpellStats): number {
+  const base = Math.min(6, 1.5 + s.power / 16);
+  return Math.round((s.targetAll ? base * 0.7 : base) * 10) / 10;
 }
 
 // 行動不能にする秒数(威力から換算・上限6秒)
@@ -266,6 +276,7 @@ export function spellCooldown(s: SpellStats): number {
   if (s.kind === 'vigor') return 14;
   if (s.kind === 'seal') return 16;
   if (s.kind === 'empower') return 14;
+  if (s.kind === 'focus') return 14;
   if (s.quake) return 7;
   return 1.2 + s.castTime * 0.5;
 }
@@ -285,7 +296,8 @@ export function normalizeStats(raw: SpellStats): SpellStats {
     pierce: !!raw?.pierce,
     barrier: n(raw?.barrier), healPower: n(raw?.healPower), hateGain: n(raw?.hateGain),
     wardPct: n(raw?.wardPct), hpBoost: n(raw?.hpBoost), sealTime: n(raw?.sealTime),
-    atkBoost: n(raw?.atkBoost), dotDps: n(raw?.dotDps), dotTime: n(raw?.dotTime),
+    atkBoost: n(raw?.atkBoost), mpRegenBonus: n(raw?.mpRegenBonus),
+    dotDps: n(raw?.dotDps), dotTime: n(raw?.dotTime),
     power: n(raw?.power), castTime: n(raw?.castTime), manaCost: n(raw?.manaCost),
     projSpeed: n(raw?.projSpeed), radius: n(raw?.radius), chain: n(raw?.chain),
     critRate: n(raw?.critRate), lifesteal: n(raw?.lifesteal), freeze: n(raw?.freeze),
@@ -321,6 +333,9 @@ export function spellMagicValue(raw: SpellStats): number {
     v = s.sealTime * 26;
   } else if (s.kind === 'empower') {
     v = s.atkBoost * (s.targetAll ? 3.2 : 2.0);
+  } else if (s.kind === 'focus') {
+    // 20秒で得られる追加MPを、MP1あたりの価値に換算して評価する
+    v = s.mpRegenBonus * 20 * (s.targetAll ? 1.6 : 1.0);
   } else {
     v = (s.hateGain / cycle) * 1.4 + 25;   // 挑発
   }
@@ -367,6 +382,17 @@ export function statsSummary(s: SpellStats): string {
       s.targetAll
         ? `【戦鼓】全員の与ダメ+${s.atkBoost}%`
         : `【闘気】与ダメ+${s.atkBoost}%`,
+      '20秒',
+      `詠唱${s.castTime.toFixed(2)}秒`, `MP${s.manaCost}`, '再使用14秒',
+    ];
+    if (s.selfDamage > 0) parts.push(`自傷${s.selfDamage}`);
+    return parts.join(' / ');
+  }
+  if (s.kind === 'focus') {
+    const parts = [
+      s.targetAll
+        ? `【瞑想】全員のMP回復 毎秒+${s.mpRegenBonus.toFixed(1)}`
+        : `【瞑想】MP回復 毎秒+${s.mpRegenBonus.toFixed(1)}(通常は毎秒3)`,
       '20秒',
       `詠唱${s.castTime.toFixed(2)}秒`, `MP${s.manaCost}`, '再使用14秒',
     ];

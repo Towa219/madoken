@@ -119,6 +119,14 @@ export const RECIPES: RecipeDef[] = [
     check: c => n(c, 'earth') >= 2 && n(c, 'ice') >= 1,
     apply: s => { s.kind = 'shield'; },
   },
+  {
+    id: 'meisou', name: '瞑想系', spellNoun: '瞑想',
+    hint: '氷の静けさに光を灯せば、心は澄み魔力が湧く (氷×2+光×1以上)',
+    desc: '攻撃せず、MPの自然回復を20秒間だけ引き上げる(通常は毎秒3)。'
+      + '長期戦で魔法を撃ち続けるための系統。',
+    check: c => n(c, 'ice') >= 2 && n(c, 'light') >= 1,
+    apply: s => { s.kind = 'focus'; },
+  },
   // ※ 並び順は「条件がゆるいものを先に」。後のものが上書きするため、
   //   条件の厳しい(素材の多い)系統を後に置かないと、そちらが成立しなくなる。
   {
