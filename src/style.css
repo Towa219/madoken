@@ -120,8 +120,20 @@ button.tab.active { background: #5533aa; border-color: #7755cc; }
   margin: 0 0 4px; font-size: 13px; color: #bb99ff; font-weight: normal;
 }
 #transmute-box .note { margin: 4px 0 0; }
-#btn-transmute { margin-top: 6px; }
+.transmute-row { display: flex; gap: 8px; margin-top: 6px; }
+#btn-transmute-cancel.hidden { display: none; }
 #transmute-msg { min-height: 16px; }
+
+/* 錬成の選択中: 使える素材だけを目立たせ、足りないものは沈める */
+.elem-card.tm-ok {
+  border-color: #7755cc; cursor: pointer;
+}
+.elem-card.tm-ok:hover { background: #2c2450; }
+.elem-card.tm-ng { opacity: 0.35; cursor: default; }
+.elem-card.tm-picked {
+  border-color: #ffdd66; background: #2c2450;
+  box-shadow: 0 0 0 1px #ffdd66 inset;
+}
 
 /* 調合台 */
 #slot-row { display: flex; gap: 8px; margin: 10px 0; justify-content: center; }

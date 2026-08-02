@@ -603,49 +603,6 @@ export const ELEMENT_POOL: ElementId[] = [
   'thunder', 'thunder', 'ice', 'ice', 'light', 'dark',
 ];
 
-// 錬成で自動選択したくない希少エレメント。
-// 使う素材はこちらで選ぶので、貴重な光・闇は他が尽きるまで手を付けない。
-const TRANSMUTE_LAST_RESORT: ElementId[] = ['light', 'dark'];
-
-// 錬成で使う素材を選ぶ。余っている(手持ちが最も多い)種類から取る。
-// 同じ種類で足りるならそれだけを使い、足りなければ多い順に寄せ集める。
-// 光・闇は他の素材が尽きた場合のみ使う。使える素材が足りなければ null。
-export function pickSurplus(
-  free: Partial<Record<ElementId, number>>, need = TRANSMUTE_COST,
-): ElementId[] | null {
-  const left: Record<string, number> = {};
-  for (const id of ELEMENT_ORDER) left[id] = Math.max(0, Math.floor(free[id] ?? 0));
-
-  // 総数が足りているかを先に見る(光・闇しか無い場合もここで通す)
-  let total = 0;
-  for (const id of ELEMENT_ORDER) total += left[id];
-  if (total < need) return null;
-
-  // 希少でないものを優先し、その中で手持ちが多い順に選ぶ
-  const rank = (id: ElementId): number =>
-    (TRANSMUTE_LAST_RESORT.includes(id) ? 0 : 1_000_000) + left[id];
-
-  // 1種類でまかなえるなら、その種類だけを使う(何が減るか分かりやすい)
-  let top: ElementId | null = null;
-  for (const id of ELEMENT_ORDER) {
-    if (left[id] > 0 && (top === null || rank(id) > rank(top))) top = id;
-  }
-  if (top !== null && left[top] >= need) return Array(need).fill(top) as ElementId[];
-
-  // 足りない場合は寄せ集める
-  const picks: ElementId[] = [];
-  for (let i = 0; i < need; i++) {
-    let best: ElementId | null = null;
-    for (const id of ELEMENT_ORDER) {
-      if (left[id] > 0 && (best === null || rank(id) > rank(best))) best = id;
-    }
-    if (best === null) return null;
-    left[best]--;
-    picks.push(best);
-  }
-  return picks;
-}
-
 // 錬成の結果。使った種類は除いて抽選する
 // (同じ種類が返ると「減っただけ」になり、作り替えた意味が無くなるため)。
 export function transmuteResult(

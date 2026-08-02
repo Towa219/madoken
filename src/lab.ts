@@ -3,7 +3,7 @@
 import {
   DISASSEMBLE_RATE, DISCOVERY_BONUS_RP, ELEMENT_POOL, ELEMENTS, ELEMENT_ORDER,
   GATHER_COST, GATHER_COUNT, LIBRARY_BONUS_MAX, LIBRARY_BONUS_START,
-  libraryBonus, pickSurplus, RARITIES, rarityMultiplier, RECIPES, rollRarity,
+  libraryBonus, RARITIES, rarityMultiplier, RECIPES, rollRarity,
   SLOT3_COST, SLOT4_BOSS_STAGE, SLOT4_COST, SLOT5_BOSS_STAGE, SLOT5_COST,
   TRANSMUTE_COST, transmuteResult,
 } from '../shared/data';
@@ -84,6 +84,7 @@ export function initLab(): void {
   $('#btn-craft').addEventListener('click', craft);
   $('#btn-gather').addEventListener('click', gather);
   $('#btn-transmute').addEventListener('click', transmute);
+  $('#btn-transmute-cancel').addEventListener('click', cancelTransmute);
   $('#btn-sort-spells').addEventListener('click', () => {
     state.sortByPower = !state.sortByPower;
     notify();
@@ -117,13 +118,22 @@ function renderInventory(): void {
     const free = have - placedOf(id);
     const got = gained.get(id) ?? 0;
     const card = document.createElement('div');
-    card.className = 'elem-card' + (free <= 0 ? ' empty' : '') + (got > 0 ? ' elem-gained' : '');
+    // 錬成の選択中は、使える素材だけを選べるようにする
+    const tmOk = transmuteMode && canTransmute(id);
+    const cls = 'elem-card'
+      + (free <= 0 ? ' empty' : '')
+      + (got > 0 ? ' elem-gained' : '')
+      + (transmuteMode ? (tmOk ? ' tm-ok' : ' tm-ng') : '')
+      + (transmutePick === id ? ' tm-picked' : '');
+    card.className = cls;
     card.innerHTML =
       `<span class="ename" style="color:${def.cssColor}">${def.name}</span>` +
       (got > 0 ? `<span class="gain-badge">+${got}</span>` : '') +
       `<span class="ecount">×${free}</span>` +
       `<div class="edesc">${def.desc}</div>`;
-    if (free > 0) {
+    if (transmuteMode) {
+      if (tmOk) card.addEventListener('click', () => pickTransmute(id));
+    } else if (free > 0) {
       card.addEventListener('click', () => {
         const empty = slotSel.indexOf(null);
         if (empty === -1) return;
@@ -483,46 +493,106 @@ function freeInventory(): Partial<Record<ElementId, number>> {
   return free;
 }
 
+// 錬成の選択中かどうか。選択中は素材庫のクリックが「錬成する素材の選択」になる。
+export let transmuteMode = false;
+let transmutePick: ElementId | null = null;
+
+// 3個以上あって錬成に使える素材か
+export function canTransmute(id: ElementId): boolean {
+  return (freeInventory()[id] ?? 0) >= TRANSMUTE_COST;
+}
+
+export function isTransmuteMode(): boolean {
+  return transmuteMode;
+}
+
+export function transmutePicked(): ElementId | null {
+  return transmutePick;
+}
+
+// 素材庫のカードが押されたとき(選択中のみ)
+export function pickTransmute(id: ElementId): void {
+  if (!transmuteMode || !canTransmute(id)) return;
+  transmutePick = transmutePick === id ? null : id; // もう一度押すと選択解除
+  renderLab();
+}
+
+function anyTransmutable(): boolean {
+  return ELEMENT_ORDER.some(id => canTransmute(id));
+}
+
+function endTransmuteMode(): void {
+  transmuteMode = false;
+  transmutePick = null;
+}
+
 function renderTransmute(): void {
   const btn = $<HTMLButtonElement>('#btn-transmute');
+  const cancel = $<HTMLButtonElement>('#btn-transmute-cancel');
   const note = $('#transmute-note');
-  const picks = pickSurplus(freeInventory());
-  if (!picks) {
-    btn.disabled = true;
-    btn.textContent = `錬成する (エレメント${TRANSMUTE_COST}個が必要)`;
-    note.textContent = '手持ちが足りない。採取か戦闘でエレメントを集めよう。';
+
+  // 選択中に手持ちが減って条件を満たさなくなったら選択を外す
+  if (transmutePick && !canTransmute(transmutePick)) transmutePick = null;
+
+  if (!transmuteMode) {
+    cancel.classList.add('hidden');
+    btn.textContent = '錬成する';
+    btn.disabled = !anyTransmutable();
+    note.textContent = btn.disabled
+      ? `同じ素材が${TRANSMUTE_COST}個そろっていない。採取や戦闘で集めよう。`
+      : `押すと、${TRANSMUTE_COST}個以上ある素材を選べるようになる。`;
     return;
   }
+
+  cancel.classList.remove('hidden');
+  if (!transmutePick) {
+    btn.textContent = '決定';
+    btn.disabled = true;
+    note.textContent = `素材庫から、${TRANSMUTE_COST}個以上ある素材を選んでください。`;
+    return;
+  }
+  btn.textContent = `決定 (${ELEMENTS[transmutePick].name}${TRANSMUTE_COST}個 → ランダム1個)`;
   btn.disabled = false;
-  // 何が減るかを押す前に見せる(自動で選ぶので、確認できないと不安になる)
-  const used = picks.map(id => ELEMENTS[id].name).join('・');
-  btn.textContent = `錬成する (${used} → ランダム1個)`;
-  note.textContent = '手持ちが最も多い種類から使う。使った種類以外が出る。';
+  note.textContent = '選んだ種類以外のエレメントが1個できる(光・闇は出にくい)。';
 }
 
 let transmuting = false;
 
+// 「錬成する」→ 選択開始 / 「決定」→ 実行
 function transmute(): void {
   if (transmuting) return;
-  const picks = pickSurplus(freeInventory());
-  if (!picks) return;
+  if (!transmuteMode) {
+    if (!anyTransmutable()) return;
+    transmuteMode = true;
+    transmutePick = null;
+    $('#transmute-msg').textContent = '';
+    renderLab();
+    return;
+  }
+  const id = transmutePick;
+  if (!id || !canTransmute(id)) return;
+
   transmuting = true;
+  if (!spendElements({ [id]: TRANSMUTE_COST })) { transmuting = false; return; }
 
-  const counts: Partial<Record<ElementId, number>> = {};
-  for (const id of picks) counts[id] = (counts[id] ?? 0) + 1;
-  if (!spendElements(counts)) { transmuting = false; return; }
-
-  const got = transmuteResult(picks);
+  const got = transmuteResult(Array(TRANSMUTE_COST).fill(id) as ElementId[]);
   addElements([got]);
   markGained([got]);
 
-  const usedText = picks.map(id => ELEMENTS[id].name).join('・');
   const msg = $('#transmute-msg');
   msg.style.color = '#88ffaa';
-  msg.textContent = `⚗ ${usedText} を錬成して ${ELEMENTS[got].name} になった!`;
+  msg.textContent =
+    `⚗ ${ELEMENTS[id].name}${TRANSMUTE_COST}個を錬成して ${ELEMENTS[got].name} になった!`;
   showToast(`⚗ ${ELEMENTS[got].name} を錬成した`);
+  endTransmuteMode();
   notify();
   transmuting = false;
+}
+
+function cancelTransmute(): void {
+  endTransmuteMode();
+  $('#transmute-msg').textContent = '';
+  renderLab();
 }
 
 // ---- 魔導書 ----
