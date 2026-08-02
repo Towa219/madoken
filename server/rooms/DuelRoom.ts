@@ -101,6 +101,8 @@ export class DuelRoom extends Room<DuelState> {
   private internals = new Map<string, DInternal>();
   private pending: { t: number; fn: () => void }[] = [];
   private ended = false;
+  // 復帰待ちの相手。1人でもいる間は時間を止める(殴られ放題になるのを防ぐ)
+  private waiting = new Set<string>();
 
   onCreate(): void {
     this.setState(new DuelState());
@@ -183,9 +185,27 @@ export class DuelRoom extends Room<DuelState> {
     });
   }
 
-  onLeave(client: Client): void {
+  // 通信が切れた相手を待つ秒数。ここを過ぎたら離脱として扱う。
+  private static readonly RECONNECT_SEC = 30;
+
+  async onLeave(client: Client, consented?: boolean): Promise<void> {
     const leaver = this.state.players.get(client.sessionId);
     const name = leaver?.name ?? '相手';
+
+    // 自分から棄権したのでなければ、少しの間だけ戻りを待つ。
+    // 待たずに終わらせていたため、電波が一瞬途切れただけで決闘が落ちていた。
+    if (!consented && !this.ended && this.state.phase !== 'ready') {
+      this.waiting.add(client.sessionId);
+      this.broadcast('dwait', { name, sec: DuelRoom.RECONNECT_SEC });
+      try {
+        await this.allowReconnection(client, DuelRoom.RECONNECT_SEC);
+        this.waiting.delete(client.sessionId);
+        this.broadcast('dback', { name });
+        return; // 戻ってきたので決闘は続く
+      } catch {
+        this.waiting.delete(client.sessionId); // 戻ってこなかった
+      }
+    }
     releaseBattleSlot(name, client.sessionId);
     this.state.players.delete(client.sessionId);
     this.internals.delete(client.sessionId);
@@ -251,6 +271,10 @@ export class DuelRoom extends Room<DuelState> {
   }
 
   private update(dt: number): void {
+    // 復帰を待っている間は時間を止める。動かしたままだと、
+    // 通信が切れた側が一方的に殴られて負ける。
+    if (this.waiting.size > 0) return;
+
     this.pending = this.pending.filter(ev => {
       ev.t -= dt;
       if (ev.t <= 0) { ev.fn(); return false; }

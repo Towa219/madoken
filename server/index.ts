@@ -180,7 +180,14 @@ app.use(express.static(distPath));
 const httpServer = createServer(app);
 
 const gameServer = new Server({
-  transport: new WebSocketTransport({ server: httpServer }),
+  // 既定値は ping 3秒 × 2回 = 約6秒の無応答で切断。これは厳しすぎる。
+  // スマホの画面を消した、電波が一瞬途切れた、PCがスリープしかけた程度で
+  // 戦闘中に切られてしまう。25秒まで待つようにした。
+  transport: new WebSocketTransport({
+    server: httpServer,
+    pingInterval: 5000,
+    pingMaxRetries: 5,
+  }),
 });
 
 gameServer.define('lobby_chat', LobbyChatRoom);

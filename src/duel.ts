@@ -48,6 +48,10 @@ export class DuelView {
   private mySid = '';
   private spells: Spell[] = [];
   private onExit: (() => void) | null = null;
+  // 切れた時に決闘へ戻るための手段。ロビー側から渡してもらう。
+  private reconnect: ((token: string) => Promise<Room | null>) | null = null;
+  private token = '';
+  private reconnecting = false;
   private exited = true;
   // 決着・棄権・入れ替わりのいずれかを本人に伝えたか
   private toldWhy = false;
@@ -75,11 +79,17 @@ export class DuelView {
     this.app = app;
   }
 
-  async start(room: Room, onExit: () => void): Promise<void> {
+  async start(
+    room: Room, onExit: () => void,
+    reconnect?: (token: string) => Promise<Room | null>,
+  ): Promise<void> {
     await this.ensureApp();
     this.room = room;
     this.mySid = room.sessionId;
     this.onExit = onExit;
+    this.reconnect = reconnect ?? null;
+    this.token = room.reconnectionToken;
+    this.reconnecting = false;
     this.exited = false;
     this.toldWhy = false;
     this.spells = equippedSpells().slice(0, 4);
@@ -175,14 +185,42 @@ export class DuelView {
     this.handleExit();
   }
 
-  // 中断や決着の知らせが無いまま切れた場合は、理由を伝えてから戻る。
-  // 一番多いのはサーバーの更新で、再起動すると進行中の部屋ごと消える。
-  private leftUnexpectedly(): void {
-    if (!this.exited && !this.toldWhy) {
-      showToast('通信が切れたため決闘を中断した。'
-        + 'サーバーが更新された可能性がある。ロビーから入り直してほしい。');
+  // 決着も棄権も無いまま切れた場合。
+  // 電波が一瞬途切れただけのことが多いので、まず決闘へ戻ることを試みる。
+  private async handleDisconnect(): Promise<void> {
+    if (this.exited || this.toldWhy) { this.handleExit(); return; }
+    if (this.reconnecting) return;
+    this.reconnecting = true;
+    showToast('通信が切れた。決闘への復帰を試みている…');
+
+    const back = await this.tryReconnect();
+    this.reconnecting = false;
+    if (back) {
+      showToast('決闘に復帰した。');
+      return;
     }
+    showToast('決闘に復帰できなかった。'
+      + 'サーバーが更新された可能性がある。ロビーから入り直してほしい。');
     this.handleExit();
+  }
+
+  // 少し間を置いて何度か試す。サーバー側は30秒だけ席を空けて待っている。
+  private async tryReconnect(): Promise<boolean> {
+    if (!this.reconnect || !this.token) return false;
+    for (let i = 0; i < 6; i++) {
+      await new Promise(r => setTimeout(r, 2500));
+      if (this.exited) return false;
+      try {
+        const room = await this.reconnect(this.token);
+        if (!room) continue;
+        this.room = room;
+        this.mySid = room.sessionId;
+        this.token = room.reconnectionToken;
+        this.wireRoom(room);
+        return true;
+      } catch { /* まだ戻れない。次の試行へ */ }
+    }
+    return false;
   }
 
   private handleExit(): void {
@@ -321,10 +359,17 @@ export class DuelView {
       void room.leave();
       this.handleExit();
     });
-    // 決着も棄権も無いまま切れた時に黙ってロビーへ戻すと、
-    // 勝手に落ちたようにしか見えない。共闘と同じく理由を伝えてから返す。
-    room.onLeave(() => this.leftUnexpectedly());
-    room.onError(() => this.leftUnexpectedly());
+    // 相手が切れた/戻ってきた
+    room.onMessage('dwait', (m: { name: string; sec: number }) => {
+      showToast(`${m.name} の通信が切れた。${m.sec}秒だけ復帰を待つ…`);
+    });
+    room.onMessage('dback', (m: { name: string }) => {
+      showToast(`${m.name} が決闘に戻ってきた。再開する。`);
+    });
+
+    // 決着も棄権も無いまま切れた場合。まず復帰を試み、駄目なら理由を伝えて戻る。
+    room.onLeave(() => void this.handleDisconnect());
+    room.onError(() => void this.handleDisconnect());
   }
 
   private tick(dt: number): void {

@@ -509,6 +509,10 @@ async function joinDuel(): Promise<void> {
       } else {
         $('#online-login').classList.remove('hidden');
       }
+    }, async token => {
+      // 通信が切れた時の復帰。サーバーは30秒だけ席を空けて待っている。
+      if (!client) return null;
+      return await client.reconnect(token);
     });
   } catch (err) {
     console.error(err);
