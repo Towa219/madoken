@@ -567,7 +567,10 @@ export const ALL_ENEMIES: EnemyDef[] = [...ENEMIES, ...BOSSES];
 // 戦闘が一瞬で終わらないよう、両者のHPを厚くし敵の攻撃力は控えめにする
 
 export const PLAYER_MAX_HP = 260;
-export const PLAYER_MAX_MP = 120;
+// MPは最大値より自然回復が効く。回復3/秒に対し詠唱1回で30〜40使うので、
+// 数発撃つと枯れて回復待ちになっていた。最大値だけ上げても先延ばしにしかならない。
+export const PLAYER_MAX_MP = 150;
+export const PLAYER_MP_REGEN = 4;   // 毎秒。src/battle.ts と CoopRoom.ts の両方で使う
 export const DUEL_MAX_HP = 300;   // 決闘は読み合いのぶんさらに長め
 export const DUEL_MAX_MP = 140;
 export const ENEMY_HP_MUL = 3.5;  // 敵HPの全体倍率

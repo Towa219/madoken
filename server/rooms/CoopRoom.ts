@@ -23,7 +23,8 @@ import { clampNickname } from '../../shared/nickname';
 import { clampCharId } from '../../shared/characters';
 import {
   affinityMul, battleRP, bossForStage, ENEMY_ATK_MUL, ENEMY_HP_MUL, isBossStage,
-  pickEnemiesForStage, PLAYER_MAX_HP, PLAYER_MAX_MP, stageAtkMul, stageHpMul,
+  pickEnemiesForStage, PLAYER_MAX_HP, PLAYER_MAX_MP, PLAYER_MP_REGEN,
+  stageAtkMul, stageHpMul,
 } from '../../shared/data';
 import type { AffinityGrade, EnemyDef } from '../../shared/data';
 import type { ElementCounts, ElementId, SpellStats } from '../../shared/types';
@@ -380,7 +381,7 @@ export class CoopRoom extends Room<CoopState> {
     this.state.players.forEach((p, sid) => {
       const internal = this.internals.get(sid);
       if (!internal || !p.alive) return;
-      const regen = 3 + (internal.mpRegenT > 0 ? internal.mpRegenBonus : 0);
+      const regen = PLAYER_MP_REGEN + (internal.mpRegenT > 0 ? internal.mpRegenBonus : 0);
       p.mp = Math.min(p.maxMp, p.mp + regen * dt);
       for (let i = 0; i < internal.cooldowns.length; i++) {
         internal.cooldowns[i] = Math.max(0, internal.cooldowns[i] - dt);

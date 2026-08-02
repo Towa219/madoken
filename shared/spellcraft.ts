@@ -1,4 +1,4 @@
-import { ELEMENTS, ELEMENT_ORDER, RARITIES, RECIPES } from './data';
+import { ELEMENTS, ELEMENT_ORDER, PLAYER_MP_REGEN, RARITIES, RECIPES } from './data';
 import type { RecipeDef } from './data';
 import type { ElementCounts, ElementId, Rarity, SpellKind, SpellStats } from './types';
 
@@ -264,8 +264,9 @@ export function healManaFloor(s: SpellStats): number {
   return Math.round(s.healPower * HEAL_MP_RATIO);
 }
 
-// MP自然回復の基礎(毎秒)。battle.ts の mpRegen と揃えること。
-export const BASE_MP_REGEN = 3;
+// MP自然回復の基礎(毎秒)。data.ts の値をそのまま使う。
+// 別々に書くと、瞑想の評価だけが実態と食い違う。
+export const BASE_MP_REGEN = PLAYER_MP_REGEN;
 
 // MP自然回復の上乗せ(毎秒)。基礎の自然回復は毎秒3なので、+3で倍になる。
 // 上限6(毎秒9=3倍)。全体版は7割。
@@ -435,7 +436,7 @@ export function spellMagicValue(raw: SpellStats): number {
     v = REF_DPS * (s.atkBoost / 100) * 12 * upTime(s) * all * 3.3;
   } else if (s.kind === 'focus') {
     // MP回復の上乗せ。MPが尽きて詠唱できない時間が減る = そのぶん手数が増える。
-    v = REF_DPS * (s.mpRegenBonus / BASE_MP_REGEN) * 12 * upTime(s) * all * 0.75;
+    v = REF_DPS * (s.mpRegenBonus / BASE_MP_REGEN) * 12 * upTime(s) * all * 1.0;
   } else {
     // 挑発: 敵の狙いを引き受ける。仲間が殴られない時間を作る役目。
     v = (s.hateGain / cycle) * 1.4 * 2.4 + 60;
@@ -493,7 +494,7 @@ export function statsSummary(s: SpellStats): string {
     const parts = [
       s.targetAll
         ? `【瞑想】全員のMP回復 毎秒+${s.mpRegenBonus.toFixed(1)}`
-        : `【瞑想】MP回復 毎秒+${s.mpRegenBonus.toFixed(1)}(通常は毎秒3)`,
+        : `【瞑想】MP回復 毎秒+${s.mpRegenBonus.toFixed(1)}(通常は毎秒${BASE_MP_REGEN})`,
       '20秒',
       `詠唱${s.castTime.toFixed(2)}秒`, `MP${s.manaCost}`, '再使用14秒',
     ];

@@ -7,7 +7,7 @@ import { Application, Container, Graphics, Sprite, Text } from 'pixi.js';
 import {
   affinityMul, affinitySymbol, battleRP, bossForStage, ELEMENTS, ELEMENT_ORDER,
   ENEMY_ATK_MUL, ENEMY_HP_MUL, ENEMY_SCALE, enemyTopY, isBossStage, pickEnemiesForStage,
-  PLAYER_MAX_HP, PLAYER_MAX_MP, SPRITE_SCALE, stageAtkMul, stageHpMul,
+  PLAYER_MAX_HP, PLAYER_MAX_MP, PLAYER_MP_REGEN, SPRITE_SCALE, stageAtkMul, stageHpMul,
 } from '../shared/data';
 import type { AffinityGrade, EnemyDef } from '../shared/data';
 import { backgroundArt, enemyArt, playerArt, projectileArt } from './artwork';
@@ -111,7 +111,7 @@ export class BattleManager {
   private hp = PLAYER_MAX_HP;
   private maxMp = PLAYER_MAX_MP;
   private mp = PLAYER_MAX_MP;
-  private mpRegen = 3;
+  private mpRegen = PLAYER_MP_REGEN;
   private shield = 0;
   private shieldTimer = 0;
   // 属性耐性(ward): attr=null なら全属性
