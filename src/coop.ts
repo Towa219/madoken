@@ -176,11 +176,15 @@ export class CoopView {
       bar.appendChild(b);
       this.spellBtns.push(b);
     });
+    // 退出は魔法ボタンと同じ行に置くと押し間違えるので、下の段に分ける
+    const escRow = document.createElement('div');
+    escRow.className = 'escape-row';
     const esc2 = document.createElement('button');
     esc2.id = 'btn-escape';
     esc2.textContent = '退出';
     esc2.addEventListener('click', () => this.exitNow());
-    bar.appendChild(esc2);
+    escRow.appendChild(esc2);
+    bar.appendChild(escRow);
     bar.classList.remove('hidden');
   }
 

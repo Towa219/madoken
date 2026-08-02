@@ -151,11 +151,15 @@ export class DuelView {
       bar.appendChild(b);
       this.spellBtns.push(b);
     });
+    // 棄権は魔法ボタンと同じ行に置くと押し間違えるので、下の段に分ける
+    const escRow = document.createElement('div');
+    escRow.className = 'escape-row';
     const leave = document.createElement('button');
     leave.id = 'btn-escape';
     leave.textContent = '棄権';
     leave.addEventListener('click', () => this.exitNow());
-    bar.appendChild(leave);
+    escRow.appendChild(leave);
+    bar.appendChild(escRow);
   }
 
   private exitNow(): void {

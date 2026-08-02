@@ -375,13 +375,17 @@ export class BattleManager {
       bar.appendChild(b);
       this.spellBtns.push(b);
     });
+    // 撤退は魔法ボタンと同じ行に置くと押し間違えるので、下の段に分ける
+    const escRow = document.createElement('div');
+    escRow.className = 'escape-row';
     const esc = document.createElement('button');
     esc.id = 'btn-escape';
     esc.textContent = '撤退';
     esc.addEventListener('click', () => {
       if (this.active && this.endResult === null) this.beginEnd(false, true);
     });
-    bar.appendChild(esc);
+    escRow.appendChild(esc);
+    bar.appendChild(escRow);
   }
 
   private updateSpellBar(): void {

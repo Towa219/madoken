@@ -388,7 +388,18 @@ button.tab.active { background: #5533aa; border-color: #7755cc; }
   position: absolute; left: 0; top: 0; bottom: 0; background: rgba(0,0,0,0.55);
   pointer-events: none; width: 0%;
 }
-#btn-escape { border-color: #cc5555; color: #ff9988; }
+/* 撤退/退出/棄権は魔法ボタンと押し間違えやすいので、必ず下の段に分ける。
+   flex-basis:100% で強制的に改行させ、控えめな見た目にしておく。 */
+.escape-row {
+  flex-basis: 100%; display: flex; justify-content: center;
+  margin-top: 4px; padding-top: 8px;
+  border-top: 1px solid #2a2a44;
+}
+#btn-escape {
+  border-color: #77444c; color: #cc8888; background: #241820;
+  font-size: 12px; padding: 6px 22px;
+}
+#btn-escape:hover { border-color: #cc5555; color: #ff9988; background: #34202a; }
 
 /* 結果オーバーレイ */
 #battle-overlay {
