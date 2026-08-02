@@ -15,6 +15,8 @@ import { clientIp, logConnection } from '../connlog';
 import { clearRoomPresence, setRoomPresence } from '../presence';
 import { claimName } from '../names';
 import { announce } from '../lobbyfeed';
+import { claimBattleSlot, releaseBattleSlot } from '../activeBattle';
+import { CODE_REPLACED } from '../../shared/netcodes';
 import { clampNickname } from '../../shared/nickname';
 import type { ServerSpell } from '../spellPayload';
 import type { ElementId, SpellStats } from '../../shared/types';
@@ -144,6 +146,15 @@ export class DuelRoom extends Room<DuelState> {
 
     this.state.players.set(client.sessionId, p);
     logConnection('決闘', p.name, (client.auth as { ip?: string } | undefined)?.ip ?? '');
+
+    // 同じ人が別の戦闘部屋にいたら、そちらを閉じる(部屋の乱立を防ぐ)
+    claimBattleSlot(p.name, client.sessionId, () => {
+      try { client.send('replaced', {}); } catch { /* 既に閉じている */ }
+      setTimeout(() => {
+        try { client.leave(CODE_REPLACED); } catch { /* 既に閉じている */ }
+      }, 150);
+    });
+
     this.syncPresence();
 
     // ロビーへ募集を知らせる
@@ -168,6 +179,7 @@ export class DuelRoom extends Room<DuelState> {
   onLeave(client: Client): void {
     const leaver = this.state.players.get(client.sessionId);
     const name = leaver?.name ?? '相手';
+    releaseBattleSlot(name, client.sessionId);
     this.state.players.delete(client.sessionId);
     this.internals.delete(client.sessionId);
     this.syncPresence();

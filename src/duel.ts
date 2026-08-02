@@ -283,6 +283,11 @@ export class DuelView {
       overlay.querySelector('#btn-duel-back')?.addEventListener('click', () => this.exitNow());
     });
 
+    // 同じ名前で別の戦闘部屋に入った場合(coop.ts と同じ扱い)
+    room.onMessage('replaced', () => {
+      void room.leave();
+      this.handleExit();
+    });
     room.onLeave(() => this.handleExit());
     room.onError(() => this.handleExit());
   }

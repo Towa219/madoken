@@ -325,14 +325,20 @@ function spellPayload(): SpellPayload[] {
   }));
 }
 
+// 連打で部屋がいくつも作られないようにする
+let creatingRoom = false;
+
 async function createRoom(): Promise<void> {
-  if (!client) return;
+  if (!client || creatingRoom) return;
   const spells = spellPayload();
   if (spells.length === 0) {
     $('#lobby-msg').textContent = '先に研究室で魔法を調合・装備してから。';
     return;
   }
   const stage = Number($<HTMLSelectElement>('#coop-stage').value) || 1;
+  const btn = $<HTMLButtonElement>('#btn-create-room');
+  creatingRoom = true;
+  btn.disabled = true;
   try {
     const room = await client.create('coop', {
       name: nick, spells, stage, maxStage: state.maxStage,
@@ -342,6 +348,9 @@ async function createRoom(): Promise<void> {
   } catch (err) {
     console.error(err);
     $('#lobby-msg').textContent = '部屋を作れなかった。';
+  } finally {
+    creatingRoom = false;
+    btn.disabled = false;
   }
 }
 

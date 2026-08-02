@@ -402,6 +402,13 @@ export class CoopView {
       this.showResult(m);
     });
 
+    // 同じ名前で別の戦闘部屋に入った(部屋の乱立を防ぐためサーバーが閉じる)。
+    // 本番のプロキシ越しでは切断が伝わらないことがあるので、通知を受けた時点で抜ける。
+    room.onMessage('replaced', () => {
+      showToast('別の部屋に入ったため、こちらの部屋からは退出した。');
+      void room.leave();
+      this.handleExit();
+    });
     room.onLeave(() => this.handleExit());
     room.onError(() => this.handleExit());
   }

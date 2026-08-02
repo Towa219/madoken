@@ -17,6 +17,8 @@ import { clearRoomPresence, setRoomPresence } from '../presence';
 import { submitScore } from '../ranking';
 import { claimName } from '../names';
 import { announce } from '../lobbyfeed';
+import { claimBattleSlot, releaseBattleSlot } from '../activeBattle';
+import { CODE_REPLACED } from '../../shared/netcodes';
 import { clampNickname } from '../../shared/nickname';
 import {
   affinityMul, battleRP, bossForStage, ENEMY_ATK_MUL, ENEMY_HP_MUL, isBossStage,
@@ -178,6 +180,16 @@ export class CoopRoom extends Room<CoopState> {
       (client.auth as { ip?: string } | undefined)?.ip ?? '',
     );
 
+    // 同じ人が別の戦闘部屋にいたら、そちらを閉じる(部屋の乱立を防ぐ)
+    claimBattleSlot(p.name, client.sessionId, () => {
+      // 同じ人が別の部屋を作った/入った場合は、こちらの接続を閉じる。
+      // 残しておくと空の部屋が生き続け、一覧に自分の部屋が並んでしまう。
+      try { client.send('replaced', {}); } catch { /* 既に閉じている */ }
+      setTimeout(() => {
+        try { client.leave(CODE_REPLACED); } catch { /* 既に閉じている */ }
+      }, 150);
+    });
+
     this.syncPresence();
 
     // 最初の1人 = 部屋を立てた人。ロビーに募集を知らせる
@@ -224,6 +236,7 @@ export class CoopRoom extends Room<CoopState> {
 
   onLeave(client: Client): void {
     const leaverName = this.state.players.get(client.sessionId)?.name ?? '誰か';
+    releaseBattleSlot(leaverName, client.sessionId);
     this.submitToRanking(client.sessionId); // 途中離脱でもスコアは記録
     this.state.players.delete(client.sessionId);
     this.internals.delete(client.sessionId);
