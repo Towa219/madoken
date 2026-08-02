@@ -238,7 +238,7 @@ export function finalStats(
   if (s.kind === 'ward') s.wardPct = wardPctOf(s);
   if (s.kind === 'vigor') s.hpBoost = hpBoostOf(s);
   // 封印は強化で「止める時間が延び、再使用が縮む」
-  if (s.kind === 'seal') { s.sealTime = sealTimeOf(s); s.coolTime = sealCoolOf(L); }
+  if (s.kind === 'seal') { s.sealTime = sealTimeAt(base, L); s.coolTime = sealCoolOf(L); }
   if (s.kind === 'empower') s.atkBoost = atkBoostOf(s);
   if (s.kind === 'focus') s.mpRegenBonus = mpRegenBonusOf(s);
   // 強化で回復量が増えた分、消費MPの下限も上がる(MP1あたりの効率は一定に保つ)
@@ -285,10 +285,20 @@ export function dotDpsOf(s: SpellStats): number {
 }
 
 // 行動不能にする秒数(威力から換算・上限6秒)
+// 行動不能の秒数。強化していない状態(強化前の威力)から出す。
+// 強化ぶんは sealTimeAt で足す。ここに強化後の威力を渡すと二重に効いてしまう。
 export function sealTimeOf(s: SpellStats): number {
-  // 威力への傾きを立ててある。緩いと強化1段階で0.3秒しか延びず、
-  // 強くなった実感がまったく無い。
-  return Math.round(Math.min(17, 1.2 + s.power / 5.2) * 10) / 10;
+  return Math.round(Math.min(13, 1.2 + s.power / 5.2) * 10) / 10;
+}
+
+// 強化1段階ごとに行動不能は1秒延び、再使用は1秒縮む。
+// 端数で刻むと「+1で0.3秒」のように伸びが分からないので、きっちり1秒ずつにしてある。
+export const SEAL_TIME_PER_LEVEL = 1;
+export const SEAL_COOL_PER_LEVEL = 1;
+
+export function sealTimeAt(base: SpellStats, level: number): number {
+  const L = Math.max(0, Math.min(ENHANCE_MAX, Math.floor(level || 0)));
+  return Math.round((sealTimeOf(base) + SEAL_TIME_PER_LEVEL * L) * 10) / 10;
 }
 
 // 封印が相手にどれだけ効くか(0〜1.5)。相手の属性相性で決まる。
@@ -317,9 +327,7 @@ export function sealWardMul(wardPct: number): number {
 // 封印だけが突出してしまう。長く止める代わりに間隔も長い「切り札」にした。
 export function sealCoolOf(level: number): number {
   const L = Math.max(0, Math.min(ENHANCE_MAX, Math.floor(level || 0)));
-  // 止める時間が大きく延びるぶん、再使用の縮み方は控えめにしてある。
-  // 両方を強く伸ばすと、強化した封印だけが他を引き離してしまう。
-  return Math.round((40 - 0.9 * L) * 10) / 10;
+  return Math.round((40 - SEAL_COOL_PER_LEVEL * L) * 10) / 10;
 }
 
 // 最大HP上昇量(威力から換算。全体版は7割)
