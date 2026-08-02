@@ -64,6 +64,7 @@ export function computeSpell(counts: ElementCounts): CraftResult {
   if (s.kind === 'heal') s.healPower = Math.round(s.power * 1.8 + 10);
   if (s.kind === 'taunt') s.hateGain = Math.round(s.power * 10);
   if (s.kind === 'focus') s.mpRegenBonus = mpRegenBonusOf(s);
+  if (s.kind === 'heal') s.manaCost = Math.max(s.manaCost, healManaFloor(s));
 
   // 自動命名: 主属性接頭辞 + 系統名 + 威力階級 + 構成タグ
   // 構成タグ〈火2風〉はレシピの完全な符号なので、
@@ -222,6 +223,8 @@ export function finalStats(
   if (s.kind === 'seal') s.sealTime = sealTimeOf(s);
   if (s.kind === 'empower') s.atkBoost = atkBoostOf(s);
   if (s.kind === 'focus') s.mpRegenBonus = mpRegenBonusOf(s);
+  // 強化で回復量が増えた分、消費MPの下限も上がる(MP1あたりの効率は一定に保つ)
+  if (s.kind === 'heal') s.manaCost = Math.max(s.manaCost, healManaFloor(s));
   // 継続ダメージ: 延焼(dotDpsの目印あり)は強め
   if (s.dotTime > 0) s.dotDps = Math.max(1, Math.round(s.power * (s.dotDps > 0 ? 0.28 : 0.18)));
   return s;
@@ -231,6 +234,21 @@ export function finalStats(
 export function atkBoostOf(s: SpellStats): number {
   const base = Math.min(60, 15 + s.power / 4);
   return Math.round(s.targetAll ? base * 0.7 : base);
+}
+
+// 回復魔法の消費MPの下限。
+//
+// 水はエレメント1個につき消費MPを4下げ、さらに静水系(水×2)が5下げる。
+// そのため水を盛るほどMPが際限なく下がり、「光3+水2」で13MPで46回復まで伸びていた。
+// これはMPの自然回復(毎秒3)だけで撃ち続けられてしまい、実質不死身になる。
+// 回復量に対する下限を設けて、MP1あたりの回復量に上限をかける。
+// 消費MPは回復量の50%以上(= 最大 約2.0 HP/MP)。
+// 光3(26MP)や光3+水1(22MP)といった素直な構成は元々これを上回っているため、
+// 影響を受けるのは水を盛ってMPを削り込んだ構成だけ。
+export const HEAL_MP_RATIO = 0.5;
+
+export function healManaFloor(s: SpellStats): number {
+  return Math.round(s.healPower * HEAL_MP_RATIO);
 }
 
 // MP自然回復の上乗せ(毎秒)。基礎の自然回復は毎秒3なので、+3で倍になる。
