@@ -16,6 +16,7 @@ import {
   spendElements, state, toggleEquip, totalInventory,
 } from './state';
 import type { ElementCounts, ElementId, Spell } from '../shared/types';
+import { playSfx } from './sound';
 
 const $ = <T extends HTMLElement = HTMLElement>(sel: string) =>
   document.querySelector(sel) as T;
@@ -359,6 +360,7 @@ function resolveCraft(counts: ElementCounts, same: Spell | undefined): void {
     msgEl.style.color = '#ff8877';
     msgEl.textContent = `調合失敗…(成功率${chance}%) 素材の半分は回収した。`;
     showToast('💥 調合失敗…');
+  playSfx('craftFail');
     notify();
     return;
   }
@@ -368,6 +370,7 @@ function resolveCraft(counts: ElementCounts, same: Spell | undefined): void {
     same.level += 1;
     same.stats = finalStats(same.recipe, same.level, same.rarity);
     slotSel = slotSel.map(() => null);
+    playSfx('craft');
     showToast(`⚗ 強化成功!「${spellDisplayName(same)}」`);
     msgEl.textContent = `「${spellDisplayName(same)}」に強化した。`;
     notify();
@@ -402,6 +405,7 @@ function resolveCraft(counts: ElementCounts, same: Spell | undefined): void {
 
   slotSel = slotSel.map(() => null);
 
+  playSfx(newFound.length > 0 || rarity !== 'normal' ? 'discover' : 'craft');
   if (rarity !== 'normal') {
     showToast(`🌟 ${RARITIES[rarity].name}品質の魔法が生まれた!「${name}」`);
   } else if (newFound.length > 0) {
@@ -477,6 +481,7 @@ function resolveGather(pity: boolean): void {
   msg.style.color = '#88ffaa';
   msg.textContent = `✨ 採取で ${got.map(g => ELEMENTS[g].name).join('・')} を手に入れた!`;
   showToast(`✨ ${got.map(g => ELEMENTS[g].name).join('・')} を入手`);
+  playSfx('gather');
   notify();
 }
 
@@ -584,6 +589,7 @@ function transmute(): void {
   msg.textContent =
     `⚗ ${ELEMENTS[id].name}${TRANSMUTE_COST}個を錬成して ${ELEMENTS[got].name} になった!`;
   showToast(`⚗ ${ELEMENTS[got].name} を錬成した`);
+  playSfx('transmute');
   endTransmuteMode();
   notify();
   transmuting = false;

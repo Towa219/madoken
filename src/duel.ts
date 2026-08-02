@@ -9,6 +9,7 @@ import {
   COUNT_STYLE, makePlayerSprite, makeProjectileGfx, START_LABEL,
 } from './battle';
 import { equippedSpells } from './state';
+import { playSfx } from './sound';
 import type { ElementId, Spell } from '../shared/types';
 
 const W = 960;
@@ -54,6 +55,7 @@ export class DuelView {
   private fxs: Fx[] = [];
   private cds = [0, 0, 0, 0];
   private prevCastingIdx = -1;
+  private prevCount = -99; // 直前に鳴らしたカウント
   private spellBtns: HTMLButtonElement[] = [];
   private waitingHtml = '';
 
@@ -79,6 +81,7 @@ export class DuelView {
     this.spells = equippedSpells().slice(0, 4);
     this.cds = [0, 0, 0, 0];
     this.prevCastingIdx = -1;
+    this.prevCount = -99;
     this.pViews.clear();
     this.anims = [];
     this.popups = [];
@@ -197,6 +200,7 @@ export class DuelView {
       const st: any = room.state;
       const p = st?.players?.get(m.sid);
       if (!p) return;
+      playSfx(m.sid === this.mySid ? 'damage' : (m.crit ? 'crit' : 'hit'));
       const x = XS[p.slot] ?? 140;
       this.addPopup(x, cy(105), `${m.amount}${m.crit ? ' 会心!' : ''}`,
         m.crit ? 0xffdd44 : 0xff7755);
@@ -208,11 +212,13 @@ export class DuelView {
     });
 
     room.onMessage('dheal', (m: { sid: string; amount: number }) => {
+      playSfx('heal');
       const st: any = room.state;
       const p = st?.players?.get(m.sid);
       if (p) this.addPopup(XS[p.slot] ?? 140, cy(118), `+${m.amount}`, 0x88ddaa);
     });
     room.onMessage('dshield', (m: { sid: string; amount: number }) => {
+      playSfx('shield');
       const st: any = room.state;
       const p = st?.players?.get(m.sid);
       if (p) this.addPopup(XS[p.slot] ?? 140, cy(118), `護盾+${m.amount}`, 0x88ccff);
@@ -307,6 +313,10 @@ export class DuelView {
     if (st.phase === 'count') {
       const left = Number(st.countdown);
       const n = Math.ceil(left - 0.6);
+      if (n !== this.prevCount) {
+        this.prevCount = n;
+        playSfx(n > 0 ? 'countdown' : 'start');
+      }
       this.countText.text = n > 0 ? String(n) : START_LABEL;
       if (n > 0) {
         const frac = (left - 0.6) - Math.floor(left - 0.6);

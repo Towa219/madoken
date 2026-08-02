@@ -13,6 +13,7 @@ import type { AffinityGrade, EnemyDef } from '../shared/data';
 import { backgroundArt, enemyArt, playerArt, projectileArt } from './artwork';
 import { spellCooldown, spellDisplayName } from '../shared/spellcraft';
 import { state } from './state';
+import { playSfx } from './sound';
 import type { BattleResult, ElementId, Spell, SpellStats } from '../shared/types';
 
 const W = 960;
@@ -128,6 +129,7 @@ export class BattleManager {
   private casting: { spell: Spell; t: number } | null = null;
   private cooldowns = new Map<string, number>();
   private countdown = 0;      // 開始前カウントダウン(秒)
+  private prevCount = -99;    // 直前に鳴らしたカウント(毎フレーム鳴らさないため)
   private countText!: Text;
 
   private playerCont!: Container;
@@ -189,7 +191,8 @@ export class BattleManager {
     this.time = 0;
     this.endTimer = -1;
     this.endResult = null;
-    this.countdown = 3.6; // 3→2→1→開始!
+    this.countdown = 3.6; // 3→2→1→開戦
+    this.prevCount = -99;
 
     this.buildScene();
     this.buildSpellBar();
@@ -411,6 +414,7 @@ export class BattleManager {
     if (this.mp < sp.stats.manaCost) return;
     this.mp -= sp.stats.manaCost;
     this.casting = { spell: sp, t: 0 };
+    playSfx('cast');
   }
 
   // ===== メインループ =====
@@ -433,6 +437,10 @@ export class BattleManager {
     if (this.countdown > 0) {
       this.countdown -= dt;
       const n = Math.ceil(this.countdown - 0.6);
+      if (n !== this.prevCount) {
+        this.prevCount = n;
+        playSfx(n > 0 ? 'countdown' : 'start');
+      }
       this.countText.text = n > 0 ? String(n) : START_LABEL;
       const frac = (this.countdown - 0.6) - Math.floor(this.countdown - 0.6);
       if (n > 0) {
@@ -478,10 +486,12 @@ export class BattleManager {
           this.shieldTimer = 5;
           this.addPopup(PLAYER_X, cy(115), `咆哮! 護盾+${small}`, 0xffaa66);
         } else if (st.kind === 'shield') {
+          playSfx('shield');
           this.shield = Math.max(this.shield, st.barrier);
           this.shieldTimer = 10;
           this.addPopup(PLAYER_X, cy(115), `護盾+${st.barrier}`, 0x88ccff);
         } else if (st.kind === 'heal') {
+          playSfx('heal');
           const heal = st.healPower;
           this.hp = Math.min(this.maxHp, this.hp + heal);
           this.addPopup(PLAYER_X, cy(115), `+${heal}`, 0x88ddaa);
@@ -491,10 +501,12 @@ export class BattleManager {
           }
           this.addPopup(W / 2, cy(150), `封印! ${st.sealTime.toFixed(1)}秒`, 0xbb77ee);
         } else if (st.kind === 'empower') {
+          playSfx('buff');
           this.atkBoost = st.atkBoost;
           this.atkBoostTimer = 20;
           this.addPopup(PLAYER_X, cy(130), `与ダメ+${st.atkBoost}%`, 0xff8844);
         } else if (st.kind === 'focus') {
+          playSfx('buff');
           // 掛け直しは上書き(重ねがけで際限なく伸びないように)
           this.mpRegenBonus = st.mpRegenBonus;
           this.mpRegenTimer = 20;
@@ -721,6 +733,7 @@ export class BattleManager {
   // 地震: 弾を飛ばさず敵全体にダメージ+画面と大地を揺らす
   private castQuake(st: SpellStats): void {
     this.shake = 18;
+    playSfx('quake');
     for (let k = 0; k < 3; k++) {
       const fx = new Graphics();
       fx.ellipse(0, 0, 60 + k * 45, 10 + k * 5)
@@ -813,6 +826,7 @@ export class BattleManager {
 
     e.hp -= final;
     e.flash = 0.15;
+    playSfx(crit ? 'crit' : 'hit');
     // 着弾リング(属性色)
     const ring = new Graphics();
     ring.circle(0, 0, 10).stroke({ width: 3, color: ELEMENTS[st.attr].color, alpha: 0.9 });
@@ -839,6 +853,7 @@ export class BattleManager {
     if (e.hp <= 0 && e.alive) {
       e.alive = false;
       e.hp = 0;
+      playSfx('defeat');
       this.defeated.push(e.def);
       e.cont.alpha = 0.25;
       e.hpBar.clear();
@@ -868,6 +883,7 @@ export class BattleManager {
     this.hp -= dmg;
     this.shake = 8;
     this.hitFlash = 0.2;
+    playSfx('damage');
     this.addPopup(PLAYER_X, cy(100), `-${dmg}`, 0xff7755);
     if (this.hp <= 0) {
       this.hp = 0;
@@ -936,6 +952,7 @@ export class BattleManager {
   private beginEnd(win: boolean, escaped: boolean): void {
     if (this.endResult !== null) return;
     this.endResult = { win, escaped };
+    if (!escaped) playSfx(win ? 'win' : 'lose');
     this.endTimer = win ? 0.8 : 0.6;
     this.casting = null;
     this.updateSpellBar();

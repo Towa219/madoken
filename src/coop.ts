@@ -12,6 +12,7 @@ import { spellCooldown, spellDisplayName } from '../shared/spellcraft';
 import { markGained, showToast } from './lab';
 import { addElements, equippedSpells, markBossCleared, notify, state } from './state';
 import type { ElementId, Spell } from '../shared/types';
+import { playSfx } from './sound';
 
 const W = 960;
 const H = 540;
@@ -256,6 +257,7 @@ export class CoopView {
 
     // 地震: 画面を揺らし、大地に波紋を走らせる
     room.onMessage('quake', () => {
+      playSfx('quake');
       this.shakeT = 0.6;
       for (let k = 0; k < 3; k++) {
         const fx = new Graphics();
@@ -268,6 +270,7 @@ export class CoopView {
     });
 
     room.onMessage('hit', (m: { i: number; amount: number; crit: boolean; note: string; attr: ElementId; radius: number }) => {
+      playSfx(m.crit ? 'crit' : 'hit');
       const st: any = room.state;
       const e = st?.enemies?.[m.i];
       if (!e) return;
@@ -293,6 +296,7 @@ export class CoopView {
     });
 
     room.onMessage('phit', (m: { sid: string; amount: number }) => {
+      if (m.sid === this.mySid) playSfx('damage');
       const st: any = room.state;
       const p = st?.players?.get(m.sid);
       if (!p) return;
@@ -300,6 +304,7 @@ export class CoopView {
     });
 
     room.onMessage('heal', (m: { sid: string; amount: number }) => {
+      playSfx('heal');
       const st: any = room.state;
       const p = st?.players?.get(m.sid);
       if (!p) return;
@@ -307,6 +312,7 @@ export class CoopView {
     });
 
     room.onMessage('shieldup', (m: { sid: string; amount: number }) => {
+      playSfx('shield');
       const st: any = room.state;
       const p = st?.players?.get(m.sid);
       if (!p) return;
@@ -340,11 +346,13 @@ export class CoopView {
       this.addPopup(W / 2, cy(150), `封印! ${m.sec.toFixed(1)}秒`, 0xbb77ee);
     });
     room.onMessage('empower', (m: { sid: string; pct: number }) => {
+      playSfx('buff');
       const st: any = room.state;
       const p = st?.players?.get(m.sid);
       if (p) this.addPopup(PLAYER_XS[p.slot] ?? 110, cy(136), `与ダメ+${m.pct}%`, 0xff8844);
     });
     room.onMessage('focus', (m: { sid: string; perSec: number }) => {
+      playSfx('buff');
       const st: any = room.state;
       const p = st?.players?.get(m.sid);
       if (p) {
@@ -409,6 +417,7 @@ export class CoopView {
 
     room.onMessage('result', (m: { win: boolean; drops: ElementId[]; rp: number }) => {
       this.toldWhy = true;
+      playSfx(m.win ? 'win' : 'lose');
       this.showResult(m);
     });
 

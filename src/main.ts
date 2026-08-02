@@ -15,7 +15,7 @@ import { renderTips } from './tips';
 import { initShare } from './share';
 import { loadArtwork } from './artwork';
 import { initCharPicker, renderCharPickers } from './character';
-import { initSound, initSoundUI, playBgm, renderSoundUI } from './sound';
+import { initSound, initSoundUI, playBgm, playSfx, renderSoundUI } from './sound';
 import {
   combatPower, spellDisplayName, spellMagicValue, statsSummary,
 } from '../shared/spellcraft';
@@ -36,6 +36,7 @@ let lastStage = 1;
 type Tab = 'lab' | 'book' | 'battle' | 'online' | 'manual' | 'settings';
 
 function switchTab(tab: Tab): void {
+  playSfx('click');
   $('#lab-screen').classList.toggle('hidden', tab !== 'lab');
   $('#book-screen').classList.toggle('hidden', tab !== 'book');
   $('#battle-screen').classList.toggle('hidden', tab !== 'battle');
