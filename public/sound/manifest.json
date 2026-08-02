@@ -1,0 +1,8 @@
+{
+  "bgm": {
+    "lobby": "bgm/lobby.mp3",
+    "battle": "bgm/battle.mp3",
+    "boss": "bgm/boss.mp3",
+    "duel": "bgm/duel.mp3"
+  }
+}

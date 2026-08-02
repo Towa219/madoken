@@ -1,0 +1,42 @@
+{
+  "_説明": "生成するBGM。ACE-Step は tags(ジャンルや楽器の羅列)で曲想を指定する。歌詞は入れない。",
+  "_共通": "どれもループ前提なので、盛り上がりすぎず、繰り返し聴いて疲れないものを狙う。",
+
+  "common_tags": "instrumental, no vocals, game soundtrack, loopable, clean mix",
+  "negative_tags": "vocals, singing, voice, lyrics, applause, noise, distortion, silence",
+
+  "tracks": [
+    {
+      "out": "lobby.mp3",
+      "name": "ロビー・研究室",
+      "seconds": 75,
+      "bpm": 84,
+      "tags": "calm fantasy ambient, mystical, soft harp, warm strings, gentle piano, library atmosphere, peaceful, slow",
+      "seed": 1001
+    },
+    {
+      "out": "battle.mp3",
+      "name": "通常戦闘",
+      "seconds": 70,
+      "bpm": 132,
+      "tags": "fantasy battle orchestral, driving drums, energetic strings, brass, adventurous, heroic, mid tempo",
+      "seed": 1002
+    },
+    {
+      "out": "boss.mp3",
+      "name": "ボス戦",
+      "seconds": 80,
+      "bpm": 148,
+      "tags": "epic boss battle orchestral, dark choir, heavy taiko drums, low brass, intense, dramatic, ominous",
+      "seed": 1003
+    },
+    {
+      "out": "duel.mp3",
+      "name": "決闘",
+      "seconds": 70,
+      "bpm": 140,
+      "tags": "tense duel music, hybrid orchestral electronic, pulsing bass, staccato strings, suspense, sharp rhythm",
+      "seed": 1004
+    }
+  ]
+}

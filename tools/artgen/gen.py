@@ -215,6 +215,32 @@ def check_centered(img, ident):
     return True
 
 
+def recenter(img, solid=96, tol=0.03):
+    """本体が画像の中心に来るよう、透明な余白を足して位置を揃える。
+
+    頭上のHPバーと名前は画像の中心に置かれる。ウィスプのように淡い光が
+    片側へ長く伸びていると、光まで含めた中心と本体の中心がずれ、
+    バーが本体から外れて見える。しかも敵ごとに表示サイズが違うため、
+    同じ形状でも「片方だけずれている」ように見える。
+
+    濃い部分(= 本体)の中心を画像の中心に合わせる。光は切らずに残す。
+    """
+    from PIL import Image
+    import numpy as np
+    a = np.asarray(img.convert('RGBA'))[..., 3]
+    cols = np.where((a > solid).any(axis=0))[0]
+    if len(cols) == 0:
+        return img
+    c = (int(cols[0]) + int(cols[-1])) / 2
+    w = img.width
+    if abs(c - w / 2) <= w * tol:
+        return img  # ほぼ中央なら何もしない
+    pad = int(round(abs(2 * c - w)))
+    out = Image.new('RGBA', (w + pad, img.height), (0, 0, 0, 0))
+    out.paste(img, (pad if c < w / 2 else 0, 0))
+    return out
+
+
 def trim(img, thresh=16):
     """透明な余白を落とす。
 
@@ -294,7 +320,7 @@ def gen_player(subj, num, seed):
     img = generate(p, 832, 1216, seed)
     cut = cutout(img)
     check_cutout(cut, f'player:{num}')
-    out = maybe_flip(fit_height(trim(cut), s.get('height', 400)),
+    out = maybe_flip(fit_height(recenter(trim(cut)), s.get('height', 400)),
                      subj, f'player:{num}')
     check_centered(out, f'player:{num}')
     return save(out, s['out'])
@@ -309,7 +335,7 @@ def gen_enemy(subj, key, seed):
     img = generate(p, 1024, 1024, seed, neg)
     cut = cutout(img)
     check_cutout(cut, f'enemy:{key}')
-    out = maybe_flip(fit_height(trim(cut), ENEMY_HEIGHT),
+    out = maybe_flip(fit_height(recenter(trim(cut)), ENEMY_HEIGHT),
                      subj, f'enemy:{key}')
     check_centered(out, f'enemy:{key}')
     return save(out, f'enemy/{key}.png')
@@ -406,6 +432,27 @@ def retrim_existing():
               f'{im.width}x{im.height} → {cut.width}x{cut.height}')
 
 
+def recenter_existing():
+    """すでにある画像の本体を、画像の中心に合わせ直す(絵は作り直さない)。"""
+    from PIL import Image
+    targets = []
+    for sub in ('player', 'enemy'):
+        d = os.path.join(IMG_DIR, sub)
+        if os.path.isdir(d):
+            targets += [os.path.join(d, f) for f in sorted(os.listdir(d))
+                        if f.endswith('.png')]
+    for path in targets:
+        im = Image.open(path).convert('RGBA')
+        out = recenter(im)
+        name = os.path.basename(path)
+        if out.size == im.size:
+            print(f'  中央にある: {name}')
+            continue
+        out.save(path)
+        print(f'  中心を合わせた: {name}  {im.width}x{im.height}'
+              f' → {out.width}x{out.height}')
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--only',
@@ -415,6 +462,8 @@ def main():
                     help='生成せず manifest.json だけ作り直す')
     ap.add_argument('--retrim', action='store_true',
                     help='生成せず、既存画像の透明な余白だけ落とす')
+    ap.add_argument('--recenter', action='store_true',
+                    help='生成せず、既存画像の本体を画像の中心に合わせる')
     ap.add_argument('--seed', type=int, default=1234)
     args = ap.parse_args()
 
@@ -422,6 +471,10 @@ def main():
 
     if args.retrim:
         retrim_existing()
+        return
+
+    if args.recenter:
+        recenter_existing()
         return
 
     if args.manifest:
