@@ -30,8 +30,9 @@ interface Prefs {
 }
 
 let manifest: Manifest | null = null;
-// BGMは曲自体が大きめなので控えめから始める(設定でいつでも上げられる)
-let prefs: Prefs = { bgmVolume: 0.22, sfxVolume: 0.6, muted: false };
+// 初期値は控えめに。うるさいと感じた人が下げるより、
+// 物足りない人が上げる方が受け入れられやすい(設定でいつでも変えられる)。
+let prefs: Prefs = { bgmVolume: 0.05, sfxVolume: 0.30, muted: false };
 
 // ループの継ぎ目をなだらかにする秒数。
 // 生成した曲は「曲として終わる」ので、頭と尻が音楽的につながらない。
