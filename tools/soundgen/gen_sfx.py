@@ -470,64 +470,20 @@ def sfx_escape():
     return lowpass(mix(air, body), 5000), 0.42
 
 
-# ===== 勝利音の候補 =====
+# ===== 勝利音 =====
 #
-# 現行(sfx_win)はサイン波の単音をド→ミ→ソ→ドと並べただけで、
-# 倍音も和音も余韻も無いため着信音のように聞こえる。
-# 候補はいずれも「音色を厚くする・和音で終わる・余韻を残す」を共通の方針にした。
-# 現行の関数は残してあるので、ALL の 'win' を戻すだけで復帰できる。
+# 旧版(sfx_win)はサイン波の単音をド→ミ→ソ→ドと並べただけで、
+# 倍音も和音も余韻も無いため着信音のように聞こえた。
+# 差し替え後は「音色を厚くする・和音で終わる・余韻を残す」の3点を守ること。
 
 BRASS = (1.0, 0.62, 0.46, 0.32, 0.22, 0.14, 0.08)
 
 
-def sfx_win_a():
-    """凱歌: 金管のファンファーレ。付点のリズムで入り、最後は和音で伸ばす。"""
-    total = 2.0
-    parts = []
-
-    # 前打ち(ソ ソ ソ)を短く刻んでから、主音へ跳ね上がる
-    for st, ln in [(0.00, 0.13), (0.15, 0.13), (0.30, 0.13)]:
-        v = tone(392.0, ln, BRASS, 0.005) * env_ad(ln, 0.012, 2.0) * 0.55
-        parts.append(at(v, st, total))
-
-    lead = 0.5
-    v = tone(523.25, lead, BRASS, 0.005) * env_ad(lead, 0.015, 1.1) * 0.75
-    parts.append(at(v, 0.46, total))
-
-    # 締めの和音(ド・ミ・ソ・高いド)。単音の連続で終わらせないのが要点。
-    ch = 1.0
-    for f, g in [(261.63, 0.5), (523.25, 0.7), (659.25, 0.55),
-                 (783.99, 0.45), (1046.5, 0.35)]:
-        v = tone(f, ch, BRASS, 0.004) * env_ad(ch, 0.02, 1.4) * g
-        parts.append(at(v, 0.96, total))
-
-    x = lowpass(mix(*parts), 7000)
-    return reverb(x, 1.0, 0.32, 7), 0.62
-
-
-def sfx_win_b():
-    """魔導: 鐘の和音がふわりと解決する。研究所の雰囲気に馴染む静かな勝利。"""
-    total = 2.4
-    parts = []
-
-    # 最初は宙ぶらりんな和音(ド・ファ・ソ)、途中で澄んだ和音(ド・ミ・ソ)に解決する
-    for i, f in enumerate([523.25, 698.46, 783.99]):
-        v = bell(f, 1.1) * (0.6 - 0.1 * i)
-        parts.append(at(v, 0.02 * i, total))
-    for i, f in enumerate([523.25, 659.25, 783.99, 1046.5]):
-        v = bell(f, 1.6) * (0.65 - 0.1 * i)
-        parts.append(at(v, 0.42 + 0.03 * i, total))
-
-    # 上へ抜けるきらめき
-    sh = highpass(noise(1.4, 91), 5000) * env_ad(1.4, 0.25, 2.2) * 0.18
-    parts.append(at(sh, 0.4, total))
-
-    x = lowpass(mix(*parts), 12000)
-    return reverb(x, 1.4, 0.42, 11), 0.6
-
-
 def sfx_win_c():
-    """勝鬨: 低い一撃から広がる力強い勝利。手応えが一番はっきりする。"""
+    """勝鬨: 上昇する気配 → 太鼓の一撃 → 開いた五度の厚い和音。
+
+    長三度を抜いてあるので甘くならず勇ましく響く。
+    """
     total = 2.2
     parts = []
 
@@ -565,9 +521,9 @@ ALL = {
     'hit': sfx_hit, 'crit': sfx_crit, 'damage': sfx_damage, 'defeat': sfx_defeat,
     'heal': sfx_heal, 'shield': sfx_shield, 'buff': sfx_buff, 'quake': sfx_quake,
     'countdown': sfx_countdown, 'start': sfx_start,
-    'win': sfx_win,
-    # 候補(--audition で試聴用フォルダに書き出す。採用時は 'win' を差し替える)
-    'win_a': sfx_win_a, 'win_b': sfx_win_b, 'win_c': sfx_win_c, 'lose': sfx_lose, 'escape': sfx_escape,
+    # 勝利音は C 勝鬨 を採用(2026-08-02)。
+    # 旧版の sfx_win() も残してあるので、ここを戻せば元の音に復帰できる。
+    'win': sfx_win_c, 'lose': sfx_lose, 'escape': sfx_escape,
 }
 
 
@@ -585,8 +541,6 @@ def write_manifest():
             base, ext = os.path.splitext(f)
             if ext.lower() not in ('.wav', '.mp3', '.ogg', '.m4a'):
                 continue
-            if base.startswith('win_'):   # 試聴用の候補は登録しない
-                continue
             if True:
                 sfx[base] = f'sfx/{f}'
     if sfx:
@@ -603,20 +557,10 @@ def main():
     ap.add_argument('--only', help='hit / cast など')
     ap.add_argument('--all', action='store_true')
     ap.add_argument('--manifest', action='store_true')
-    ap.add_argument('--audition', action='store_true',
-                    help='勝利音の候補を public/sound/audition/ に書き出す')
     args = ap.parse_args()
 
     if args.manifest:
         write_manifest()
-        return
-    if args.audition:
-        global SFX_DIR
-        SFX_DIR = os.path.join(SOUND_DIR, 'audition')
-        print('候補を試聴フォルダに書き出す…')
-        for n in ('win', 'win_a', 'win_b', 'win_c'):
-            x, peak = ALL[n]()
-            save('win_now' if n == 'win' else n, x, peak)
         return
     if not args.only and not args.all:
         ap.error('--only か --all か --manifest を指定する')
