@@ -13,7 +13,7 @@ import type { AffinityGrade, EnemyDef } from '../shared/data';
 import { backgroundArt, enemyArt, playerArt, projectileArt } from './artwork';
 import { spellCooldown, spellDisplayName } from '../shared/spellcraft';
 import { state } from './state';
-import { playSfx } from './sound';
+import { playSfx, startSfxLoop, stopSfxLoop } from './sound';
 import type { BattleResult, ElementId, Spell, SpellStats } from '../shared/types';
 
 const W = 960;
@@ -414,7 +414,7 @@ export class BattleManager {
     if (this.mp < sp.stats.manaCost) return;
     this.mp -= sp.stats.manaCost;
     this.casting = { spell: sp, t: 0 };
-    playSfx('cast');
+    startSfxLoop('casting');
   }
 
   // ===== メインループ =====
@@ -474,6 +474,8 @@ export class BattleManager {
       if (this.casting.t >= st.castTime) {
         const sp = this.casting.spell;
         this.casting = null;
+        stopSfxLoop('casting');
+        playSfx('cast');
         this.cooldowns.set(sp.id, spellCooldown(sp.stats));
         if (st.selfDamage > 0) {
           this.hp -= st.selfDamage;
@@ -748,6 +750,7 @@ export class BattleManager {
   }
 
   private fireEnemyProj(e: EnemyUnit): void {
+    playSfx('enemyCast');
     const attr = e.def.attackAttr;
     const g = makeProjectileGfx(attr, 14);
     const y = GROUND_Y + enemyTopY(e.def) * 0.55;
@@ -952,7 +955,8 @@ export class BattleManager {
   private beginEnd(win: boolean, escaped: boolean): void {
     if (this.endResult !== null) return;
     this.endResult = { win, escaped };
-    if (!escaped) playSfx(win ? 'win' : 'lose');
+    stopSfxLoop('casting');
+    playSfx(escaped ? 'escape' : (win ? 'win' : 'lose'));
     this.endTimer = win ? 0.8 : 0.6;
     this.casting = null;
     this.updateSpellBar();

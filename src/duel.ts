@@ -9,7 +9,7 @@ import {
   COUNT_STYLE, makePlayerSprite, makeProjectileGfx, START_LABEL,
 } from './battle';
 import { equippedSpells } from './state';
-import { playSfx } from './sound';
+import { playSfx, startSfxLoop, stopAllSfxLoops, stopSfxLoop } from './sound';
 import type { ElementId, Spell } from '../shared/types';
 
 const W = 960;
@@ -173,6 +173,7 @@ export class DuelView {
   private handleExit(): void {
     if (this.exited) return;
     this.exited = true;
+    stopAllSfxLoops();
     this.room = null;
     this.$('#duel-bar').innerHTML = '';
     this.$('#duel-waiting').classList.add('hidden');
@@ -184,6 +185,7 @@ export class DuelView {
       sid: string; x0: number; targetX: number; attr: ElementId;
       power: number; delayMs: number;
     }) => {
+      if (m.sid !== this.mySid) playSfx('enemyCast'); // 相手の詠唱完了
       const r = 5 + Math.min(10, m.power / 25);
       const g = makeProjectileGfx(m.attr, m.power);
       if (m.x0 > m.targetX) g.scale.x = -1; // 右→左は反転
@@ -478,6 +480,10 @@ export class DuelView {
       if (this.prevCastingIdx >= 0 && me.castingIdx === -1) {
         const sp = this.spells[this.prevCastingIdx];
         if (sp) this.cds[this.prevCastingIdx] = spellCooldown(sp.stats);
+        stopSfxLoop('casting');
+        playSfx('cast');
+      } else if (this.prevCastingIdx === -1 && me.castingIdx >= 0) {
+        startSfxLoop('casting');
       }
       this.prevCastingIdx = me.castingIdx;
     }

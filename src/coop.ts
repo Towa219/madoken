@@ -12,7 +12,7 @@ import { spellCooldown, spellDisplayName } from '../shared/spellcraft';
 import { markGained, showToast } from './lab';
 import { addElements, equippedSpells, markBossCleared, notify, state } from './state';
 import type { ElementId, Spell } from '../shared/types';
-import { playSfx } from './sound';
+import { playSfx, startSfxLoop, stopAllSfxLoops, stopSfxLoop } from './sound';
 
 const W = 960;
 const H = 540;
@@ -242,6 +242,7 @@ export class CoopView {
     });
 
     room.onMessage('eproj', (m: { i: number; targetSid: string; delayMs: number }) => {
+      playSfx('enemyCast');
       const st: any = room.state;
       const e = st?.enemies?.[m.i];
       const p = st?.players?.get(m.targetSid);
@@ -480,6 +481,7 @@ export class CoopView {
   private handleExit(): void {
     if (this.exited) return;
     this.exited = true;
+    stopAllSfxLoops();
     this.room = null;
     this.$('#coop-bar').innerHTML = '';
     this.$('#coop-bar').classList.remove('hidden');
@@ -700,6 +702,10 @@ export class CoopView {
       if (this.prevCastingIdx >= 0 && me.castingIdx === -1) {
         const sp = this.spells[this.prevCastingIdx];
         this.cds[this.prevCastingIdx] = sp ? spellCooldown(sp.stats) : 1.2 + this.prevCastTotal * 0.5;
+        stopSfxLoop('casting');
+        playSfx('cast');
+      } else if (this.prevCastingIdx === -1 && me.castingIdx >= 0) {
+        startSfxLoop('casting');
       }
       this.prevCastingIdx = me.castingIdx;
       if (me.castingIdx >= 0) this.prevCastTotal = me.castTotal;

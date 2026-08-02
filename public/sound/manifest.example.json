@@ -1,32 +1,46 @@
 {
   "_使い方": "このファイルを manifest.json という名前でコピーし、実際に置いた音の行だけ残す。書かなかったものは無音のまま。",
+  "_補足": "sfx は gen_bgm.py --manifest でも自動生成できる(sfx/ に置いたファイル名がそのまま名前になる)。",
 
   "bgm": {
-    "lobby": "bgm/lobby.ogg",
-    "battle": "bgm/battle.ogg",
-    "boss": "bgm/boss.ogg",
-    "duel": "bgm/duel.ogg"
+    "lobby": "bgm/lobby.mp3",
+    "battle": "bgm/battle.mp3",
+    "boss": "bgm/boss.mp3",
+    "duel": "bgm/duel.mp3"
   },
 
   "sfx": {
-    "cast": "sfx/cast.ogg",
-    "hit": "sfx/hit.ogg",
-    "crit": "sfx/crit.ogg",
-    "damage": "sfx/damage.ogg",
-    "defeat": "sfx/defeat.ogg",
-    "heal": "sfx/heal.ogg",
-    "shield": "sfx/shield.ogg",
-    "buff": "sfx/buff.ogg",
-    "quake": "sfx/quake.ogg",
-    "countdown": "sfx/countdown.ogg",
-    "start": "sfx/start.ogg",
-    "win": "sfx/win.ogg",
-    "lose": "sfx/lose.ogg",
-    "gather": "sfx/gather.ogg",
-    "craft": "sfx/craft.ogg",
-    "craftFail": "sfx/craft_fail.ogg",
-    "discover": "sfx/discover.ogg",
-    "transmute": "sfx/transmute.ogg",
-    "click": "sfx/click.ogg"
+    "_研究室": "----",
+    "select": "sfx/select.mp3",
+    "unselect": "sfx/unselect.mp3",
+    "crafting": "sfx/crafting.mp3",
+    "craft": "sfx/craft.mp3",
+    "craftFail": "sfx/craftFail.mp3",
+    "gathering": "sfx/gathering.mp3",
+    "gather": "sfx/gather.mp3",
+    "transmuting": "sfx/transmuting.mp3",
+    "transmute": "sfx/transmute.mp3",
+    "discover": "sfx/discover.mp3",
+
+    "_戦闘": "----",
+    "casting": "sfx/casting.mp3",
+    "cast": "sfx/cast.mp3",
+    "enemyCast": "sfx/enemyCast.mp3",
+    "hit": "sfx/hit.mp3",
+    "crit": "sfx/crit.mp3",
+    "damage": "sfx/damage.mp3",
+    "defeat": "sfx/defeat.mp3",
+    "heal": "sfx/heal.mp3",
+    "shield": "sfx/shield.mp3",
+    "buff": "sfx/buff.mp3",
+    "quake": "sfx/quake.mp3",
+    "countdown": "sfx/countdown.mp3",
+    "start": "sfx/start.mp3",
+    "win": "sfx/win.mp3",
+    "lose": "sfx/lose.mp3",
+    "escape": "sfx/escape.mp3",
+
+    "_共通": "----",
+    "click": "sfx/click.mp3"
   }
 }

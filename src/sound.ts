@@ -108,6 +108,7 @@ export function setSfxVolume(v: number): void {
 
 export function setMuted(m: boolean): void {
   prefs.muted = m;
+  if (m) stopAllSfxLoops(); // 鳴らしっぱなしの音は即座に止める
   applyVolumes();
   savePrefs();
   notifySound();
@@ -260,25 +261,75 @@ export function playSfx(name: string): void {
   void playSfxAsync(file);
 }
 
+async function loadSfx(file: string): Promise<AudioBuffer | null> {
+  if (!ctx) return null;
+  const cached = sfxBuffers.get(file);
+  if (cached) return cached;
+  try {
+    const res = await fetch(url(file));
+    if (!res.ok) return null;
+    const buf = await ctx.decodeAudioData(await res.arrayBuffer());
+    sfxBuffers.set(file, buf);
+    return buf;
+  } catch {
+    return null; // 1つ読めなくても他は鳴る
+  }
+}
+
 async function playSfxAsync(file: string): Promise<void> {
   if (!(await ensureCtx()) || !ctx || !sfxGain) return;
-  let buf = sfxBuffers.get(file);
-  if (!buf) {
-    try {
-      const res = await fetch(url(file));
-      if (!res.ok) return;
-      buf = await ctx.decodeAudioData(await res.arrayBuffer());
-      sfxBuffers.set(file, buf);
-    } catch {
-      return; // 1つ読めなくても他は鳴る
-    }
-  }
+  const buf = await loadSfx(file);
+  if (!buf) return;
   try {
     const src = ctx.createBufferSource();
     src.buffer = buf;
     src.connect(sfxGain);
     src.start();
   } catch { /* 鳴らせなくてもゲームは続く */ }
+}
+
+// ---- 鳴らしっぱなしの音(詠唱中・調合中など) ----
+//
+// 「〜している時の音」は始まりと終わりがあるので、単発とは別に管理する。
+// 素材が無い場合は何も起きない(止める側も安全に空振りする)。
+
+const loops = new Map<string, AudioBufferSourceNode>();
+const loopWanted = new Set<string>(); // 読み込み待ちの間に止められた場合に使う
+
+export function startSfxLoop(name: string): void {
+  const file = manifest?.sfx?.[name];
+  if (!file || loops.has(name) || loopWanted.has(name)) return;
+  if (prefs.muted || prefs.sfxVolume <= 0) return;
+  loopWanted.add(name);
+  void (async () => {
+    if (!(await ensureCtx()) || !ctx || !sfxGain) { loopWanted.delete(name); return; }
+    const buf = await loadSfx(file);
+    // 読み込んでいる間に止められていたら鳴らさない
+    if (!buf || !loopWanted.has(name)) { loopWanted.delete(name); return; }
+    try {
+      const src = ctx.createBufferSource();
+      src.buffer = buf;
+      src.loop = true;
+      src.connect(sfxGain);
+      src.start();
+      loops.set(name, src);
+    } catch { /* 鳴らせなくてもゲームは続く */ }
+    loopWanted.delete(name);
+  })();
+}
+
+export function stopSfxLoop(name: string): void {
+  loopWanted.delete(name);
+  const src = loops.get(name);
+  if (!src) return;
+  loops.delete(name);
+  try { src.stop(); } catch { /* 既に止まっている */ }
+}
+
+// 画面を離れるときなどに、鳴りっぱなしを全部止める
+export function stopAllSfxLoops(): void {
+  for (const name of [...loops.keys()]) stopSfxLoop(name);
+  loopWanted.clear();
 }
 
 // ---- 設定画面 ----

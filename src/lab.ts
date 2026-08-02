@@ -16,7 +16,7 @@ import {
   spendElements, state, toggleEquip, totalInventory,
 } from './state';
 import type { ElementCounts, ElementId, Spell } from '../shared/types';
-import { playSfx } from './sound';
+import { playSfx, startSfxLoop, stopSfxLoop } from './sound';
 
 const $ = <T extends HTMLElement = HTMLElement>(sel: string) =>
   document.querySelector(sel) as T;
@@ -139,6 +139,7 @@ function renderInventory(): void {
         const empty = slotSel.indexOf(null);
         if (empty === -1) return;
         slotSel[empty] = id;
+        playSfx('select');
         renderLab();
       });
     }
@@ -160,7 +161,11 @@ function renderSlots(): void {
       slot.innerHTML = `<span style="color:${def.cssColor}">${def.name}</span>` +
         `<span class="slabel">クリックで戻す</span>`;
       slot.style.borderColor = def.cssColor;
-      slot.addEventListener('click', () => { slotSel[i] = null; renderLab(); });
+      slot.addEventListener('click', () => {
+        slotSel[i] = null;
+        playSfx('unselect');
+        renderLab();
+      });
     } else {
       slot.innerHTML = `<span class="slabel">空きスロット</span>`;
     }
@@ -315,6 +320,7 @@ function craft(): void {
   }
 
   crafting = true;
+  startSfxLoop('crafting');
   const btn = $<HTMLButtonElement>('#btn-craft');
   btn.setAttribute('disabled', 'true');
   btn.textContent = '調合中…';
@@ -335,6 +341,7 @@ function craft(): void {
       window.clearInterval(timer);
       crafting = false;
       bar.classList.add('hidden');
+      stopSfxLoop('crafting');
       resolveCraft(counts, same);
     }
   }, 30);
@@ -440,6 +447,7 @@ function gather(): void {
   if (!pity && state.researchP < GATHER_COST) return;
 
   gathering = true;
+  startSfxLoop('gathering');
   const btn = $<HTMLButtonElement>('#btn-gather');
   btn.disabled = true;
   btn.textContent = '採取中…';
@@ -457,6 +465,7 @@ function gather(): void {
       window.clearInterval(timer);
       gathering = false;
       bar.classList.add('hidden');
+      stopSfxLoop('gathering');
       resolveGather(pity);
     }
   }, 30);
@@ -580,6 +589,7 @@ function transmute(): void {
 
   // 採取・調合と同じく、進行バーが左から100%まで進んでから完了する
   transmuting = true;
+  startSfxLoop('transmuting');
   const btn = $<HTMLButtonElement>('#btn-transmute');
   btn.disabled = true;
   btn.textContent = '錬成中…';
@@ -598,6 +608,7 @@ function transmute(): void {
     if (p >= 1) {
       window.clearInterval(timer);
       bar.classList.add('hidden');
+      stopSfxLoop('transmuting');
       resolveTransmute(id);
     }
   }, 30);
