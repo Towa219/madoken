@@ -1,5 +1,11 @@
 {
-  "player": "player.png",
+  "players": [
+    "player/1.png",
+    "player/2.png",
+    "player/3.png",
+    "player/4.png",
+    "player/5.png"
+  ],
   "background": "bg/field.jpg",
   "enemies": {
     "blob": "enemy/blob.png",

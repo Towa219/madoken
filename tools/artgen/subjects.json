@@ -5,7 +5,7 @@
   "style": "anime style, game asset, cel shading, crisp lineart, vivid colors, fantasy",
 
   "_flip": "生成物の向きが逆だったものをここに書くと左右反転する(プレイヤーは右向き・敵は左向きが正しい)。",
-  "flip": ["player", "enemy:beast"],
+  "flip": ["player:1", "enemy:beast"],
 
   "_negative": "他の敵と絵柄が被るときに、その敵だけ追加で禁止する指定。",
   "negative": {
@@ -17,11 +17,39 @@
   },
 
 
-  "player": {
-    "out": "player.png",
-    "height": 400,
-    "prompt": "1girl, magic researcher, witch, dark blue long coat, gold trim, holding open spellbook, glowing magic circle, short black hair, standing, full body, from side, facing right, bright lighting, detailed face"
-  },
+  "_players": "プレイヤーが選べるキャラクター。並び順がそのまま選択画面の順番になる。1番は最初から居るキャラなので作り直さないこと。",
+  "players": [
+    {
+      "out": "player/1.png",
+      "name": "黒金の魔女",
+      "height": 400,
+      "prompt": "1girl, magic researcher, witch, dark blue long coat, gold trim, holding open spellbook, glowing magic circle, short black hair, standing, full body, from side, facing right, bright lighting, detailed face"
+    },
+    {
+      "out": "player/2.png",
+      "name": "白銀の学士",
+      "height": 400,
+      "prompt": "1boy, young scholar mage, white and silver robe, blue sash, round glasses, holding a quill and floating scroll, neat short silver hair, standing, full body, from side, facing right, bright lighting, detailed face"
+    },
+    {
+      "out": "player/3.png",
+      "name": "紅蓮の戦導士",
+      "height": 400,
+      "prompt": "1girl, battle mage, red cape, crimson leather armor with short skirt, holding a glowing staff, long ponytail red hair, confident stance, full body, from side, facing right, bright lighting, detailed face"
+    },
+    {
+      "out": "player/4.png",
+      "name": "翠緑の薬導士",
+      "height": 400,
+      "prompt": "1girl, herbalist alchemist, green hooded cloak, leather satchel with bottles, holding a glowing potion flask, braided brown hair, gentle expression, full body, from side, facing right, bright lighting, detailed face"
+    },
+    {
+      "out": "player/5.png",
+      "name": "紫紺の導師",
+      "height": 400,
+      "prompt": "1boy, old archmage, long purple robe with silver runes, long white beard, wide brimmed pointed hat, holding a tall gnarled wooden staff with a small glowing orb, dignified upright pose, compact silhouette, centered composition, full body, from side, facing right, bright lighting, detailed face"
+    }
+  ],
 
   "background": {
     "out": "bg/field.jpg",

@@ -3,8 +3,11 @@
 import { Application, Container, Graphics, Text } from 'pixi.js';
 import type { Room } from 'colyseus.js';
 import { ELEMENTS, SPRITE_SCALE } from '../shared/data';
+import { clampCharId } from '../shared/characters';
 import { spellCooldown, spellDisplayName } from '../shared/spellcraft';
-import { makePlayerSprite, makeProjectileGfx } from './battle';
+import {
+  COUNT_STYLE, makePlayerSprite, makeProjectileGfx, START_LABEL,
+} from './battle';
 import { equippedSpells } from './state';
 import type { ElementId, Spell } from '../shared/types';
 
@@ -127,13 +130,7 @@ export class DuelView {
     this.barsG = new Graphics();
     this.uiLayer.addChild(this.barsG);
 
-    this.countText = new Text({
-      text: '',
-      style: {
-        fill: 0xffdd66, fontSize: 96, fontFamily: 'Meiryo, sans-serif', fontWeight: 'bold',
-        stroke: { color: 0x000000, width: 8 },
-      },
-    });
+    this.countText = new Text({ text: '', style: { ...COUNT_STYLE } });
     this.countText.anchor.set(0.5);
     this.countText.position.set(W / 2, H / 2 - 30);
     this.uiLayer.addChild(this.countText);
@@ -304,8 +301,19 @@ export class DuelView {
 
     // カウントダウン
     if (st.phase === 'count') {
-      const n = Math.ceil(Number(st.countdown) - 0.6);
-      this.countText.text = n > 0 ? String(n) : '開始!';
+      const left = Number(st.countdown);
+      const n = Math.ceil(left - 0.6);
+      this.countText.text = n > 0 ? String(n) : START_LABEL;
+      if (n > 0) {
+        const frac = (left - 0.6) - Math.floor(left - 0.6);
+        this.countText.scale.set(1 + (1 - frac) * 0.35);
+        this.countText.alpha = 1;
+      } else {
+        // 「開戦」は押し広がりながら薄れて消える
+        const t = Math.max(0, Math.min(1, left / 0.6));
+        this.countText.scale.set(1.05 + (1 - t) * 0.35);
+        this.countText.alpha = 0.15 + t * 0.85;
+      }
     } else {
       this.countText.text = '';
     }
@@ -355,7 +363,7 @@ export class DuelView {
           ring.ellipse(0, 2, cs(26), cs(7)).stroke({ width: 2, color: 0xffdd66, alpha: 0.9 });
           cont.addChild(ring);
         }
-        const sprite = makePlayerSprite();
+        const sprite = makePlayerSprite(clampCharId(p.charId));
         if (p.slot === 1) sprite.scale.x = -1; // 右側は向かい合わせ
         cont.addChild(sprite);
         const nameT = new Text({

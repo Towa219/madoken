@@ -14,6 +14,7 @@ import { initWelcome, waitForServer } from './boot';
 import { renderTips } from './tips';
 import { initShare } from './share';
 import { loadArtwork } from './artwork';
+import { initCharPicker, renderCharPickers } from './character';
 import {
   combatPower, spellDisplayName, spellMagicValue, statsSummary,
 } from '../shared/spellcraft';
@@ -49,6 +50,7 @@ function switchTab(tab: Tab): void {
   if (tab === 'manual') renderManual();
   if (tab === 'settings') {
     renderCloudStatus();
+    renderCharPickers();
     initShare(); // 共有文に今の戦闘力・発見数を載せ直す
   }
   if (tab === 'battle' && !battle.isActive()) {
@@ -187,7 +189,9 @@ function main(): void {
   // サーバーの起床を待ちつつ、初回なら名前を決めてもらう。
   // (名前が決まってからオンラインを初期化 = そのまま自動接続される)
   renderTips();
-  void loadArtwork(); // public/img/ に画像があれば読み込む(無ければ図形描画のまま)
+  // public/img/ に画像があれば読み込む(無ければ図形描画のまま)。
+  // 読み終わってからキャラ選択欄を描き直すと、立ち絵付きの選択肢になる。
+  void loadArtwork().then(() => renderCharPickers());
   let onlineReady = false;
   const startOnline = (): void => {
     renderNickField();
@@ -253,6 +257,8 @@ function main(): void {
   });
 
   initCloudUI();
+  initCharPicker('#char-picker');    // 設定タブ
+  initCharPicker('#welcome-chars');  // 初回起動
   initShare();
   updateTopbar();
   renderLab();

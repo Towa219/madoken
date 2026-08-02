@@ -7,6 +7,7 @@ import {
 } from '../shared/data';
 import type { AffinityGrade, EnemyDef } from '../shared/data';
 import { makeEnemySprite, makePlayerSprite, makeProjectileGfx } from './battle';
+import { clampCharId } from '../shared/characters';
 import { spellCooldown, spellDisplayName } from '../shared/spellcraft';
 import { markGained, showToast } from './lab';
 import { addElements, equippedSpells, markBossCleared, notify, state } from './state';
@@ -534,7 +535,7 @@ export class CoopView {
           ring.ellipse(0, 2, cs(26), cs(7)).stroke({ width: 2, color: 0xffdd66, alpha: 0.9 });
           cont.addChild(ring);
         }
-        cont.addChild(makePlayerSprite());
+        cont.addChild(makePlayerSprite(clampCharId(p.charId)));
         const nameT = new Text({
           text: p.name,
           style: { fill: sid === this.mySid ? 0xffdd66 : 0xccccdd, fontSize: 12, fontFamily: 'Meiryo, sans-serif' },

@@ -1,5 +1,6 @@
 import { finalStats, spellMagicValue } from '../shared/spellcraft';
 import { ELEMENT_ORDER, START_SLOTS } from '../shared/data';
+import { clampCharId } from '../shared/characters';
 import type { ElementId, GameState, Spell } from '../shared/types';
 
 const SAVE_KEY = 'magic_web_game_save_v1';
@@ -15,6 +16,7 @@ function initialState(): GameState {
     version: 1,
     nickname: '',
     nickToken: newNickToken(),
+    charId: 0,
     researchP: 30,
     inventory: {
       fire: 4, water: 4, wind: 3, earth: 3,
@@ -49,6 +51,8 @@ function migrate(parsed: Partial<GameState>): GameState {
   try {
     // 旧セーブの移行: 強化レベルが無い魔法は0で補完
     const merged = { ...initialState(), ...parsed };
+    // 選んだキャラクター(古いセーブには無い・範囲外は0に丸める)
+    merged.charId = clampCharId(merged.charId);
     for (const sp of merged.spells) {
       if (typeof (sp as { level?: unknown }).level !== 'number') sp.level = 0;
       if (typeof (sp as { rarity?: unknown }).rarity !== 'string') sp.rarity = 'normal';

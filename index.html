@@ -76,6 +76,15 @@
 
     <!-- ===== 設定 ===== -->
     <main id="settings-screen" class="hidden">
+      <section class="panel" id="char-panel">
+        <h2>キャラクター</h2>
+        <p class="note">
+          戦闘画面での見た目を選ぶ。<b>性能には一切影響しない</b>(どれを選んでも強さは同じ)。
+          いつでも変更できる。
+        </p>
+        <div id="char-picker" class="char-picker"></div>
+      </section>
+
       <section class="panel" id="cloud-panel">
         <h2>データの引き継ぎ</h2>
         <p class="note">
@@ -230,6 +239,8 @@
         <b>一度決めると初期化するまで変更できません。</b></p>
         <input id="welcome-nick" maxlength="20" placeholder="研究者の名前">
         <p class="note" id="welcome-rule"></p>
+        <p class="note">見た目を選ぶ(<b>性能は同じ</b>。設定からいつでも変えられる)</p>
+        <div id="welcome-chars" class="char-picker compact"></div>
         <button id="btn-welcome-ok">この名前で始める</button>
       </div>
 

@@ -16,7 +16,8 @@ import type { ElementId } from '../shared/types';
 import type { EnemyShape } from '../shared/data';
 
 interface Manifest {
-  player?: string;
+  players?: string[];   // 選択できるキャラクター(並び順が選択番号)
+  player?: string;      // 旧形式(1体だけだった頃の素材)
   background?: string;
   enemies?: Partial<Record<EnemyShape, string>>;
   projectiles?: Partial<Record<ElementId, string>>;
@@ -42,6 +43,7 @@ export async function loadArtwork(): Promise<void> {
   }
 
   const files: string[] = [];
+  for (const f of manifest.players ?? []) if (f) files.push(f);
   if (manifest.player) files.push(manifest.player);
   if (manifest.background) files.push(manifest.background);
   for (const f of Object.values(manifest.enemies ?? {})) if (f) files.push(f);
@@ -78,10 +80,22 @@ function bottomAnchored(sp: Sprite, targetHeight: number): Sprite {
   return sp;
 }
 
-// プレイヤー画像(無ければ null)
-export function playerArt(targetHeight = 100): Sprite | null {
-  const sp = make(manifest?.player);
+// プレイヤー画像(無ければ null)。charId は選択したキャラクターの番号。
+export function playerArt(targetHeight = 100, charId = 0): Sprite | null {
+  const list = manifest?.players;
+  const file = list && list.length > 0
+    ? list[Math.max(0, Math.min(list.length - 1, Math.floor(charId)))]
+    : manifest?.player;
+  const sp = make(file);
   return sp ? bottomAnchored(sp, targetHeight) : null;
+}
+
+// 選択画面用: そのキャラの素材が読み込めているか
+export function playerArtUrl(charId: number): string | null {
+  const list = manifest?.players;
+  if (!list || list.length === 0) return null;
+  const file = list[Math.max(0, Math.min(list.length - 1, Math.floor(charId)))];
+  return file ? url(file) : null;
 }
 
 // 敵画像(無ければ null)。targetHeight は形状ごとの高さ。

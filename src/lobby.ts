@@ -342,7 +342,7 @@ async function createRoom(): Promise<void> {
   try {
     const room = await client.create('coop', {
       name: nick, spells, stage, maxStage: state.maxStage,
-      nickToken: state.nickToken,
+      nickToken: state.nickToken, charId: state.charId,
     });
     enterCoop(room);
   } catch (err) {
@@ -369,7 +369,7 @@ async function joinRoom(roomId: string, roomStage: number): Promise<void> {
   try {
     const room = await client.joinById(roomId, {
       name: nick, spells, maxStage: state.maxStage,
-      nickToken: state.nickToken,
+      nickToken: state.nickToken, charId: state.charId,
     });
     enterCoop(room);
   } catch (err) {
@@ -473,7 +473,7 @@ async function joinDuel(): Promise<void> {
   }
   try {
     const room = await client.joinOrCreate('duel', {
-      name: nick, spells, nickToken: state.nickToken,
+      name: nick, spells, nickToken: state.nickToken, charId: state.charId,
     });
     $('#lobby-msg').textContent = '';
     $('#online-lobby').classList.add('hidden');

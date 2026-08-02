@@ -5,7 +5,7 @@
 # 途中まででも問題なく動く(登録されていないものは図形描画のまま)。
 #
 # 使い方(ComfyUI を起動した状態で):
-#   python gen.py --only player          … 1枚だけ試す
+#   python gen.py --only player:1        … 1枚だけ試す(1〜5)
 #   python gen.py --only enemy:blob
 #   python gen.py --all                  … 全24枚
 #   python gen.py --manifest             … 今ある画像で manifest.json を作り直すだけ
@@ -286,15 +286,17 @@ def generate(prompt, width, height, seed, negative=NEGATIVE):
     return Image.open(io.BytesIO(blobs[0])).convert('RGB')
 
 
-def gen_player(subj, seed):
-    s = subj['player']
-    print('プレイヤーを生成中…')
+def gen_player(subj, num, seed):
+    """プレイヤーキャラを1体作る(num は 1〜5)。"""
+    s = subj['players'][num - 1]
+    print(f"プレイヤー{num}「{s.get('name', '')}」を生成中…")
     p = f"{QUALITY}, {subj['style']}, {s['prompt']}, {FLAT_BG}"
     img = generate(p, 832, 1216, seed)
     cut = cutout(img)
-    check_cutout(cut, 'player')
+    check_cutout(cut, f'player:{num}')
     out = maybe_flip(fit_height(trim(cut), s.get('height', 400)),
-                     subj, 'player')
+                     subj, f'player:{num}')
+    check_centered(out, f'player:{num}')
     return save(out, s['out'])
 
 
@@ -348,8 +350,11 @@ def gen_background(subj, seed):
 def write_manifest(subj):
     """実際に置かれている画像だけを manifest.json に登録する。"""
     m = {}
-    if os.path.exists(os.path.join(IMG_DIR, 'player.png')):
-        m['player'] = 'player.png'
+    # プレイヤーは選択できるので、置かれている番号だけ順に並べる
+    players = [s['out'] for s in subj['players']
+               if os.path.exists(os.path.join(IMG_DIR, s['out'].replace('/', os.sep)))]
+    if players:
+        m['players'] = players
     bg = subj['background']['out']
     if os.path.exists(os.path.join(IMG_DIR, bg.replace('/', os.sep))):
         m['background'] = bg
@@ -369,8 +374,8 @@ def write_manifest(subj):
         return
     with open(path, 'w', encoding='utf-8') as f:
         json.dump(m, f, ensure_ascii=False, indent=2)
-    total = len(en) + len(pr) + ('player' in m) + ('background' in m)
-    print(f'manifest.json を更新した(登録 {total} 枚 / 全24枚)。')
+    total = len(en) + len(pr) + len(players) + ('background' in m)
+    print(f'manifest.json を更新した(登録 {total} 枚 / 全28枚)。')
 
 
 # ===== main =====
@@ -382,8 +387,8 @@ def retrim_existing():
     絵柄を変えずに直せるので、作り直しより先にこれを試すこと。
     """
     from PIL import Image
-    targets = [os.path.join(IMG_DIR, 'player.png')]
-    for sub in ('enemy', 'proj'):
+    targets = []
+    for sub in ('player', 'enemy', 'proj'):
         d = os.path.join(IMG_DIR, sub)
         if os.path.isdir(d):
             targets += [os.path.join(d, f) for f in sorted(os.listdir(d))
@@ -403,7 +408,8 @@ def retrim_existing():
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument('--only', help='player / background / enemy:blob / proj:fire')
+    ap.add_argument('--only',
+                    help='player:1 / background / enemy:blob / proj:fire')
     ap.add_argument('--all', action='store_true', help='全24枚を生成')
     ap.add_argument('--manifest', action='store_true',
                     help='生成せず manifest.json だけ作り直す')
@@ -428,8 +434,8 @@ def main():
     t0 = time.time()
     if args.only:
         k = args.only
-        if k == 'player':
-            gen_player(subj, args.seed)
+        if k.startswith('player:'):
+            gen_player(subj, int(k.split(':', 1)[1]), args.seed)
         elif k == 'background':
             gen_background(subj, args.seed)
         elif k.startswith('enemy:'):
@@ -439,7 +445,8 @@ def main():
         else:
             ap.error(f'不明な指定: {k}')
     else:
-        gen_player(subj, args.seed)
+        for i in range(len(subj['players'])):
+            gen_player(subj, i + 1, args.seed + i)
         gen_background(subj, args.seed + 1)
         for i, key in enumerate(subj['enemies']):
             gen_enemy(subj, key, args.seed + 10 + i)

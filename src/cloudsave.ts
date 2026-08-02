@@ -27,6 +27,7 @@ function toSlim(s: GameState): Record<string, unknown> {
   return {
     version: s.version,
     nickname: s.nickname,
+    charId: s.charId,
     researchP: s.researchP,
     inventory: s.inventory,
     spells: s.spells.map<SlimSpell>(sp => ({

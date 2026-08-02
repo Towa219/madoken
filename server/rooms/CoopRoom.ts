@@ -20,6 +20,7 @@ import { announce } from '../lobbyfeed';
 import { claimBattleSlot, releaseBattleSlot } from '../activeBattle';
 import { CODE_REPLACED } from '../../shared/netcodes';
 import { clampNickname } from '../../shared/nickname';
+import { clampCharId } from '../../shared/characters';
 import {
   affinityMul, battleRP, bossForStage, ENEMY_ATK_MUL, ENEMY_HP_MUL, isBossStage,
   pickEnemiesForStage, PLAYER_MAX_HP, PLAYER_MAX_MP, stageAtkMul, stageHpMul,
@@ -42,6 +43,7 @@ class PlayerS extends Schema {
   declare alive: boolean;
   declare ready: boolean;
   declare slot: number;
+  declare charId: number;     // 選んだキャラクター(見た目だけ)
   declare castingIdx: number; // -1=非詠唱
   declare castName: string;   // 詠唱中の魔法名(全員に見える)
   declare wardPct: number;    // 属性耐性(%)。0=なし
@@ -54,6 +56,7 @@ class PlayerS extends Schema {
 defineTypes(PlayerS, {
   name: 'string', hp: 'number', maxHp: 'number', mp: 'number', maxMp: 'number',
   shield: 'number', hate: 'number', alive: 'boolean', ready: 'boolean', slot: 'number',
+  charId: 'number',
   castingIdx: 'number', castT: 'number', castTotal: 'number', castName: 'string',
   wardPct: 'number', atkBoost: 'number', vigorBonus: 'number',
   mpRegenBonus: 'number',
@@ -157,9 +160,13 @@ export class CoopRoom extends Room<CoopState> {
     this.setSimulationInterval(dtMs => this.update(dtMs / 1000), 50);
   }
 
-  onJoin(client: Client, options: { name?: unknown; spells?: unknown }): void {
+  onJoin(
+    client: Client,
+    options: { name?: unknown; spells?: unknown; charId?: unknown },
+  ): void {
     const p = new PlayerS();
     p.name = clampNickname(options?.name) || '名無し';
+    p.charId = clampCharId(options?.charId);
     p.maxHp = PLAYER_MAX_HP; p.hp = PLAYER_MAX_HP;
     p.maxMp = PLAYER_MAX_MP; p.mp = PLAYER_MAX_MP;
     p.shield = 0;

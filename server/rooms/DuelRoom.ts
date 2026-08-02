@@ -18,6 +18,7 @@ import { announce } from '../lobbyfeed';
 import { claimBattleSlot, releaseBattleSlot } from '../activeBattle';
 import { CODE_REPLACED } from '../../shared/netcodes';
 import { clampNickname } from '../../shared/nickname';
+import { clampCharId } from '../../shared/characters';
 import type { ServerSpell } from '../spellPayload';
 import type { ElementId, SpellStats } from '../../shared/types';
 
@@ -36,6 +37,7 @@ class DuelPlayer extends Schema {
   declare alive: boolean;
   declare ready: boolean;
   declare slot: number;
+  declare charId: number;     // 選んだキャラクター(見た目だけ)
   declare castingIdx: number;
   declare castName: string;   // 詠唱中の魔法名(相手にも見える)
   declare wardPct: number;    // 属性耐性(%)。0=なし
@@ -49,7 +51,8 @@ class DuelPlayer extends Schema {
 defineTypes(DuelPlayer, {
   name: 'string', hp: 'number', maxHp: 'number', mp: 'number', maxMp: 'number',
   shield: 'number', guard: 'number', alive: 'boolean', ready: 'boolean',
-  slot: 'number', castingIdx: 'number', castT: 'number', castTotal: 'number',
+  slot: 'number', charId: 'number',
+  castingIdx: 'number', castT: 'number', castTotal: 'number',
   castName: 'string', wardPct: 'number', atkBoost: 'number',
   vigorBonus: 'number', mpRegenBonus: 'number', sealed: 'boolean',
 });
@@ -129,9 +132,13 @@ export class DuelRoom extends Room<DuelState> {
     return { ip: clientIp(request) };
   }
 
-  onJoin(client: Client, options: { name?: unknown; spells?: unknown }): void {
+  onJoin(
+    client: Client,
+    options: { name?: unknown; spells?: unknown; charId?: unknown },
+  ): void {
     const p = new DuelPlayer();
     p.name = clampNickname(options?.name) || '名無し';
+    p.charId = clampCharId(options?.charId);
     p.maxHp = DUEL_MAX_HP; p.hp = DUEL_MAX_HP;   // 決闘は長めの読み合いにする
     p.maxMp = DUEL_MAX_MP; p.mp = DUEL_MAX_MP;
     p.shield = 0; p.guard = 0;

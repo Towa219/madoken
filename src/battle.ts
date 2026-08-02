@@ -12,12 +12,33 @@ import {
 import type { AffinityGrade, EnemyDef } from '../shared/data';
 import { backgroundArt, enemyArt, playerArt, projectileArt } from './artwork';
 import { spellCooldown, spellDisplayName } from '../shared/spellcraft';
+import { state } from './state';
 import type { BattleResult, ElementId, Spell, SpellStats } from '../shared/types';
 
 const W = 960;
 const H = 540;
 const GROUND_Y = 460;
 const PLAYER_X = 140;
+
+// 開始カウントダウンの見た目(ソロ・決闘で共通)。
+//
+// UI用のゴシック体を大きく出すと素っ気ないので、明朝体+金の縁取りにして
+// 「魔導書の見出し」らしい重みを出す。明朝体が無い環境でも serif に落ちる。
+export const START_LABEL = '開戦';
+export const COUNT_FONT =
+  '"Yu Mincho", YuMincho, "Hiragino Mincho ProN", "MS Mincho", "Noto Serif JP", serif';
+
+export const COUNT_STYLE = {
+  fill: 0xffeab8,
+  fontSize: 104,
+  fontFamily: COUNT_FONT,
+  fontWeight: 'bold' as const,
+  letterSpacing: 14,
+  stroke: { color: 0x2a1240, width: 13, join: 'round' as const },
+  dropShadow: {
+    color: 0x8866ff, blur: 16, distance: 0, alpha: 0.85, angle: 0,
+  },
+};
 
 // プレイヤーまわりの座標は SPRITE_SCALE と一緒に動かす。
 // cy(n) = 地面からn(拡大前)だけ上、cs(n) = 長さnを拡大した値。
@@ -263,7 +284,7 @@ export class BattleManager {
     root.addChild(this.entityLayer, this.projLayer, this.fxLayer, this.uiLayer);
 
     // プレイヤー
-    this.playerCont = makePlayerSprite();
+    this.playerCont = makePlayerSprite(state.charId);
     this.playerCont.position.set(PLAYER_X, GROUND_Y);
     this.entityLayer.addChild(this.playerCont);
 
@@ -326,13 +347,7 @@ export class BattleManager {
     this.infoText.position.set(16, 64);
     this.uiLayer.addChild(this.infoText);
 
-    this.countText = new Text({
-      text: '',
-      style: {
-        fill: 0xffdd66, fontSize: 96, fontFamily: 'Meiryo, sans-serif', fontWeight: 'bold',
-        stroke: { color: 0x000000, width: 8 },
-      },
-    });
+    this.countText = new Text({ text: '', style: { ...COUNT_STYLE } });
     this.countText.anchor.set(0.5);
     this.countText.position.set(W / 2, H / 2 - 30);
     this.uiLayer.addChild(this.countText);
@@ -414,10 +429,18 @@ export class BattleManager {
     if (this.countdown > 0) {
       this.countdown -= dt;
       const n = Math.ceil(this.countdown - 0.6);
-      this.countText.text = n > 0 ? String(n) : '開始!';
+      this.countText.text = n > 0 ? String(n) : START_LABEL;
       const frac = (this.countdown - 0.6) - Math.floor(this.countdown - 0.6);
-      this.countText.scale.set(n > 0 ? 1 + (1 - frac) * 0.35 : 1.2);
-      this.countText.alpha = 1;
+      if (n > 0) {
+        // 数字は大きく現れて縮む
+        this.countText.scale.set(1 + (1 - frac) * 0.35);
+        this.countText.alpha = 1;
+      } else {
+        // 「開戦」は逆に押し広がりながら薄れて消える
+        const t = Math.max(0, Math.min(1, this.countdown / 0.6));
+        this.countText.scale.set(1.05 + (1 - t) * 0.35);
+        this.countText.alpha = 0.15 + t * 0.85;
+      }
       this.drawBars();
       this.updateSpellBar();
       return;
@@ -981,10 +1004,11 @@ export function makeProjectileGfx(attr: ElementId, power: number): Container {
 
 // ===== プレースホルダー描画(将来ここを画像Spriteに差し替える) =====
 
-export function makePlayerSprite(): Container {
+// charId = 選んだキャラクター(見た目だけ)。共闘/決闘では相手の番号を渡す。
+export function makePlayerSprite(charId = 0): Container {
   const c = new Container();
   // 画像素材があればそれを使う(無ければ従来の図形)
-  const art = playerArt(cs(100));
+  const art = playerArt(cs(100), charId);
   if (art) {
     c.addChild(art);
     return c;
