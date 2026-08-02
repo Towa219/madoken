@@ -215,6 +215,10 @@ async function connect(): Promise<void> {
 }
 
 function wireLobby(room: Room): void {
+  // 同じ名前で別の場所から入り直された(切断される直前に届く)
+  let replaced = false;
+  room.onMessage('replaced', () => { replaced = true; });
+
   room.onMessage('chat', (msg: { name: string; text: string }) => {
     addChatLine(msg.name, msg.text);
   });
@@ -225,7 +229,7 @@ function wireLobby(room: Room): void {
     $('#coop-view').classList.add('hidden');
     $('#online-login').classList.remove('hidden');
     // 同じ名前で別の場所から入り直された場合は、繋ぎ直すと取り合いになる
-    if (code === CODE_REPLACED) {
+    if (replaced || code === CODE_REPLACED) {
       autoConnect = false;
       $('#online-msg').textContent =
         '同じニックネームで別の場所から接続されたため、こちらは切断しました。'

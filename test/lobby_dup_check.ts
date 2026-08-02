@@ -50,11 +50,14 @@ async function main(): Promise<void> {
   let first: Room | null = null;
   let second: Room | null = null;
   let firstLeaveCode = -1;
+  let gotReplacedMsg = false;
 
   try {
     // 1つ目の接続(切れたことにサーバーがまだ気づいていない古い接続の代わり)
     first = await client.joinOrCreate('lobby_chat', { name: NAME, nickToken: TOKEN });
     first.onLeave((code?: number) => { firstLeaveCode = code ?? -1; });
+    first.onMessage('replaced', () => { gotReplacedMsg = true; });
+    first.onMessage('chat', () => { /* 受け取るだけ */ });
     await waitFor(() => namesIn(first!).includes(NAME));
     check('1つ目の接続が在室者に載る',
       namesIn(first).filter(n => n === NAME).length === 1);
@@ -68,11 +71,16 @@ async function main(): Promise<void> {
     check('入り直しても同じ名前は1件だけ', dup === 1,
       `${dup}件 / 在室 ${names.length}人`);
 
-    // 古い接続は閉じられ、理由コードが伝わる
-    const closed = await waitFor(() => firstLeaveCode !== -1, 8000);
-    check('古い接続は閉じられる', closed);
-    check('理由コードが「入り直し」である', firstLeaveCode === CODE_REPLACED,
-      `code=${firstLeaveCode}`);
+    // 古い接続は閉じられ、理由が伝わる。
+    // ※切断コードは本番のプロキシ越しだと失われることがあるので、
+    //   「理由をメッセージで受け取れること」を必須の条件とする。
+    check('古い接続に理由が伝わる(replaced)',
+      await waitFor(() => gotReplacedMsg, 8000));
+    check('古い接続は閉じられる', await waitFor(() => firstLeaveCode !== -1, 8000));
+    if (firstLeaveCode !== CODE_REPLACED) {
+      console.log(`  (参考: 切断コードは ${firstLeaveCode} で届いた。`
+        + 'プロキシ越しでは失われるため、判定にはメッセージを使っている)');
+    }
   } catch (err) {
     check('テストの実行', false, (err as Error).message);
   } finally {

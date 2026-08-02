@@ -76,7 +76,13 @@ export class LobbyChatRoom extends Room<LobbyState> {
       if (!p || nicknameKey(p.name) !== key) continue;
       this.replaced.add(other.sessionId); // 「退出した」とは知らせない
       this.state.players.delete(other.sessionId);
-      other.leave(CODE_REPLACED);
+      // 切断コードはRenderのプロキシ越しだとクライアントに届かないことがあるため、
+      // 理由はメッセージで明示的に伝えてから閉じる。
+      // (届かないと相手が自動再接続し、2つの接続が互いを閉じ合い続ける)
+      try { other.send('replaced', {}); } catch { /* 既に閉じている */ }
+      setTimeout(() => {
+        try { other.leave(CODE_REPLACED); } catch { /* 既に閉じている */ }
+      }, 150);
     }
   }
 
