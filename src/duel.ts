@@ -8,6 +8,7 @@ import { spellCooldown, spellDisplayName } from '../shared/spellcraft';
 import {
   COUNT_STYLE, makePlayerSprite, makeProjectileGfx, START_LABEL,
 } from './battle';
+import { showToast } from './lab';
 import { equippedSpells } from './state';
 import { playSfx, startSfxLoop, stopAllSfxLoops, stopSfxLoop } from './sound';
 import type { ElementId, Spell } from '../shared/types';
@@ -48,6 +49,8 @@ export class DuelView {
   private spells: Spell[] = [];
   private onExit: (() => void) | null = null;
   private exited = true;
+  // 決着・棄権・入れ替わりのいずれかを本人に伝えたか
+  private toldWhy = false;
 
   private pViews = new Map<string, Container>();
   private anims: Anim[] = [];
@@ -78,6 +81,7 @@ export class DuelView {
     this.mySid = room.sessionId;
     this.onExit = onExit;
     this.exited = false;
+    this.toldWhy = false;
     this.spells = equippedSpells().slice(0, 4);
     this.cds = [0, 0, 0, 0];
     this.prevCastingIdx = -1;
@@ -166,7 +170,18 @@ export class DuelView {
   }
 
   private exitNow(): void {
+    this.toldWhy = true;
     try { void this.room?.leave(); } catch { /* 切断済みでも無視 */ }
+    this.handleExit();
+  }
+
+  // 中断や決着の知らせが無いまま切れた場合は、理由を伝えてから戻る。
+  // 一番多いのはサーバーの更新で、再起動すると進行中の部屋ごと消える。
+  private leftUnexpectedly(): void {
+    if (!this.exited && !this.toldWhy) {
+      showToast('通信が切れたため決闘を中断した。'
+        + 'サーバーが更新された可能性がある。ロビーから入り直してほしい。');
+    }
     this.handleExit();
   }
 
@@ -281,6 +296,7 @@ export class DuelView {
     });
 
     room.onMessage('duelend', (m: { win: boolean; reason: string }) => {
+      this.toldWhy = true;
       const overlay = this.$('#duel-overlay');
       overlay.innerHTML =
         `<div class="result-box">` +
@@ -294,11 +310,15 @@ export class DuelView {
 
     // 同じ名前で別の戦闘部屋に入った場合(coop.ts と同じ扱い)
     room.onMessage('replaced', () => {
+      this.toldWhy = true;
+      showToast('同じ名前で別の戦闘に入ったため、こちらの決闘を終了した。');
       void room.leave();
       this.handleExit();
     });
-    room.onLeave(() => this.handleExit());
-    room.onError(() => this.handleExit());
+    // 決着も棄権も無いまま切れた時に黙ってロビーへ戻すと、
+    // 勝手に落ちたようにしか見えない。共闘と同じく理由を伝えてから返す。
+    room.onLeave(() => this.leftUnexpectedly());
+    room.onError(() => this.leftUnexpectedly());
   }
 
   private tick(dt: number): void {
