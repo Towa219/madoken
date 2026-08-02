@@ -6,3 +6,4 @@ data/
 tools/artgen/*.png
 tools/soundgen/_range.json
 public/sound/bgm/_preview/
+public/sound/sfx/_preview/

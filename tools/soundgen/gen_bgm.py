@@ -63,6 +63,13 @@ def wait_files(prompt_id, timeout=1800):
             time.sleep(1.5)
             continue
         entry = hist.get(prompt_id)
+        if entry and entry.get('status', {}).get('status_str') == 'error':
+            msgs = []
+            for m in entry['status'].get('messages', []):
+                if m[0] == 'execution_error':
+                    d = m[1]
+                    msgs.append(f"{d.get('node_type')}: {d.get('exception_message')}")
+            raise RuntimeError('ComfyUI でエラー: ' + ('; '.join(msgs) or '詳細不明'))
         if entry and entry.get('outputs'):
             out = []
             for node in entry['outputs'].values():
