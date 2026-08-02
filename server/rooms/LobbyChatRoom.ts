@@ -9,7 +9,8 @@ import { clientIp, logConnection } from '../connlog';
 import { setRoomPresence } from '../presence';
 import { claimName } from '../names';
 import { addLobbySink } from '../lobbyfeed';
-import { clampNickname, normalizeNickname } from '../../shared/nickname';
+import { clampNickname, nicknameKey, normalizeNickname } from '../../shared/nickname';
+import { CODE_REPLACED } from '../../shared/netcodes';
 
 const { Room } = colyseusPkg;
 
@@ -62,10 +63,30 @@ export class LobbyChatRoom extends Room<LobbyState> {
     return { ip: clientIp(request), name };
   }
 
+  // 同じ名前の古い接続を閉じる。
+  //
+  // 通信が切れても、サーバーが切断に気づくまでには間がある(スリープや電波断だと
+  // 特に長い)。その間に自動再接続すると、同じ人が在室者リストに2件並んでしまう。
+  // ニックネームは1人1つなので、名前が同じ = 同じ人とみなして古い方を閉じる。
+  private dropOlderSessions(name: string, keep: Client): void {
+    const key = nicknameKey(name);
+    for (const other of [...this.clients]) {
+      if (other.sessionId === keep.sessionId) continue;
+      const p = this.state.players.get(other.sessionId);
+      if (!p || nicknameKey(p.name) !== key) continue;
+      this.replaced.add(other.sessionId); // 「退出した」とは知らせない
+      this.state.players.delete(other.sessionId);
+      other.leave(CODE_REPLACED);
+    }
+  }
+
+  private replaced = new Set<string>();
+
   onJoin(client: Client, options: { name?: unknown }): void {
     const auth = client.auth as { name?: string } | undefined;
     const p = new LobbyPlayer();
     p.name = clampNickname(auth?.name || options?.name) || '名無し';
+    this.dropOlderSessions(p.name, client);
     this.state.players.set(client.sessionId, p);
     logConnection('ロビー', p.name, (client.auth as { ip?: string } | undefined)?.ip ?? '');
     this.syncPresence();
@@ -73,6 +94,11 @@ export class LobbyChatRoom extends Room<LobbyState> {
   }
 
   onLeave(client: Client): void {
+    // 入り直しで閉じた古い接続は、退出として扱わない(入退出が二重に流れる)
+    if (this.replaced.delete(client.sessionId)) {
+      this.syncPresence();
+      return;
+    }
     const p = this.state.players.get(client.sessionId);
     if (p) {
       this.broadcast('chat', { name: 'システム', text: `${p.name} が退出した` });

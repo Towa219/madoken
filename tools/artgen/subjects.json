@@ -5,14 +5,15 @@
   "style": "anime style, game asset, cel shading, crisp lineart, vivid colors, fantasy",
 
   "_flip": "生成物の向きが逆だったものをここに書くと左右反転する(プレイヤーは右向き・敵は左向きが正しい)。",
-  "flip": ["player", "enemy:beast", "enemy:bird"],
+  "flip": ["player", "enemy:beast"],
 
   "_negative": "他の敵と絵柄が被るときに、その敵だけ追加で禁止する指定。",
   "negative": {
     "enemy:imp": "dragon, wyvern, large monster, huge, serpent, long neck",
     "enemy:insect": "dragon, humanoid, human, biped, standing on two legs, arms, hands, abstract, formless, blob, wings",
     "enemy:fish": "dragon, wyvern, feathers, wings, humanoid",
-    "enemy:undead": "dragon, abstract, formless, feathers"
+    "enemy:undead": "dragon, abstract, formless, feathers",
+    "enemy:bird": "wide wingspan, outstretched wings, spread wings, phoenix, off-center, cropped wings"
   },
 
 
@@ -45,7 +46,7 @@
     "wisp": "no humans, monster, will-o-wisp, pale blue glowing floating orb, ethereal flame, trailing light, no legs, floating, from side, facing left",
     "orb": "no humans, monster, floating arcane orb, violet sphere of magic energy, orbiting runic rings, glowing, no legs, floating, from side, facing left",
     "beast": "no humans, monster, quadruped beast, gray shaggy fur, fangs, claws, snarling, full body, from side, facing left",
-    "bird": "no humans, monster, giant bird, dark purple feathers, spread wings, sharp beak, talons, flying, from side, facing left",
+    "bird": "no humans, monster, giant bat, dark purple fur, membrane wings folded close to the body, fangs, sharp claws, compact pose, centered composition, body in the middle, full body, from side, facing left",
     "plant": "no humans, monster, carnivorous plant, green vines, giant purple toothed flower head, leaves, full body, from side, facing left",
     "undead": "no humans, monster, skeleton warrior, white bone body, skull head, empty glowing eye sockets, tattered brown cloak, holding rusty sword, standing on two legs, full body, from side, facing left",
     "knight": "no humans, monster, cursed armor, dark steel blue full plate armor, greatsword, glowing visor, empty armor, full body, from side, facing left",

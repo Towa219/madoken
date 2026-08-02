@@ -8,6 +8,7 @@ import { spellDisplayName } from '../shared/spellcraft';
 import {
   NICK_MAX_FULL, NICK_MAX_WIDTH, normalizeNickname, validateNickname,
 } from '../shared/nickname';
+import { CODE_REPLACED } from '../shared/netcodes';
 import { equippedSpells, notify, state } from './state';
 import { pushCloudSave } from './cloudsave';
 import type { SpellPayload } from '../shared/protocol';
@@ -218,11 +219,19 @@ function wireLobby(room: Room): void {
     addChatLine(msg.name, msg.text);
   });
   room.onStateChange(() => renderMembers());
-  room.onLeave(() => {
+  room.onLeave((code?: number) => {
     lobbyRoom = null;
     $('#online-lobby').classList.add('hidden');
     $('#coop-view').classList.add('hidden');
     $('#online-login').classList.remove('hidden');
+    // 同じ名前で別の場所から入り直された場合は、繋ぎ直すと取り合いになる
+    if (code === CODE_REPLACED) {
+      autoConnect = false;
+      $('#online-msg').textContent =
+        '同じニックネームで別の場所から接続されたため、こちらは切断しました。'
+        + 'この画面で遊ぶ場合は、もう一度「接続」を押してください。';
+      return;
+    }
     $('#online-msg').textContent = autoConnect
       ? '切断された。自動で繋ぎ直します…'
       : '切断された。もう一度接続してください。';

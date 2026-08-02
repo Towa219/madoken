@@ -6,7 +6,7 @@
 import { Application, Container, Graphics, Sprite, Text } from 'pixi.js';
 import {
   affinityMul, affinitySymbol, battleRP, bossForStage, ELEMENTS, ELEMENT_ORDER,
-  ENEMY_ATK_MUL, ENEMY_HP_MUL, enemyTopY, isBossStage, pickEnemiesForStage,
+  ENEMY_ATK_MUL, ENEMY_HP_MUL, ENEMY_SCALE, enemyTopY, isBossStage, pickEnemiesForStage,
   PLAYER_MAX_HP, PLAYER_MAX_MP, SPRITE_SCALE, stageAtkMul, stageHpMul,
 } from '../shared/data';
 import type { AffinityGrade, EnemyDef } from '../shared/data';
@@ -264,9 +264,10 @@ export class BattleManager {
 
     // 敵配置
     const defs = this.pickEnemies();
-    const xs = defs.length === 1 ? [770]
-      : defs.length === 2 ? [690, 860]
-      : [630, 755, 875];
+    // 敵を大きくしたぶん、右端がはみ出さないよう内側に寄せて間隔を広げた
+    const xs = defs.length === 1 ? [760]
+      : defs.length === 2 ? [660, 850]
+      : [580, 725, 865];
     defs.forEach((def, i) => {
       const { cont, body } = makeEnemySprite(def);
       cont.position.set(xs[i], GROUND_Y);
@@ -1111,7 +1112,8 @@ export function makeEnemySprite(def: EnemyDef): { cont: Container; body: Graphic
       body.circle(-11, -23, 1.5).fill(0x110011);
       break;
   }
-  body.scale.set(def.size * SPRITE_SCALE); // 図形描画も画像と同じ大きさに揃える
+  // 図形描画も画像と同じ大きさに揃える(片方だけ小さいと差し替え時に破綻する)
+  body.scale.set(def.size * SPRITE_SCALE * ENEMY_SCALE);
   cont.addChild(body);
   return { cont, body };
 }

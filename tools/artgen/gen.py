@@ -194,9 +194,45 @@ def check_cutout(img, ident):
     return True
 
 
-def trim(img):
-    box = img.getbbox()
-    return img.crop(box) if box else img
+def check_centered(img, ident):
+    """絵が左右どちらかに寄りすぎていないか調べる。
+
+    頭上のHPバーと名前は画像の中心に置かれる。翼を広げた鳥のように
+    「本体は右端・左半分は全部翼」という構図だと、バーが本体から外れて見える。
+    """
+    import numpy as np
+    a = np.asarray(img.convert('RGBA'))[..., 3].astype(float)
+    col = a.sum(axis=0)
+    if col.sum() <= 0:
+        return True
+    com = float((col * np.arange(len(col))).sum() / col.sum())
+    off = (com - img.width / 2) / img.width  # 幅に対する割合
+    if abs(off) > 0.08:
+        side = '左' if off < 0 else '右'
+        print(f'  ※ 警告: {ident} は絵が{side}に寄っている(中心から {off * 100:+.0f}%)。'
+              'HPバーが本体からずれて見えるので、構図を変えるか seed を引き直すこと。')
+        return False
+    return True
+
+
+def trim(img, thresh=16):
+    """透明な余白を落とす。
+
+    ※ img.getbbox() を使ってはいけない。白背景で描かせているため、
+      透明部分にも RGB=白 が残っており、色を見る getbbox() は画像全体を返す。
+      その結果「余白ごと目標の高さに縮小」されてキャラが小さくなり、
+      さらに中身が片寄っている画像では頭上のHPバーが横にずれる。
+      不透明度だけで判定すること。
+    """
+    import numpy as np
+    a = np.asarray(img.convert('RGBA'))[..., 3]
+    m = a > thresh
+    rows = np.where(m.any(axis=1))[0]
+    cols = np.where(m.any(axis=0))[0]
+    if len(rows) == 0 or len(cols) == 0:
+        return img
+    return img.crop((int(cols[0]), int(rows[0]),
+                     int(cols[-1]) + 1, int(rows[-1]) + 1))
 
 
 def fit_height(img, target_h):
@@ -273,6 +309,7 @@ def gen_enemy(subj, key, seed):
     check_cutout(cut, f'enemy:{key}')
     out = maybe_flip(fit_height(trim(cut), ENEMY_HEIGHT),
                      subj, f'enemy:{key}')
+    check_centered(out, f'enemy:{key}')
     return save(out, f'enemy/{key}.png')
 
 
@@ -338,16 +375,48 @@ def write_manifest(subj):
 
 # ===== main =====
 
+def retrim_existing():
+    """すでにある画像の透明な余白だけを落とす(絵は作り直さない)。
+
+    余白が残っていると、その分キャラが小さく表示され、頭上のHPバーもずれる。
+    絵柄を変えずに直せるので、作り直しより先にこれを試すこと。
+    """
+    from PIL import Image
+    targets = [os.path.join(IMG_DIR, 'player.png')]
+    for sub in ('enemy', 'proj'):
+        d = os.path.join(IMG_DIR, sub)
+        if os.path.isdir(d):
+            targets += [os.path.join(d, f) for f in sorted(os.listdir(d))
+                        if f.endswith('.png')]
+    for path in targets:
+        if not os.path.exists(path):
+            continue
+        im = Image.open(path).convert('RGBA')
+        cut = trim(im)
+        if cut.size == im.size:
+            print(f'  余白なし: {os.path.basename(path)}')
+            continue
+        cut.save(path)
+        print(f'  余白を除去: {os.path.basename(path)}  '
+              f'{im.width}x{im.height} → {cut.width}x{cut.height}')
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--only', help='player / background / enemy:blob / proj:fire')
     ap.add_argument('--all', action='store_true', help='全24枚を生成')
     ap.add_argument('--manifest', action='store_true',
                     help='生成せず manifest.json だけ作り直す')
+    ap.add_argument('--retrim', action='store_true',
+                    help='生成せず、既存画像の透明な余白だけ落とす')
     ap.add_argument('--seed', type=int, default=1234)
     args = ap.parse_args()
 
     subj = load_subjects()
+
+    if args.retrim:
+        retrim_existing()
+        return
 
     if args.manifest:
         write_manifest(subj)

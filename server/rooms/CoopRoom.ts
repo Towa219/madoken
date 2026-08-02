@@ -293,7 +293,8 @@ export class CoopRoom extends Room<CoopState> {
     const defs: EnemyDef[] = isBossStage(stage)
       ? [bossForStage(stage)]
       : pickEnemiesForStage(stage);
-    const xs = defs.length === 1 ? [770] : defs.length === 2 ? [690, 860] : [630, 755, 875];
+    // 敵を大きくしたぶん、右端がはみ出さないよう内側に寄せて間隔を広げた(battle.ts と同じ)
+    const xs = defs.length === 1 ? [760] : defs.length === 2 ? [660, 850] : [580, 725, 865];
 
     // 人数に応じて敵HPを増強(1人=等倍, 2人=1.5倍, 3人=2倍)
     const playerCount = this.state.players.size;

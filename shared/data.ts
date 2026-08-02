@@ -342,9 +342,12 @@ export interface EnemyDef {
 // プレイヤー・敵・頭上のバーや名前が、まとめてこの倍率で拡大される。
 export const SPRITE_SCALE = 1.5;
 
+// 敵だけにさらにかかる倍率(敵はプレイヤーより小さく見えていたので別枠で調整する)
+export const ENEMY_SCALE = 1.5;
+
 // 敵の頭上に置く要素のY(接地点からの相対値)
 export const enemyTopY = (def: EnemyDef) =>
-  SHAPE_TOP[def.shape] * def.size * SPRITE_SCALE;
+  SHAPE_TOP[def.shape] * def.size * SPRITE_SCALE * ENEMY_SCALE;
 
 export const ENEMIES: EnemyDef[] = [
   // --- tier1 (ステージ1〜4) ---
