@@ -7,7 +7,6 @@
 
 import { Client } from 'colyseus.js';
 import type { Room } from 'colyseus.js';
-import { CODE_REPLACED } from '../shared/netcodes';
 
 const ENDPOINT = process.env.MADOKEN_ENDPOINT ?? 'ws://localhost:2567';
 const HTTP_BASE = ENDPOINT.replace(/^ws/, 'http');
@@ -76,11 +75,15 @@ async function main(): Promise<void> {
     //   「理由をメッセージで受け取れること」を必須の条件とする。
     check('古い接続に理由が伝わる(replaced)',
       await waitFor(() => gotReplacedMsg, 8000));
-    check('古い接続は閉じられる', await waitFor(() => firstLeaveCode !== -1, 8000));
-    if (firstLeaveCode !== CODE_REPLACED) {
-      console.log(`  (参考: 切断コードは ${firstLeaveCode} で届いた。`
-        + 'プロキシ越しでは失われるため、判定にはメッセージを使っている)');
-    }
+    // 古い接続は在室者から消えている(サーバー側の状態が正)
+    check('古い接続は在室者から消える',
+      namesIn(second).filter(n => n === NAME).length === 1);
+
+    // 切断そのものの伝わり方は経路次第(本番のプロキシ越しでは届かないことがある)。
+    // クライアントは replaced を受け取った時点で自分から抜けるので、判定には使わない。
+    const closed = await waitFor(() => firstLeaveCode !== -1, 5000);
+    console.log(`  (参考: 切断の通知 ${closed ? `code=${firstLeaveCode}` : 'なし'}`
+      + ' — 経路次第なので合否には使わない)');
   } catch (err) {
     check('テストの実行', false, (err as Error).message);
   } finally {

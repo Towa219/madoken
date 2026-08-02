@@ -215,9 +215,17 @@ async function connect(): Promise<void> {
 }
 
 function wireLobby(room: Room): void {
-  // 同じ名前で別の場所から入り直された(切断される直前に届く)
+  // 同じ名前で別の場所から入り直された(切断される直前に届く)。
+  //
+  // 本番のプロキシ越しでは、サーバーが閉じても切断がこちらに伝わらないことがある。
+  // 待っていると「繋がっているつもり」のまま古い一覧を表示し続けるので、
+  // 通知を受けた時点で自分から抜ける。
   let replaced = false;
-  room.onMessage('replaced', () => { replaced = true; });
+  room.onMessage('replaced', () => {
+    replaced = true;
+    autoConnect = false;
+    void room.leave();
+  });
 
   room.onMessage('chat', (msg: { name: string; text: string }) => {
     addChatLine(msg.name, msg.text);
