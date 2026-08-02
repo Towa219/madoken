@@ -71,6 +71,8 @@ export class CoopView {
   private statusEls: { card: HTMLElement; hpFill: HTMLElement; hpText: HTMLElement }[] = [];
   private statusBuilt = false;
   private waitingHtml = '';
+  // 中断/決着の通知を受け取ったか。受け取らずに切れた場合は通信不良。
+  private toldWhy = false;
 
   private $(sel: string): HTMLElement {
     return document.querySelector(sel) as HTMLElement;
@@ -101,6 +103,7 @@ export class CoopView {
     this.fxs = [];
     this.statusBuilt = false;
     this.waitingHtml = '';
+    this.toldWhy = false;
     this.$('#coop-enemy-status').innerHTML = '';
     this.$('#coop-overlay').classList.add('hidden');
 
@@ -388,6 +391,7 @@ export class CoopView {
 
     // 誰かが離脱 → 前ステージまでのクリア扱いで全員ロビーへ
     room.onMessage('aborted', (m: { name: string; clearedStage: number }) => {
+      this.toldWhy = true;
       const overlay = this.$('#coop-overlay');
       overlay.innerHTML =
         `<div class="result-box">` +
@@ -400,18 +404,20 @@ export class CoopView {
     });
 
     room.onMessage('result', (m: { win: boolean; drops: ElementId[]; rp: number }) => {
+      this.toldWhy = true;
       this.showResult(m);
     });
 
     // 同じ名前で別の戦闘部屋に入った(部屋の乱立を防ぐためサーバーが閉じる)。
     // 本番のプロキシ越しでは切断が伝わらないことがあるので、通知を受けた時点で抜ける。
     room.onMessage('replaced', () => {
+      this.toldWhy = true;
       showToast('別の部屋に入ったため、こちらの部屋からは退出した。');
       void room.leave();
       this.handleExit();
     });
-    room.onLeave(() => this.handleExit());
-    room.onError(() => this.handleExit());
+    room.onLeave(() => this.leftUnexpectedly());
+    room.onError(() => this.leftUnexpectedly());
   }
 
   private showResult(m: { win: boolean; drops: ElementId[]; rp: number }): void {
@@ -448,6 +454,14 @@ export class CoopView {
     overlay.querySelector('#btn-coop-back')?.addEventListener('click', () => {
       this.exitNow();
     });
+  }
+
+  // 中断や決着の知らせが無いまま切れた場合は、理由を伝えてから戻る
+  private leftUnexpectedly(): void {
+    if (!this.exited && !this.toldWhy) {
+      showToast('通信が切れたため共闘から退出した。ロビーで入り直してください。');
+    }
+    this.handleExit();
   }
 
   private handleExit(): void {

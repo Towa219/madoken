@@ -120,6 +120,13 @@ export function initOnline(): void {
   }
 }
 
+// 共闘か決闘の画面を開いている最中か。
+// ロビーの接続が切れたり繋ぎ直したりしても、この間は画面を切り替えてはいけない。
+function inBattleView(): boolean {
+  return !$('#coop-view').classList.contains('hidden')
+    || !$('#duel-view').classList.contains('hidden');
+}
+
 // 自動接続で入った場合は、切断されたら黙って繋ぎ直す
 let autoConnect = false;
 let reconnectTimer: number | undefined;
@@ -193,8 +200,12 @@ async function connect(): Promise<void> {
     wireLobby(lobbyRoom);
 
     autoConnect = true; // 以後は切断されても自動で繋ぎ直す
-    $('#online-login').classList.add('hidden');
-    $('#online-lobby').classList.remove('hidden');
+    // 戦闘中に繋ぎ直した場合、ロビーを出すと戦闘画面が隠れてしまう。
+    // 戦闘が終わったときに enterCoop/joinDuel の後始末がロビーを出す。
+    if (!inBattleView()) {
+      $('#online-login').classList.add('hidden');
+      $('#online-lobby').classList.remove('hidden');
+    }
     $('#online-msg').textContent = '';
 
     renderStageOptions();
@@ -233,9 +244,13 @@ function wireLobby(room: Room): void {
   room.onStateChange(() => renderMembers());
   room.onLeave((code?: number) => {
     lobbyRoom = null;
-    $('#online-lobby').classList.add('hidden');
-    $('#coop-view').classList.add('hidden');
-    $('#online-login').classList.remove('hidden');
+    // ロビーと戦闘部屋は別々の接続。ロビーが切れても戦闘は続いているので、
+    // 戦闘中は画面を切り替えない(切り替えると戦闘画面が消えて
+    // 「部屋が落ちた」ように見える)。
+    if (!inBattleView()) {
+      $('#online-lobby').classList.add('hidden');
+      $('#online-login').classList.remove('hidden');
+    }
     // 同じ名前で別の場所から入り直された場合は、繋ぎ直すと取り合いになる
     if (replaced || code === CODE_REPLACED) {
       autoConnect = false;

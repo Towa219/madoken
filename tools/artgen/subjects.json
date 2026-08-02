@@ -5,7 +5,8 @@
   "style": "anime style, game asset, cel shading, crisp lineart, vivid colors, fantasy",
 
   "_flip": "生成物の向きが逆だったものをここに書くと左右反転する(プレイヤーは右向き・敵は左向きが正しい)。",
-  "flip": ["player:1", "enemy:beast"],
+  "_flip補足": "プレイヤーは5体とも左向きに描かれるため、全て反転して右向きにする。",
+  "flip": ["player:1", "player:2", "player:3", "player:4", "player:5", "enemy:beast"],
 
   "_negative": "他の敵と絵柄が被るときに、その敵だけ追加で禁止する指定。",
   "negative": {
