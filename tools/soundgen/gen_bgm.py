@@ -27,7 +27,7 @@ SERVER = os.environ.get('COMFY_URL', 'http://127.0.0.1:8188')
 CKPT = os.environ.get('ACE_CKPT', 'ace_step_1.5_turbo_aio.safetensors')
 
 # turbo 版は少ないステップで出る。多くしても時間が延びるだけ。
-STEPS = 12
+STEPS = 28
 CFG = 2.0
 SAMPLER = 'euler'
 SCHEDULER = 'simple'

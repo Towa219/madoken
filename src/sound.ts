@@ -10,8 +10,8 @@
 //     localStorage に別で保存する
 //
 // 置き場所(すべて public/sound/ の下):
-//   bgm/<場面>.ogg  … ロビー/戦闘/ボス/決闘
-//   sfx/<名前>.ogg  … 効果音
+//   bgm/<場面>.mp3  … ロビー/戦闘/ボス/決闘
+//   sfx/<名前>.mp3  … 効果音
 
 const BASE = 'sound/';
 const PREF_KEY = 'madoken_sound_v1';
@@ -30,7 +30,14 @@ interface Prefs {
 }
 
 let manifest: Manifest | null = null;
-let prefs: Prefs = { bgmVolume: 0.5, sfxVolume: 0.7, muted: false };
+let prefs: Prefs = { bgmVolume: 0.4, sfxVolume: 0.7, muted: false };
+
+// ループの継ぎ目をなだらかにする秒数。
+// 生成した曲は「曲として終わる」ので、頭と尻が音楽的につながらない。
+// 前後を少しだけ絞ると、切り替わりの段差が目立たなくなる。
+const LOOP_FADE = 0.9;
+const LOOP_FADE_FLOOR = 0.2; // 完全に無音にはしない(途切れて聞こえるため)
+let fadeTimer: number | undefined;
 
 let ctx: AudioContext | null = null;
 let sfxGain: GainNode | null = null;
@@ -110,7 +117,33 @@ export function setMuted(m: boolean): void {
 
 function applyVolumes(): void {
   if (sfxGain) sfxGain.gain.value = prefs.muted ? 0 : prefs.sfxVolume;
-  if (bgmEl) bgmEl.volume = prefs.muted ? 0 : prefs.bgmVolume;
+  if (bgmEl) bgmEl.volume = bgmVolumeNow();
+}
+
+// 今この瞬間のBGM音量。ループの前後だけ絞る。
+function bgmVolumeNow(): number {
+  const base = prefs.muted ? 0 : prefs.bgmVolume;
+  if (!bgmEl || !Number.isFinite(bgmEl.duration) || bgmEl.duration <= 0) return base;
+  const t = bgmEl.currentTime;
+  const left = bgmEl.duration - t;
+  let k = 1;
+  if (left < LOOP_FADE) k = left / LOOP_FADE;
+  else if (t < LOOP_FADE) k = t / LOOP_FADE;
+  return base * Math.max(LOOP_FADE_FLOOR, Math.min(1, k));
+}
+
+// 再生中だけ音量を追従させる(timeupdate は間隔が粗くフェードが階段になる)
+function startFadeWatch(): void {
+  if (fadeTimer) window.clearInterval(fadeTimer);
+  fadeTimer = window.setInterval(() => {
+    if (!bgmEl || bgmEl.paused) return;
+    bgmEl.volume = bgmVolumeNow();
+  }, 50);
+}
+
+function stopFadeWatch(): void {
+  if (fadeTimer) window.clearInterval(fadeTimer);
+  fadeTimer = undefined;
 }
 
 // 素材が1つでもあるか(設定画面の案内に使う)
@@ -194,9 +227,10 @@ async function startBgmEl(id: BgmId): Promise<void> {
   }
   const src = url(file);
   if (!bgmEl.src.endsWith(src)) bgmEl.src = src;
-  bgmEl.volume = prefs.muted ? 0 : prefs.bgmVolume;
+  bgmEl.volume = bgmVolumeNow();
   try {
     await bgmEl.play();
+    startFadeWatch();
   } catch {
     // 再生を拒否された(操作前など)。次の操作でまた試す
     pendingBgm = id;
@@ -206,6 +240,7 @@ async function startBgmEl(id: BgmId): Promise<void> {
 export function stopBgm(): void {
   currentBgm = null;
   pendingBgm = null;
+  stopFadeWatch();
   if (bgmEl) {
     bgmEl.pause();
     bgmEl.currentTime = 0;

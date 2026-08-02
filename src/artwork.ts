@@ -14,6 +14,7 @@
 import { Assets, Sprite, Texture } from 'pixi.js';
 import type { ElementId } from '../shared/types';
 import type { EnemyShape } from '../shared/data';
+import { characterScale } from '../shared/characters';
 
 interface Manifest {
   players?: string[];   // 選択できるキャラクター(並び順が選択番号)
@@ -81,13 +82,15 @@ function bottomAnchored(sp: Sprite, targetHeight: number): Sprite {
 }
 
 // プレイヤー画像(無ければ null)。charId は選択したキャラクターの番号。
+// 帽子や杖など装飾の量がキャラごとに違うので、体格が揃って見えるよう
+// キャラごとの倍率(characterScale)をかける。
 export function playerArt(targetHeight = 100, charId = 0): Sprite | null {
   const list = manifest?.players;
   const file = list && list.length > 0
     ? list[Math.max(0, Math.min(list.length - 1, Math.floor(charId)))]
     : manifest?.player;
   const sp = make(file);
-  return sp ? bottomAnchored(sp, targetHeight) : null;
+  return sp ? bottomAnchored(sp, targetHeight * characterScale(charId)) : null;
 }
 
 // 選択画面用: そのキャラの素材が読み込めているか
