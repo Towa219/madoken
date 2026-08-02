@@ -88,6 +88,72 @@ def env_ad(dur, attack=0.01, power=3.0):
     return e
 
 
+def fftconv(a, b):
+    """畳み込み。残響を作るのに使う(素直に回すと遅すぎるのでFFTで)。"""
+    n = 1
+    while n < len(a) + len(b) - 1:
+        n *= 2
+    y = np.fft.irfft(np.fft.rfft(a, n) * np.fft.rfft(b, n), n)
+    return y[:len(a) + len(b) - 1]
+
+
+def reverb(x, tail=0.9, amount=0.35, seed=5):
+    """石造りの広間のような余韻を付ける。
+
+    余韻が無いと、どんなに音を選んでも「電子音を並べただけ」に聞こえる。
+    """
+    n = int(SR * tail)
+    rng = np.random.default_rng(seed)
+    ir = rng.uniform(-1, 1, n) * np.exp(-np.linspace(0, 6.5, n))
+    ir = lowpass(ir, 4500)
+    ir[0] += 1.0
+    y = fftconv(x, ir)
+    y = y / max(1e-9, np.max(np.abs(y)))
+    out = np.zeros(len(y))
+    out[:len(x)] += x * (1 - amount)
+    out += y * amount
+    # 余韻が消えたあとの無音を切り落とす(そのままだと1秒近くぶら下がる)
+    m = np.max(np.abs(out))
+    if m > 1e-9:
+        loud = np.where(np.abs(out) > m * 0.0015)[0]
+        if len(loud):
+            out = out[:min(len(out), loud[-1] + int(SR * 0.05))]
+    return out
+
+
+def tone(f, dur, partials, detune=0.0):
+    """倍音を重ねた音色。サイン波1本より格段に厚くなる。
+
+    detune を入れるとわずかにずれた音が重なり、複数人で吹いたような揺らぎが出る。
+    """
+    x = np.zeros(int(SR * dur))
+    for i, a in enumerate(partials, start=1):
+        if a <= 0:
+            continue
+        x += sine(f * i, dur) * a
+        if detune:
+            x += sine(f * i * (1 + detune), dur) * a * 0.6
+    return x / max(1e-9, np.max(np.abs(x)))
+
+
+def bell(f, dur, ratios=(1.0, 2.76, 5.40, 8.93), gains=(1.0, 0.5, 0.28, 0.15)):
+    """鐘の音。倍音が整数倍でないので、金属的で澄んだ響きになる。"""
+    x = np.zeros(int(SR * dur))
+    for r, g in zip(ratios, gains):
+        x += sine(f * r, dur) * env_decay(dur, 1.6 + r * 0.35) * g
+    return x / max(1e-9, np.max(np.abs(x)))
+
+
+def at(x, start, total):
+    """音を指定の位置に置く。"""
+    out = np.zeros(int(SR * total))
+    o = int(SR * start)
+    n = min(len(x), len(out) - o)
+    if n > 0:
+        out[o:o + n] += x[:n]
+    return out
+
+
 def fit(a, b):
     """長さの違う配列を短い方に合わせる。"""
     n = min(len(a), len(b))
@@ -366,7 +432,8 @@ def sfx_start():
     x = mix(sine(880, d) * env_decay(d, 2.2),
             sine(1318.5, d) * env_decay(d, 2.8) * 0.6,
             sine(1760, d) * env_decay(d, 3.5) * 0.3)
-    return x, 0.6
+    # 開戦のたびに鳴るうえ高い音なので耳に付きやすい(0.6は大きすぎた)
+    return x, 0.42
 
 
 def sfx_win():
@@ -403,54 +470,89 @@ def sfx_escape():
     return lowpass(mix(air, body), 5000), 0.42
 
 
-# ===== 敵撃破音の候補 =====
+# ===== 勝利音の候補 =====
 #
-# 現行は sfx_defeat(下降音+砂ぼこり)。差し替えても戻せるよう、
-# 現行の関数はそのまま残してある。ALL の 'defeat' を書き換えるだけで入れ替わる。
+# 現行(sfx_win)はサイン波の単音をド→ミ→ソ→ドと並べただけで、
+# 倍音も和音も余韻も無いため着信音のように聞こえる。
+# 候補はいずれも「音色を厚くする・和音で終わる・余韻を残す」を共通の方針にした。
+# 現行の関数は残してあるので、ALL の 'win' を戻すだけで復帰できる。
+
+BRASS = (1.0, 0.62, 0.46, 0.32, 0.22, 0.14, 0.08)
 
 
-def sfx_defeat_a():
-    """霧散: 敵が光の粒になって散る。上へ抜けていく明るい消え方。"""
-    d = 0.55
+def sfx_win_a():
+    """凱歌: 金管のファンファーレ。付点のリズムで入り、最後は和音で伸ばす。"""
+    total = 2.0
     parts = []
-    for i, f in enumerate([880, 1320, 1760]):
-        # 上へ吸い込まれるように、少し遅らせて重ねる
-        e = env_ad(d, 0.005, 3.5) * (0.55 - 0.13 * i)
-        v = sine(sweep(f, f * 2.1, d, 0.6), d) * e
-        parts.append(np.concatenate([np.zeros(int(SR * 0.035 * i)), v]))
-    shimmer = highpass(noise(d, 71), 3000) * env_ad(d, 0.01, 2.2) * 0.35
-    parts.append(shimmer)
-    return lowpass(mix(*parts), 11000), 0.5
+
+    # 前打ち(ソ ソ ソ)を短く刻んでから、主音へ跳ね上がる
+    for st, ln in [(0.00, 0.13), (0.15, 0.13), (0.30, 0.13)]:
+        v = tone(392.0, ln, BRASS, 0.005) * env_ad(ln, 0.012, 2.0) * 0.55
+        parts.append(at(v, st, total))
+
+    lead = 0.5
+    v = tone(523.25, lead, BRASS, 0.005) * env_ad(lead, 0.015, 1.1) * 0.75
+    parts.append(at(v, 0.46, total))
+
+    # 締めの和音(ド・ミ・ソ・高いド)。単音の連続で終わらせないのが要点。
+    ch = 1.0
+    for f, g in [(261.63, 0.5), (523.25, 0.7), (659.25, 0.55),
+                 (783.99, 0.45), (1046.5, 0.35)]:
+        v = tone(f, ch, BRASS, 0.004) * env_ad(ch, 0.02, 1.4) * g
+        parts.append(at(v, 0.96, total))
+
+    x = lowpass(mix(*parts), 7000)
+    return reverb(x, 1.0, 0.32, 7), 0.62
 
 
-def sfx_defeat_b():
-    """破砕: 硬いものが砕けて崩れ落ちる。手応えのある重い消え方。"""
-    d = 0.7
-    crack = highpass(noise(0.09, 11), 2200) * env_decay(0.09, 1.6)
-    body = sine(sweep(180, 55, 0.35, 1.8), 0.35) * env_decay(0.35, 2.2) * 0.9
-    # 破片が転がる音を少しずつ間を空けて散らす
-    bits = np.zeros(int(SR * d))
-    for i, (at, f, sd) in enumerate([(0.10, 1500, 3), (0.17, 1100, 5),
-                                     (0.26, 1800, 7), (0.38, 900, 9)]):
-        g = highpass(noise(0.1, sd), 1400) * env_decay(0.1, 4) * (0.3 - 0.05 * i)
-        o = int(SR * at)
-        bits[o:o + len(g)] += g
-    return lowpass(mix(crack, body, bits), 9000), 0.5
-
-
-def sfx_defeat_c():
-    """昇天: 短い和音がすっと解決する。倒した達成感が残る消え方。"""
-    d = 0.75
+def sfx_win_b():
+    """魔導: 鐘の和音がふわりと解決する。研究所の雰囲気に馴染む静かな勝利。"""
+    total = 2.4
     parts = []
-    # ラ→ド#→ミ を素早く重ねて長三和音にする
-    for i, f in enumerate([440.0, 554.4, 659.3]):
-        e = env_ad(d - 0.06 * i, 0.008, 2.6) * (0.6 - 0.1 * i)
-        v = (sine(f, d - 0.06 * i) * 0.75
-             + sine(f * 2, d - 0.06 * i) * 0.25) * e
-        parts.append(np.concatenate([np.zeros(int(SR * 0.06 * i)), v]))
-    air = highpass(noise(d, 23), 4000) * env_ad(d, 0.02, 3) * 0.2
-    parts.append(air)
-    return lowpass(mix(*parts), 8000), 0.5
+
+    # 最初は宙ぶらりんな和音(ド・ファ・ソ)、途中で澄んだ和音(ド・ミ・ソ)に解決する
+    for i, f in enumerate([523.25, 698.46, 783.99]):
+        v = bell(f, 1.1) * (0.6 - 0.1 * i)
+        parts.append(at(v, 0.02 * i, total))
+    for i, f in enumerate([523.25, 659.25, 783.99, 1046.5]):
+        v = bell(f, 1.6) * (0.65 - 0.1 * i)
+        parts.append(at(v, 0.42 + 0.03 * i, total))
+
+    # 上へ抜けるきらめき
+    sh = highpass(noise(1.4, 91), 5000) * env_ad(1.4, 0.25, 2.2) * 0.18
+    parts.append(at(sh, 0.4, total))
+
+    x = lowpass(mix(*parts), 12000)
+    return reverb(x, 1.4, 0.42, 11), 0.6
+
+
+def sfx_win_c():
+    """勝鬨: 低い一撃から広がる力強い勝利。手応えが一番はっきりする。"""
+    total = 2.2
+    parts = []
+
+    # 立ち上がりの上昇ノイズ(これがあると「来るぞ」という間ができる)
+    rise = 0.35
+    sw = highpass(noise(rise, 13), 900) * (np.linspace(0, 1, int(SR * rise)) ** 2) * 0.4
+    parts.append(at(sw, 0.0, total))
+
+    # 太鼓の一撃
+    dr = 0.5
+    drum = mix(sine(sweep(140, 45, dr, 2.0), dr) * env_decay(dr, 3.0) * 1.0,
+               lowpass(noise(dr, 3), 800) * env_decay(dr, 6.0) * 0.4)
+    parts.append(at(drum, 0.33, total))
+
+    # 開いた五度(ド・ソ)を重ねた厚い和音。長三度を抜くと勇ましく響く。
+    ch = 1.3
+    t = np.arange(int(SR * ch)) / SR
+    vib = 1 + 0.004 * np.sin(2 * np.pi * 5.2 * t)      # わずかに揺らして生っぽく
+    for f, g in [(130.81, 0.45), (196.0, 0.4), (261.63, 0.7),
+                 (392.0, 0.6), (523.25, 0.45)]:
+        v = tone(f, ch, BRASS, 0.006) * env_ad(ch, 0.03, 1.2) * g * vib
+        parts.append(at(v, 0.35, total))
+
+    x = lowpass(mix(*parts), 8000)
+    return reverb(x, 1.2, 0.36, 23), 0.65
 
 
 ALL = {
@@ -461,11 +563,11 @@ ALL = {
     'discover': sfx_discover,
     'casting': sfx_casting, 'cast': sfx_cast, 'enemyCast': sfx_enemy_cast,
     'hit': sfx_hit, 'crit': sfx_crit, 'damage': sfx_damage, 'defeat': sfx_defeat,
-    # 候補(--audition で試聴用フォルダに書き出す。採用時は 'defeat' を差し替える)
-    'defeat_a': sfx_defeat_a, 'defeat_b': sfx_defeat_b, 'defeat_c': sfx_defeat_c,
     'heal': sfx_heal, 'shield': sfx_shield, 'buff': sfx_buff, 'quake': sfx_quake,
     'countdown': sfx_countdown, 'start': sfx_start,
-    'win': sfx_win, 'lose': sfx_lose, 'escape': sfx_escape,
+    'win': sfx_win,
+    # 候補(--audition で試聴用フォルダに書き出す。採用時は 'win' を差し替える)
+    'win_a': sfx_win_a, 'win_b': sfx_win_b, 'win_c': sfx_win_c, 'lose': sfx_lose, 'escape': sfx_escape,
 }
 
 
@@ -483,7 +585,7 @@ def write_manifest():
             base, ext = os.path.splitext(f)
             if ext.lower() not in ('.wav', '.mp3', '.ogg', '.m4a'):
                 continue
-            if base.startswith('defeat_'):   # 試聴用の候補は登録しない
+            if base.startswith('win_'):   # 試聴用の候補は登録しない
                 continue
             if True:
                 sfx[base] = f'sfx/{f}'
@@ -502,7 +604,7 @@ def main():
     ap.add_argument('--all', action='store_true')
     ap.add_argument('--manifest', action='store_true')
     ap.add_argument('--audition', action='store_true',
-                    help='撃破音の候補を public/sound/audition/ に書き出す')
+                    help='勝利音の候補を public/sound/audition/ に書き出す')
     args = ap.parse_args()
 
     if args.manifest:
@@ -512,9 +614,9 @@ def main():
         global SFX_DIR
         SFX_DIR = os.path.join(SOUND_DIR, 'audition')
         print('候補を試聴フォルダに書き出す…')
-        for n in ('defeat', 'defeat_a', 'defeat_b', 'defeat_c'):
+        for n in ('win', 'win_a', 'win_b', 'win_c'):
             x, peak = ALL[n]()
-            save('defeat_now' if n == 'defeat' else n, x, peak)
+            save('win_now' if n == 'win' else n, x, peak)
         return
     if not args.only and not args.all:
         ap.error('--only か --all か --manifest を指定する')

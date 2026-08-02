@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>敵撃破音の候補 — 魔導研究記</title>
+<title>勝利音の候補 — 魔導研究記</title>
 <style>
   body { background:#12121e; color:#ddddee; font-family:"Meiryo",sans-serif;
          margin:0; padding:24px; line-height:1.7; }
@@ -20,7 +20,7 @@
 </style>
 </head>
 <body>
-<h1>敵を倒した時の音 — 候補3案</h1>
+<h1>敵を殲滅した時の音(勝利) — 候補3案</h1>
 <p class="note">
   一番上が<b>現行の音</b>です。聴き比べて、気に入ったものの記号(A / B / C)を伝えてください。<br>
   現行の音も残してあるので、あとで気が変わっても元に戻せます。
@@ -28,40 +28,45 @@
 
 <div class="row now">
   <div class="nm">現行</div>
-  <div class="desc">音程が下がっていく音 + 砂ぼこり。しぼんで終わる印象。</div>
-  <audio controls preload="none" src="defeat_now.wav"></audio>
+  <div class="desc">
+    ド→ミ→ソ→高いド。サイン波の単音を並べただけで、倍音も和音も余韻も無いため
+    着信音のように聞こえてしまう。
+  </div>
+  <audio controls preload="none" src="win_now.wav"></audio>
 </div>
 
 <div class="row">
-  <div class="nm">A 霧散</div>
+  <div class="nm">A 凱歌</div>
   <div class="desc">
-    敵が光の粒になって散る感じ。3つの音が上へ吸い込まれていく、
-    明るく軽い消え方。連戦でも耳が疲れにくい。
+    金管のファンファーレ。「タタタ・ターン」と付点で入り、最後は4声の和音で伸ばす。
+    王道の達成感。3案の中では一番はなやか。
   </div>
-  <audio controls preload="none" src="defeat_a.wav"></audio>
+  <audio controls preload="none" src="win_a.wav"></audio>
 </div>
 
 <div class="row">
-  <div class="nm">B 破砕</div>
+  <div class="nm">B 魔導</div>
   <div class="desc">
-    硬いものが砕けて、破片が転がり落ちる感じ。低音があるので手応えが強く、
-    「倒した」感が一番はっきりする。
+    鐘の和音がふわりと解決する。宙ぶらりんな響きから澄んだ響きへ移り、
+    きらめきが上へ抜けていく。研究所の雰囲気に一番馴染む静かな勝利。
   </div>
-  <audio controls preload="none" src="defeat_b.wav"></audio>
+  <audio controls preload="none" src="win_b.wav"></audio>
 </div>
 
 <div class="row">
-  <div class="nm">C 昇天</div>
+  <div class="nm">C 勝鬨</div>
   <div class="desc">
-    短い和音(ラ・ド♯・ミ)がすっと解決する音。効果音というより小さなファンファーレで、
-    達成感が残る。BGMとも喧嘩しにくい。
+    上昇する気配 → 太鼓の一撃 → 開いた五度の厚い和音。長三度を抜いてあるので
+    甘くならず勇ましい。手応えが一番はっきりする。
   </div>
-  <audio controls preload="none" src="defeat_c.wav"></audio>
+  <audio controls preload="none" src="win_c.wav"></audio>
 </div>
 
 <p class="note">
-  ※ 採用すると <code>gen_sfx.py</code> の <code>ALL['defeat']</code> を差し替えます。
-  現行の <code>sfx_defeat()</code> は消さずに残すので、1行戻すだけで復帰できます。<br>
+  ※ 3案とも「音色を厚くする・和音で終わる・余韻(残響)を残す」を共通の方針にしました。
+  現行が安っぽく聞こえる原因はこの3つが無いことです。<br>
+  ※ 採用すると <code>gen_sfx.py</code> の <code>ALL['win']</code> を差し替えます。
+  現行の <code>sfx_win()</code> は消さずに残すので、1行戻すだけで復帰できます。<br>
   ※ このフォルダは試聴用で、ゲーム本体は読み込みません。
 </p>
 </body>
