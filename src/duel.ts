@@ -2,7 +2,7 @@
 
 import { Application, Container, Graphics, Text } from 'pixi.js';
 import type { Room } from 'colyseus.js';
-import { ELEMENTS, SPRITE_SCALE } from '../shared/data';
+import { ELEMENTS, EQUIP_MAX, SPRITE_SCALE } from '../shared/data';
 import { clampCharId } from '../shared/characters';
 import { spellCooldown, spellDisplayName } from '../shared/spellcraft';
 import {
@@ -92,7 +92,7 @@ export class DuelView {
     this.reconnecting = false;
     this.exited = false;
     this.toldWhy = false;
-    this.spells = equippedSpells().slice(0, 4);
+    this.spells = equippedSpells().slice(0, EQUIP_MAX);
     this.cds = [0, 0, 0, 0];
     this.prevCastingIdx = -1;
     this.prevCount = -99;

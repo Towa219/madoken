@@ -59,7 +59,9 @@ app.get('/api/connlog', (req, res) => {
 // スコアはサーバーで計算し直す。クライアントが送ってくるのはレシピ・強化Lv・品質
 // だけで、魔導値の申告は受け取らない。受け取ると、いくらでも詐称できてしまう。
 app.post('/api/ranking/submit', (req, res) => {
-  const body = req.body as { name?: unknown; nickToken?: unknown; spells?: unknown };
+  const body = req.body as {
+    name?: unknown; nickToken?: unknown; spells?: unknown; bossCleared?: unknown;
+  };
   void (async () => {
     // 名前の持ち主であることを確認する(他人の名前で登録させない)
     const r = await claimName(body?.name, body?.nickToken);
@@ -67,7 +69,7 @@ app.post('/api/ranking/submit', (req, res) => {
       res.status(403).json({ ok: false, error: r.error ?? '名前を確認できません' });
       return;
     }
-    const score = magicRankScore(body?.spells);
+    const score = magicRankScore(body?.spells, body?.bossCleared);
     submitScore(String(body?.name ?? ''), score.total, score.names);
     res.json({ ok: true, score: score.total });
   })().catch(() => res.status(500).json({ ok: false, error: '登録に失敗しました' }));

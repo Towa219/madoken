@@ -1,6 +1,7 @@
 // クライアントから届いた魔法データの検証と再計算
 // クライアントはレシピ・強化Lv・品質だけを送り、性能はサーバーが計算する。
 
+import { EQUIP_MAX } from '../shared/data';
 import { finalStats } from '../shared/spellcraft';
 import type { ElementCounts, Rarity, SpellStats } from '../shared/types';
 
@@ -12,7 +13,7 @@ export interface ServerSpell {
 }
 
 export function parseSpells(raw: unknown): ServerSpell[] {
-  const list = Array.isArray(raw) ? (raw as unknown[]).slice(0, 4) : [];
+  const list = Array.isArray(raw) ? (raw as unknown[]).slice(0, EQUIP_MAX) : [];
   return list.map(s => {
     const obj = s as { name?: unknown; recipe?: unknown; level?: unknown; rarity?: unknown };
     const level = Math.max(0, Math.min(9, Math.floor(Number(obj?.level) || 0)));

@@ -1,8 +1,9 @@
 // オンラインランキング(魔導値)
 //
-// スコア = 持っている魔法のうち魔導値の高い上位4つの合計。
-// 装備中の4つではないので、装備を入れ替えても順位は変わらない。
-// 「一番強い4本を作れたか」を競う。
+// スコア = 持っている魔法のうち、その人が装備できる数だけ魔導値の高い順に合計。
+// 装備中のものではないので、装備を入れ替えても順位は変わらない。
+// 「一番強い手札を作れたか」を競う。
+// 装備数はボスを倒すと4→5→6と増えるので、合計する本数もそれに合わせる。
 //
 // 保存先は2通り:
 //   1. Upstash Redis (環境変数 UPSTASH_REDIS_REST_URL / UPSTASH_REDIS_REST_TOKEN がある場合)
@@ -15,11 +16,11 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { persistent, redis } from './upstash';
 import { clampNickname } from '../shared/nickname';
+import { equipLimit } from '../shared/data';
 import { finalStats, spellMagicValue } from '../shared/spellcraft';
 import type { ElementCounts, Rarity } from '../shared/types';
 
 const RARITY_VALUES: Rarity[] = ['normal', 'rare', 'epic', 'legend'];
-const TOP_N = 4;        // 合計する魔法の数
 const MAX_SPELLS = 200; // 1回に受け取る魔法の上限(送りつけ対策)
 
 export { persistent };
@@ -27,7 +28,7 @@ export { persistent };
 export interface RankEntry {
   name: string;
   score: number;
-  spells: string[]; // 魔導値の高い上位4つの表示名
+  spells: string[]; // 合計に使った魔法の表示名
   date: string;
 }
 
@@ -148,12 +149,20 @@ export async function topRanking(n: number): Promise<RankEntry[]> {
   }
 }
 
-// 送られてきた魔法から「魔導値の高い上位4つの合計」を出す。
+// 送られてきた魔法から「装備できる数だけ、魔導値の高い順に合計」した値を出す。
 //
-// 装備中の4つではなく、持っている魔法すべてから選ぶ。装備の入れ替えで
+// 装備中のものではなく、持っている魔法すべてから選ぶ。装備の入れ替えで
 // 順位が動かないようにするため。性能はレシピから計算し直すので、
 // クライアントが魔導値を偽って送っても効かない。
-export function magicRankScore(raw: unknown): { total: number; names: string[] } {
+// 合計する本数だけは撃破したボスの申告に依るが、これは魔法そのものと同じ扱い。
+export function magicRankScore(
+  raw: unknown, bossCleared: unknown,
+): { total: number; names: string[] } {
+  // 合計する本数はその人が装備できる数。ボスを倒していなければ4本のまま。
+  const cleared = Array.isArray(bossCleared)
+    ? (bossCleared as unknown[]).map(Number).filter(Number.isFinite)
+    : [];
+  const topN = equipLimit(cleared);
   const list = Array.isArray(raw) ? (raw as unknown[]).slice(0, MAX_SPELLS) : [];
   const scored = list.map(item => {
     const o = item as { name?: unknown; recipe?: unknown; level?: unknown; rarity?: unknown };
@@ -165,7 +174,7 @@ export function magicRankScore(raw: unknown): { total: number; names: string[] }
     return { name: String(o?.name ?? '魔弾').slice(0, 24), value: spellMagicValue(stats) };
   });
   scored.sort((a, b) => b.value - a.value);
-  const top = scored.slice(0, TOP_N);
+  const top = scored.slice(0, topN);
   return {
     total: top.reduce((sum, x) => sum + x.value, 0),
     names: top.map(x => x.name),

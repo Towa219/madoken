@@ -6,6 +6,7 @@ import {
   affinitySymbol, ALL_ENEMIES, ELEMENTS, ELEMENT_ORDER, enemyTopY, SPRITE_SCALE,
 } from '../shared/data';
 import type { AffinityGrade, EnemyDef } from '../shared/data';
+import { EQUIP_MAX } from '../shared/data';
 import { makeEnemySprite, makePlayerSprite, makeProjectileGfx } from './battle';
 import { clampCharId } from '../shared/characters';
 import { spellCooldown, spellDisplayName } from '../shared/spellcraft';
@@ -96,7 +97,7 @@ export class CoopView {
     this.mySid = room.sessionId;
     this.onExit = onExit;
     this.exited = false;
-    this.spells = equippedSpells().slice(0, 4);
+    this.spells = equippedSpells().slice(0, EQUIP_MAX);
     this.cds = [0, 0, 0, 0];
     this.prevCastingIdx = -1;
     this.pViews.clear();

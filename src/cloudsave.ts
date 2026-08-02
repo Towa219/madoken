@@ -120,6 +120,7 @@ export async function submitMagicRanking(): Promise<void> {
       body: JSON.stringify({
         name: state.nickname,
         nickToken: state.nickToken,
+        bossCleared: state.bossCleared,
         spells: state.spells.map(sp => ({
           name: spellDisplayName(sp),
           recipe: sp.recipe,

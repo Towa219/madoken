@@ -1,7 +1,7 @@
 // エントリポイント: 画面切替・出撃準備・戦闘結果の処理
 
 import { BattleManager } from './battle';
-import { ELEMENTS, isBossStage } from '../shared/data';
+import { ELEMENTS, EQUIP_MAX, isBossStage } from '../shared/data';
 import { initLab, renderLab, showToast } from './lab';
 import { renderManual } from './manual';
 import {
@@ -277,7 +277,8 @@ function main(): void {
   // キーボード 1〜5 で詠唱(ソロ/共闘)
   window.addEventListener('keydown', ev => {
     const n = parseInt(ev.key, 10);
-    if (!(n >= 1 && n <= 5)) return;
+    // 装備数が増えればキーも増える(6つ目まで)
+    if (!(n >= 1 && n <= EQUIP_MAX)) return;
     if (!$('#battle-view').classList.contains('hidden')) battle.tryCast(n - 1);
     else if (!$('#coop-view').classList.contains('hidden')) coopTryCast(n - 1);
     else if (!$('#duel-view').classList.contains('hidden')) duelTryCast(n - 1);

@@ -4,6 +4,7 @@ import {
   DISASSEMBLE_RATE, DISCOVERY_BONUS_RP, ELEMENT_POOL, ELEMENTS, ELEMENT_ORDER,
   GATHER_COST, GATHER_COUNT, LIBRARY_BONUS_MAX, LIBRARY_BONUS_START,
   libraryBonus, RARITIES, rarityMultiplier, RECIPES, rollRarity,
+  nextEquipUnlock,
   SLOT3_COST, SLOT4_BOSS_STAGE, SLOT4_COST, SLOT5_BOSS_STAGE, SLOT5_COST,
   TRANSMUTE_COST, transmuteResult,
 } from '../shared/data';
@@ -12,7 +13,7 @@ import {
   spellMagicValue, spellNameFor, statsSummary,
 } from '../shared/spellcraft';
 import {
-  addElements, addSpell, deleteSpell, hasBossCleared, notify, save,
+  addElements, addSpell, deleteSpell, equipSlots, hasBossCleared, notify, save,
   spendElements, state, toggleEquip, totalInventory,
 } from './state';
 import type { ElementCounts, ElementId, Spell } from '../shared/types';
@@ -656,6 +657,17 @@ function renderSpellbook(): void {
   sortBtn.textContent = state.sortByPower ? '魔導値順 ▼' : '取得順';
   sortBtn.classList.toggle('active-sort', state.sortByPower);
 
+  // 装備できる数はボスを倒すと増えるので、見出しも案内も毎回作り直す
+  const cap = equipSlots();
+  $('#equip-cap').textContent = `(装備は${cap}つまで)`;
+  const next = nextEquipUnlock(state.bossCleared);
+  $('#equip-note').innerHTML =
+    `★を付けた魔法が、この並び順のまま戦闘のキー1〜${cap}になる。`
+    + (next
+      ? ` <span class="chance-mid">ステージ${next.boss}のボスを倒すと`
+        + `装備できる数が${next.count}つに増える。</span>`
+      : ' <span class="chance-high">装備数は最大まで解放済み。</span>');
+
   const list = $('#spell-list');
   list.innerHTML = '';
   if (state.spells.length === 0) {
@@ -684,7 +696,7 @@ function renderSpellbook(): void {
 
     const eqBtn = document.createElement('button');
     eqBtn.textContent = equipped ? '装備解除' : '装備する';
-    eqBtn.disabled = !equipped && state.equipped.length >= 4;
+    eqBtn.disabled = !equipped && state.equipped.length >= equipSlots();
     eqBtn.addEventListener('click', () => { toggleEquip(sp.id); notify(); });
     btns.appendChild(eqBtn);
 

@@ -589,6 +589,47 @@ export const SLOT4_COST = 120;
 export const SLOT5_COST = 400;
 export const SLOT4_BOSS_STAGE = 10;  // 第4スロットに必要なボス撃破ステージ
 export const SLOT5_BOSS_STAGE = 20;
+
+// ===== 装備できる魔法の数 =====
+//
+// ボスを倒すと増える。ここの数字を変えれば解放の節目を動かせる。
+// 増やす場合は EQUIP_UNLOCKS に足すだけでよく、戦闘バーもキー入力も
+// 装備数から作られるので他を触る必要はない。
+// 調合スロット(SLOT4/5_BOSS_STAGE)とは別に持たせてある。同じ節目にしてあるが、
+// 片方だけ動かしたくなることがあるため。
+
+export const EQUIP_BASE = 4;        // 最初から装備できる数
+export const EQUIP5_BOSS_STAGE = 10; // 5つ目に必要なボス撃破ステージ
+export const EQUIP6_BOSS_STAGE = 20; // 6つ目
+
+// [必要なボス撃破ステージ, 解放後の装備数] を小さい順に
+export const EQUIP_UNLOCKS: { boss: number; count: number }[] = [
+  { boss: EQUIP5_BOSS_STAGE, count: EQUIP_BASE + 1 },
+  { boss: EQUIP6_BOSS_STAGE, count: EQUIP_BASE + 2 },
+];
+
+// この人が今いくつ装備できるか
+export function equipLimit(bossCleared: readonly number[]): number {
+  let n = EQUIP_BASE;
+  for (const u of EQUIP_UNLOCKS) {
+    if (bossCleared.includes(u.boss)) n = Math.max(n, u.count);
+  }
+  return n;
+}
+
+// 装備できる数の上限(サーバーが受け取る魔法の数の上限にも使う)
+export const EQUIP_MAX =
+  EQUIP_UNLOCKS.reduce((m, u) => Math.max(m, u.count), EQUIP_BASE);
+
+// 次に増えるのはどのボスか(まだ増える余地があれば返す)
+export function nextEquipUnlock(
+  bossCleared: readonly number[],
+): { boss: number; count: number } | null {
+  for (const u of EQUIP_UNLOCKS) {
+    if (!bossCleared.includes(u.boss)) return u;
+  }
+  return null;
+}
 export const DISCOVERY_BONUS_RP = 25;
 export const DISASSEMBLE_RATE = 0.4; // 分解時に素材1個が戻る確率
 

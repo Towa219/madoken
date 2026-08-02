@@ -12,6 +12,7 @@
 //   npx tsx test/magic_ranking_check.ts
 
 import { finalStats, spellMagicValue } from '../shared/spellcraft';
+import { EQUIP5_BOSS_STAGE, EQUIP6_BOSS_STAGE } from '../shared/data';
 import type { ElementCounts, Rarity } from '../shared/types';
 
 const BASE = process.env.MADOKEN_ENDPOINT ?? 'http://127.0.0.1:2567';
@@ -39,11 +40,13 @@ const spell = (
 const valueOf = (s: Payload) =>
   spellMagicValue(finalStats(s.recipe, s.level, s.rarity));
 
-async function submit(name: string, token: string, spells: Payload[]) {
+async function submit(
+  name: string, token: string, spells: Payload[], bossCleared: number[] = [],
+) {
   const res = await fetch(`${HTTP}/api/ranking/submit`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name, nickToken: token, spells }),
+    body: JSON.stringify({ name, nickToken: token, spells, bossCleared }),
   });
   return await res.json() as { ok: boolean; score?: number; error?: string };
 }
@@ -127,6 +130,34 @@ async function main(): Promise<void> {
       mine.spells.join(' / '));
   } else {
     console.log('  --  上位3件に入らなかったため、記録の中身の確認は省略');
+  }
+
+  // ---- 6. 装備数が増えると、合計する本数も増える ----
+  {
+    const [nC, tC] = mk('C');
+    const sortedAll = six.map(valueOf).sort((a, b) => b - a);
+    const want4 = sortedAll.slice(0, 4).reduce((x, y) => x + y, 0);
+    const want5 = sortedAll.slice(0, 5).reduce((x, y) => x + y, 0);
+    const want6 = sortedAll.slice(0, 6).reduce((x, y) => x + y, 0);
+
+    const r4 = await submit(nC, tC, six, []);
+    check('ボス未撃破なら4本の合計', r4.score === want4, `${r4.score} / 期待${want4}`);
+
+    const r5 = await submit(nC, tC, six, [EQUIP5_BOSS_STAGE]);
+    check(`ステージ${EQUIP5_BOSS_STAGE}のボス撃破で5本の合計`, r5.score === want5,
+      `${r5.score} / 期待${want5}`);
+
+    const r6 = await submit(nC, tC, six, [EQUIP5_BOSS_STAGE, EQUIP6_BOSS_STAGE]);
+    check(`ステージ${EQUIP6_BOSS_STAGE}のボス撃破で6本の合計`, r6.score === want6,
+      `${r6.score} / 期待${want6}`);
+
+    check('本数が増えるほどスコアも上がる', want4 < want5 && want5 < want6,
+      `${want4} < ${want5} < ${want6}`);
+
+    // 撃破していないボスを名乗っても、無関係なステージでは増えない
+    const rX = await submit(nC, tC, six, [3, 7, 99]);
+    check('関係ないステージの撃破では増えない', rX.score === want4,
+      `${rX.score} / 期待${want4}`);
   }
 
   for (const [n, t] of names) await release(n, t);

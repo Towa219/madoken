@@ -1,5 +1,5 @@
 import { finalStats, spellMagicValue } from '../shared/spellcraft';
-import { ELEMENT_ORDER, START_SLOTS } from '../shared/data';
+import { ELEMENT_ORDER, equipLimit, START_SLOTS } from '../shared/data';
 import { clampCharId } from '../shared/characters';
 import type { ElementId, GameState, Spell } from '../shared/types';
 
@@ -138,7 +138,12 @@ export function spendElements(counts: Partial<Record<ElementId, number>>): boole
 export function addSpell(spell: Spell): void {
   state.spells.push(spell);
   // 空きがあれば自動装備
-  if (state.equipped.length < 4) state.equipped.push(spell.id);
+  if (state.equipped.length < equipSlots()) state.equipped.push(spell.id);
+}
+
+// 今この人が装備できる数。ボスを倒すと増える。
+export function equipSlots(): number {
+  return equipLimit(state.bossCleared);
 }
 
 export function hasBossCleared(stage: number): boolean {
@@ -157,7 +162,7 @@ export function deleteSpell(id: string): void {
 export function toggleEquip(id: string): void {
   if (state.equipped.includes(id)) {
     state.equipped = state.equipped.filter(e => e !== id);
-  } else if (state.equipped.length < 4) {
+  } else if (state.equipped.length < equipSlots()) {
     state.equipped.push(id);
   }
 }
