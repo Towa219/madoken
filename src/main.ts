@@ -5,7 +5,8 @@ import { ELEMENTS, isBossStage } from '../shared/data';
 import { initLab, renderLab, showToast } from './lab';
 import { renderManual } from './manual';
 import {
-  initOnline, coopTryCast, duelTryCast, releaseNickname, renderNickField,
+  initOnline, coopTryCast, duelTryCast, inBattleView, releaseNickname,
+  renderNickField,
 } from './lobby';
 import {
   deleteCloudSave, initCloudUI, renderCloudStatus, scheduleCloudSave,
@@ -64,7 +65,9 @@ function switchTab(tab: Tab): void {
 // ===== 出撃準備(ソロ) =====
 
 function showSetup(): void {
-  playBgm('lobby'); // 戦闘が終わったら普段の曲へ戻す
+  // 共闘/決闘は別画面で進行中のことがある。その最中に戦闘タブを覗いただけで
+  // ロビー曲に変わってしまわないよう、戦っていない時だけ戻す。
+  if (!inBattleView()) playBgm('lobby');
   $('#battle-setup').classList.remove('hidden');
   $('#battle-view').classList.add('hidden');
   $('#battle-overlay').classList.add('hidden');

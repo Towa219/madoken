@@ -124,7 +124,8 @@ export function initOnline(): void {
 
 // 共闘か決闘の画面を開いている最中か。
 // ロビーの接続が切れたり繋ぎ直したりしても、この間は画面を切り替えてはいけない。
-function inBattleView(): boolean {
+// BGMの切り替え判断にも使う(共闘中にロビー曲を流し始めないため)。
+export function inBattleView(): boolean {
   return !$('#coop-view').classList.contains('hidden')
     || !$('#duel-view').classList.contains('hidden');
 }

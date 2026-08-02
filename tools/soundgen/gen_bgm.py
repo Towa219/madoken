@@ -173,6 +173,32 @@ def gen_track(conf, track, quality):
     return path
 
 
+def gen_variants(conf, quality, only=None):
+    """曲想の候補を _preview/ に書き出す。良かったものを bgm.json の tags に採用する。"""
+    out_dir = os.path.join(BGM_DIR, '_preview')
+    os.makedirs(out_dir, exist_ok=True)
+    for t in conf['tracks']:
+        key = os.path.splitext(t['out'])[0]
+        if only and key != only:
+            continue
+        for label, tags in (t.get('variants') or {}).items():
+            track = dict(t)
+            track['tags'] = tags
+            # 候補ごとに別の曲になるよう seed をずらす
+            track['seed'] = int(t['seed']) + ord(label)
+            print(f"♪ {t['name']} 案{label} を生成中…")
+            t0 = time.time()
+            blobs = wait_files(post_prompt(build_workflow(conf, track, quality)))
+            path = os.path.join(out_dir, f'{key}_{label}.mp3')
+            with open(path, 'wb') as f:
+                f.write(blobs[0])
+            print(f'  保存: bgm/_preview/{key}_{label}.mp3 '
+                  f'({os.path.getsize(path) / 1024:.0f} KB / {time.time() - t0:.0f}秒)')
+    print('')
+    print('聴き比べて、良かった案の tags を bgm.json の "tags" に写してから')
+    print('  python gen_bgm.py --all  で本番用に作り直す。')
+
+
 # ===== manifest =====
 
 def write_manifest(conf):
@@ -214,6 +240,8 @@ def main():
     ap.add_argument('--all', action='store_true', help='全4曲を生成')
     ap.add_argument('--manifest', action='store_true',
                     help='生成せず manifest.json だけ作り直す')
+    ap.add_argument('--variants', action='store_true',
+                    help='候補(A/B/C)を _preview/ に書き出す。聴き比べ用')
     args = ap.parse_args()
 
     conf = load_conf()
@@ -225,6 +253,10 @@ def main():
 
     quality = mp3_quality_choice()
     print(f'MP3品質: {quality}')
+
+    if args.variants:
+        gen_variants(conf, quality, args.only)
+        return
 
     targets = conf['tracks']
     if args.only:

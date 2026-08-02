@@ -5,3 +5,4 @@ data/
 20260801.txt
 tools/artgen/*.png
 tools/soundgen/_range.json
+public/sound/bgm/_preview/

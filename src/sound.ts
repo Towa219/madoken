@@ -169,11 +169,13 @@ export async function initSound(): Promise<void> {
   // 最初のユーザー操作で音を使えるようにする(自動再生の制限)
   const unlock = (): void => {
     void ensureCtx();
-    window.removeEventListener('pointerdown', unlock);
-    window.removeEventListener('keydown', unlock);
+    for (const ev of ['pointerdown', 'keydown', 'click', 'touchstart'] as const) {
+      window.removeEventListener(ev, unlock);
+    }
   };
-  window.addEventListener('pointerdown', unlock);
-  window.addEventListener('keydown', unlock);
+  for (const ev of ['pointerdown', 'keydown', 'click', 'touchstart'] as const) {
+    window.addEventListener(ev, unlock);
+  }
   notifySound();
 }
 
