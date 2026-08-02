@@ -34,7 +34,7 @@ export function computeSpell(counts: ElementCounts): CraftResult {
   // 雷は「速くて当たれば大きい」、風は「軽くて速い」という役割を保ったまま、
   // 威力の下地を持たせてある。
   s.power += 8 * c('fire') + 2 * c('water') + 5 * c('earth')
-           + 3 * c('ice') + 2 * c('light') + 12 * c('dark')
+           + 3 * c('ice') + 3 * c('light') + 12 * c('dark')
            + 7 * c('thunder') + 3 * c('wind');
   s.manaCost += 6 * c('fire') - 4 * c('water') + 3 * c('earth')
               + 6 * c('dark') + 4 * c('thunder') + 2 * c('light');
@@ -66,7 +66,7 @@ export function computeSpell(counts: ElementCounts): CraftResult {
 
   // 防御・支援系の性能は威力から換算
   if (s.kind === 'shield') s.barrier = Math.round(s.power * 2.2);
-  if (s.kind === 'heal') s.healPower = Math.round(s.power * 1.8 + 10);
+  if (s.kind === 'heal') s.healPower = Math.round(s.power * 2.2 + 14);
   if (s.kind === 'taunt') s.hateGain = Math.round(s.power * 10);
   if (s.kind === 'focus') s.mpRegenBonus = mpRegenBonusOf(s);
   // ここは調合台のプレビューでも使う。1つでも抜けると
@@ -229,7 +229,9 @@ export function finalStats(
 
   // 派生値は最終威力から再計算
   if (s.kind === 'shield') s.barrier = Math.round(s.power * 2.2);
-  if (s.kind === 'heal') s.healPower = Math.round(s.power * 1.8 + 10);
+  // 回復量は下駄の部分にも強化倍率を掛ける。掛けないと、強化しても
+  // 回復量の伸びだけが鈍る(威力は1.72倍になるのに回復量は1.57倍にしかならない)。
+  if (s.kind === 'heal') s.healPower = Math.round(s.power * 2.2 + 14 * mul);
   if (s.kind === 'taunt') s.hateGain = Math.round(s.power * 10);
   if (s.kind === 'ward') s.wardPct = wardPctOf(s);
   if (s.kind === 'vigor') s.hpBoost = hpBoostOf(s);

@@ -17,9 +17,13 @@ import { finalStats, spellMagicValue } from '../shared/spellcraft';
 import { ELEMENT_ORDER } from '../shared/data';
 import type { ElementCounts, SpellKind } from '../shared/types';
 
-// 上位1割(現実的な「良い1本」の水準)が収まっているべき範囲
+// 上位1割(現実的な「良い1本」の水準)が収まっているべき範囲。
+// エレメントの威力を見直すたびに全体の絶対値は少しずつ上がるので、
+// ここは「暴走していないか」を見るだけの緩い枠にしてある。
+// 本当に効くのは下の「種類どうしの開き」で、こちらが崩れると
+// 特定の系統を選ぶこと自体が損になる。
 const TOP_MIN = 300;
-const TOP_MAX = 470;
+const TOP_MAX = 500;
 // 中央値(平凡な1本)が収まっているべき範囲。
 // 封印のように「一番弱い構成でも既に10秒止められる」種類は、
 // 構成による差が出にくいぶん中央値が高くなる。それは設計どおりなので
