@@ -2,12 +2,14 @@
   "name": "magic-web-game",
   "private": true,
   "version": "0.6.3",
-  "engines": { "node": ">=20" },
+  "engines": {
+    "node": ">=20"
+  },
   "type": "module",
   "scripts": {
     "dev": "vite",
     "dev:server": "tsx watch server/index.ts",
-    "build": "tsc --noEmit && tsc -p tsconfig.server.json && vite build",
+    "build": "node tools/stamp-version.mjs && tsc --noEmit && tsc -p tsconfig.server.json && vite build",
     "start": "tsx server/index.ts",
     "preview": "vite preview"
   },

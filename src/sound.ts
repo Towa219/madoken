@@ -30,7 +30,8 @@ interface Prefs {
 }
 
 let manifest: Manifest | null = null;
-let prefs: Prefs = { bgmVolume: 0.4, sfxVolume: 0.7, muted: false };
+// BGMは曲自体が大きめなので控えめから始める(設定でいつでも上げられる)
+let prefs: Prefs = { bgmVolume: 0.22, sfxVolume: 0.6, muted: false };
 
 // ループの継ぎ目をなだらかにする秒数。
 // 生成した曲は「曲として終わる」ので、頭と尻が音楽的につながらない。
@@ -41,6 +42,13 @@ let fadeTimer: number | undefined;
 
 let ctx: AudioContext | null = null;
 let sfxGain: GainNode | null = null;
+// BGMの音量は Web Audio 側で調整する。
+// iOS など携帯端末のブラウザは HTMLAudioElement.volume を無視する
+// (端末の音量ボタンでしか変えられない)ため、そのままでは
+// 画面の音量つまみもミュートも効かない。音声グラフに通せば効く。
+let bgmGain: GainNode | null = null;
+let bgmSource: MediaElementAudioSourceNode | null = null;
+let bgmRouted = false; // Web Audio に通せたか(通せない環境では volume に戻す)
 const sfxBuffers = new Map<string, AudioBuffer>();
 
 let bgmEl: HTMLAudioElement | null = null;
@@ -118,7 +126,13 @@ export function setMuted(m: boolean): void {
 
 function applyVolumes(): void {
   if (sfxGain) sfxGain.gain.value = prefs.muted ? 0 : prefs.sfxVolume;
-  if (bgmEl) bgmEl.volume = bgmVolumeNow();
+  const v = bgmVolumeNow();
+  if (bgmRouted && bgmGain) {
+    bgmGain.gain.value = v;
+    if (bgmEl) bgmEl.volume = 1; // 音量調整は gain 側に任せる
+  } else if (bgmEl) {
+    bgmEl.volume = v;
+  }
 }
 
 // 今この瞬間のBGM音量。ループの前後だけ絞る。
@@ -133,12 +147,25 @@ function bgmVolumeNow(): number {
   return base * Math.max(LOOP_FADE_FLOOR, Math.min(1, k));
 }
 
+// BGMを音声グラフに通す。1つの要素につき1回しか繋げないので、覚えておく。
+function routeBgm(): void {
+  if (bgmRouted || !ctx || !bgmGain || !bgmEl) return;
+  try {
+    bgmSource = ctx.createMediaElementSource(bgmEl);
+    bgmSource.connect(bgmGain);
+    bgmRouted = true;
+  } catch {
+    // 繋げない環境では element の volume を使う(PCでは問題なく効く)
+    bgmRouted = false;
+  }
+}
+
 // 再生中だけ音量を追従させる(timeupdate は間隔が粗くフェードが階段になる)
 function startFadeWatch(): void {
   if (fadeTimer) window.clearInterval(fadeTimer);
   fadeTimer = window.setInterval(() => {
     if (!bgmEl || bgmEl.paused) return;
-    bgmEl.volume = bgmVolumeNow();
+    applyVolumes();
   }, 50);
 }
 
@@ -177,6 +204,28 @@ export async function initSound(): Promise<void> {
   for (const ev of ['pointerdown', 'keydown', 'click', 'touchstart'] as const) {
     window.addEventListener(ev, unlock);
   }
+
+  // 見えていないタブでは鳴らさない。
+  // 複数のタブでゲームを開くと、裏のタブのBGMが鳴り続けて二重になり、
+  // 「音量つまみが効かない」「音が割れる」ように感じられるため。
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+      stopAllSfxLoops();
+      bgmEl?.pause();
+    } else if (currentBgm) {
+      void startBgmEl(currentBgm);
+    }
+  });
+
+  // 別のタブで音量を変えたら、こちらにも反映する
+  window.addEventListener('storage', ev => {
+    if (ev.key !== PREF_KEY) return;
+    loadPrefs();
+    applyVolumes();
+    if (prefs.muted) stopAllSfxLoops();
+    notifySound();
+  });
+
   notifySound();
 }
 
@@ -187,6 +236,8 @@ async function ensureCtx(): Promise<boolean> {
       ctx = new AudioContext();
       sfxGain = ctx.createGain();
       sfxGain.connect(ctx.destination);
+      bgmGain = ctx.createGain();
+      bgmGain.connect(ctx.destination);
     } catch {
       ctx = null;
       return false;
@@ -227,10 +278,12 @@ async function startBgmEl(id: BgmId): Promise<void> {
     bgmEl = new Audio();
     bgmEl.loop = true;
     bgmEl.preload = 'auto';
+    bgmEl.crossOrigin = 'anonymous';
   }
+  routeBgm();
   const src = url(file);
   if (!bgmEl.src.endsWith(src)) bgmEl.src = src;
-  bgmEl.volume = bgmVolumeNow();
+  applyVolumes();
   try {
     await bgmEl.play();
     startFadeWatch();

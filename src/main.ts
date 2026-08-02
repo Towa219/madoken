@@ -36,7 +36,34 @@ let lastStage = 1;
 
 type Tab = 'lab' | 'book' | 'battle' | 'online' | 'manual' | 'settings';
 
+// 戦闘中(ソロ・共闘・決闘)はタブを移動させない。
+// 移動できると、進行中の戦闘が見えないまま進んでしまう。
+function battleInProgress(): boolean {
+  return battle.isActive() || inBattleView();
+}
+
+const TAB_BUTTONS = [
+  '#tab-lab', '#tab-book', '#tab-battle',
+  '#tab-online', '#tab-manual', '#tab-settings',
+];
+
+// 戦闘中は、今表示しているタブ以外を押せなくする
+function updateTabLock(): void {
+  const locked = battleInProgress();
+  for (const sel of TAB_BUTTONS) {
+    const b = $<HTMLButtonElement>(sel);
+    const keep = b.classList.contains('active');
+    b.disabled = locked && !keep;
+    b.title = b.disabled ? '戦闘中は移動できない(決着をつけるか撤退する)' : '';
+  }
+}
+
 function switchTab(tab: Tab): void {
+  // 戦闘中の移動を止める(ボタンを無効にしているが、念のためここでも弾く)
+  if (battleInProgress()) {
+    showToast('戦闘中は他の画面に移動できない。決着をつけるか撤退しよう。');
+    return;
+  }
   playSfx('click');
   $('#lab-screen').classList.toggle('hidden', tab !== 'lab');
   $('#book-screen').classList.toggle('hidden', tab !== 'book');
@@ -266,6 +293,8 @@ function main(): void {
 
   // 音は素材が無ければ無音のまま。読み込めたら設定画面を作る
   void initSound().then(() => { initSoundUI(); playBgm('lobby'); });
+
+  window.setInterval(updateTabLock, 400);
 
   initCloudUI();
   initCharPicker('#char-picker');    // 設定タブ
