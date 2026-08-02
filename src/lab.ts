@@ -532,6 +532,7 @@ function endTransmuteMode(): void {
 }
 
 function renderTransmute(): void {
+  if (transmuting) return; // 錬成中はボタン表示を上書きしない
   const btn = $<HTMLButtonElement>('#btn-transmute');
   const cancel = $<HTMLButtonElement>('#btn-transmute-cancel');
   const note = $('#transmute-note');
@@ -577,8 +578,46 @@ function transmute(): void {
   const id = transmutePick;
   if (!id || !canTransmute(id)) return;
 
+  // 採取・調合と同じく、進行バーが左から100%まで進んでから完了する
   transmuting = true;
-  if (!spendElements({ [id]: TRANSMUTE_COST })) { transmuting = false; return; }
+  const btn = $<HTMLButtonElement>('#btn-transmute');
+  btn.disabled = true;
+  btn.textContent = '錬成中…';
+  $<HTMLButtonElement>('#btn-transmute-cancel').disabled = true;
+  $('#transmute-msg').textContent = '';
+  const bar = $('#transmute-bar');
+  const fill = $('#transmute-bar-fill');
+  bar.classList.remove('hidden');
+  fill.style.width = '0%';
+
+  const duration = 1400;
+  const start = performance.now();
+  const timer = window.setInterval(() => {
+    const p = Math.min(1, (performance.now() - start) / duration);
+    fill.style.width = `${Math.round(p * 100)}%`;
+    if (p >= 1) {
+      window.clearInterval(timer);
+      bar.classList.add('hidden');
+      resolveTransmute(id);
+    }
+  }, 30);
+}
+
+// バーが最後まで進んでから、実際に素材を消費して結果を出す
+function resolveTransmute(id: ElementId): void {
+  transmuting = false;
+  $<HTMLButtonElement>('#btn-transmute-cancel').disabled = false;
+  // 進行中に手持ちが変わっていたら中止する(素材だけ消えないように)
+  if (!canTransmute(id)) {
+    endTransmuteMode();
+    renderLab();
+    return;
+  }
+  if (!spendElements({ [id]: TRANSMUTE_COST })) {
+    endTransmuteMode();
+    renderLab();
+    return;
+  }
 
   const got = transmuteResult(Array(TRANSMUTE_COST).fill(id) as ElementId[]);
   addElements([got]);
@@ -592,7 +631,6 @@ function transmute(): void {
   playSfx('transmute');
   endTransmuteMode();
   notify();
-  transmuting = false;
 }
 
 function cancelTransmute(): void {

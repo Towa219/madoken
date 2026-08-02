@@ -159,15 +159,17 @@ button.tab.active { background: #5533aa; border-color: #7755cc; }
 
 #craft-controls { display: flex; gap: 8px; }
 #btn-craft { flex: 1; background: #5533aa; border-color: #7755cc; font-weight: bold; }
-#craft-bar, #gather-bar {
+#craft-bar, #gather-bar, #transmute-bar {
   height: 10px; background: #101020; border: 1px solid #44446a;
   border-radius: 5px; margin-top: 8px; overflow: hidden;
 }
-#craft-bar-fill, #gather-bar-fill {
+#craft-bar-fill, #gather-bar-fill, #transmute-bar-fill {
   height: 100%; width: 0%;
   background: linear-gradient(90deg, #5533aa, #bb99ff);
 }
 #gather-bar-fill { background: linear-gradient(90deg, #2a7a55, #66dd99); }
+#transmute-bar-fill { background: linear-gradient(90deg, #2a5a7a, #66c8ee); }
+#transmute-bar.hidden { display: none; }
 #craft-msg { margin-top: 8px; font-size: 12px; color: #88ddaa; min-height: 18px; }
 .chance-high { color: #88ddaa; }
 .chance-mid { color: #ffcc66; }

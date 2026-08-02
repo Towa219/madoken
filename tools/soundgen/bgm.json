@@ -2,66 +2,69 @@
   "_説明": "生成するBGM。ACE-Step は tags(ジャンルや楽器の羅列)で曲想を指定する。歌詞は入れない。",
   "_要点": "雰囲気の語だけ並べると、掴みどころのない環境音になる。『覚えられる旋律がある』ことを必ず指定すること。",
   "_variants": "候補。--variants で _preview/ に3案ずつ書き出し、良かったものを tags に採用する。",
-
   "common_tags": "instrumental, no vocals, game soundtrack, strong catchy melody, memorable main theme, clear lead line, clean mix, well structured",
   "negative_tags": "vocals, singing, voice, lyrics, applause, noise, distortion, silence, ambient drone, formless, meandering, no melody, background texture only",
-
   "tracks": [
     {
       "out": "lobby.mp3",
       "name": "ロビー・研究室",
       "seconds": 70,
       "bpm": 96,
-      "seed": 2001,
+      "seed": 2068,
       "keyscale": "F major",
-      "tags": "fantasy town theme, JRPG overworld, warm flute lead melody, acoustic guitar, light strings, gentle percussion, cozy, hopeful, singable tune",
+      "tags": "cozy tavern theme, lute and fiddle melody, hand percussion, medieval folk dance, warm and inviting, foot tapping",
       "variants": {
         "A": "fantasy town theme, JRPG overworld, warm flute lead melody, acoustic guitar, light strings, gentle percussion, cozy, hopeful, singable tune",
         "B": "magic library theme, celesta and music box lead, soft pizzicato strings, curious and whimsical, gentle waltz, storybook feeling",
         "C": "cozy tavern theme, lute and fiddle melody, hand percussion, medieval folk dance, warm and inviting, foot tapping"
-      }
+      },
+      "_採用": "案C"
     },
     {
       "out": "battle.mp3",
       "name": "通常戦闘",
       "seconds": 65,
       "bpm": 145,
-      "seed": 2002,
+      "seed": 2069,
       "keyscale": "D minor",
-      "tags": "JRPG battle theme, orchestral rock, distorted electric guitar riff, driving double bass drums, heroic brass melody, fast strings ostinato, exciting, adrenaline",
+      "tags": "hybrid battle theme, synth arpeggio, punchy electronic drums, orchestral strings, modern anime action, urgent and catchy",
       "variants": {
         "A": "JRPG battle theme, orchestral rock, distorted electric guitar riff, driving double bass drums, heroic brass melody, fast strings ostinato, exciting, adrenaline",
         "B": "symphonic battle theme, bold brass fanfare melody, galloping strings, snare rolls, timpani, heroic adventure, classic RPG",
         "C": "hybrid battle theme, synth arpeggio, punchy electronic drums, orchestral strings, modern anime action, urgent and catchy"
-      }
+      },
+      "_採用": "案C"
     },
     {
       "out": "boss.mp3",
       "name": "ボス戦",
       "seconds": 75,
       "bpm": 158,
-      "seed": 2003,
+      "seed": 2068,
       "keyscale": "C minor",
       "tags": "epic boss battle theme, latin choir chant, thundering taiko and timpani, heavy low brass, pipe organ, soaring string melody, overwhelming, desperate fight",
       "variants": {
         "A": "epic boss battle theme, latin choir chant, thundering taiko and timpani, heavy low brass, pipe organ, soaring string melody, overwhelming, desperate fight",
         "B": "symphonic metal boss theme, shredding electric guitar, blast beat drums, dark orchestra, aggressive riff, final showdown",
         "C": "dark waltz boss theme, ominous pipe organ melody, harpsichord, dissonant strings, elegant and menacing, mad sorcerer"
-      }
+      },
+      "_採用": "案A"
     },
     {
       "out": "duel.mp3",
       "name": "決闘",
       "seconds": 65,
       "bpm": 150,
-      "seed": 2004,
+      "seed": 2070,
       "keyscale": "A minor",
-      "tags": "tense duel theme, flamenco guitar melody, driving handclaps and cajon, sharp staccato strings, showdown, sly and confident",
+      "tags": "electronic duel theme, pulsing bass synth, glitch percussion, tense string stabs, cyber arena, sharp and cool",
       "variants": {
         "A": "tense duel theme, flamenco guitar melody, driving handclaps and cajon, sharp staccato strings, showdown, sly and confident",
         "B": "electronic duel theme, pulsing bass synth, glitch percussion, tense string stabs, cyber arena, sharp and cool",
         "C": "jazzy duel theme, walking upright bass, brushed drums, sly muted trumpet melody, playful tension, cat and mouse"
-      }
+      },
+      "_採用": "案B"
     }
-  ]
+  ],
+  "_採用済み": "tags と seed は採用した案のもの。再生成すれば同じ曲が出る。"
 }
