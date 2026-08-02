@@ -69,6 +69,11 @@ export class CoopView {
 
   private cds = [0, 0, 0, 0];
   private shakeT = 0;
+  // ボスの全体攻撃の予告
+  private warnG!: Graphics;
+  private warnText!: Text;
+  private warnT = 0;      // 着弾までの残り秒
+  private warnTotal = 0;
   private prevCastingIdx = -1;
   private prevCastTotal = 0;
   private spellBtns: HTMLButtonElement[] = [];
@@ -103,6 +108,7 @@ export class CoopView {
     this.pViews.clear();
     this.eViews = [];
     this.enemySig = '';
+    this.warnT = 0;
     this.anims = [];
     this.popups = [];
     this.fxs = [];
@@ -164,6 +170,25 @@ export class CoopView {
     this.stageText.anchor.set(0.5, 0);
     this.stageText.position.set(W / 2, 12);
     this.uiLayer.addChild(this.stageText);
+
+    // ボスの全体攻撃の予告。画面全体を赤く染めて、中央に警告を出す。
+    // 見落とすと全員が一気に削られるので、目立たせることを優先している。
+    this.warnG = new Graphics();
+    this.warnG.visible = false;
+    this.uiLayer.addChild(this.warnG);
+
+    this.warnText = new Text({
+      text: '',
+      style: {
+        fill: 0xffdd55, fontSize: 34, fontFamily: 'Meiryo, sans-serif', fontWeight: 'bold',
+        stroke: { color: 0x330000, width: 6 },
+        align: 'center',
+      },
+    });
+    this.warnText.anchor.set(0.5);
+    this.warnText.position.set(W / 2, H / 2 - 40);
+    this.warnText.visible = false;
+    this.uiLayer.addChild(this.warnText);
   }
 
   private buildBar(): void {
@@ -261,6 +286,25 @@ export class CoopView {
     });
 
     // 地震: 画面を揺らし、大地に波紋を走らせる
+    // ボスの全体攻撃の予告 → 着弾
+    room.onMessage('eaoewarn', (m: { name: string; sec: number }) => {
+      playSfx('countdown');
+      this.warnTotal = Math.max(0.3, Number(m.sec) || 1.8);
+      this.warnT = this.warnTotal;
+      this.warnText.text = `⚠ ${m.name} の全体攻撃!
+全員に来る — 備えろ`;
+      this.warnText.visible = true;
+      this.warnG.visible = true;
+    });
+    room.onMessage('eaoehit', () => {
+      playSfx('quake');
+      this.shakeT = 0.7;
+      this.warnT = 0;
+      this.warnText.visible = false;
+      this.warnG.visible = false;
+      this.addPopup(W / 2, cy(150), '全体攻撃!', 0xff6644);
+    });
+
     room.onMessage('quake', () => {
       playSfx('quake');
       this.shakeT = 0.6;
@@ -516,6 +560,26 @@ export class CoopView {
     this.updateWaiting(st);
     this.updateBar(st, dt);
     this.drawBars(st);
+
+    // 全体攻撃の予告。着弾が近づくほど赤く、速く点滅する。
+    if (this.warnT > 0) {
+      this.warnT -= dt;
+      const left = Math.max(0, this.warnT);
+      const near = 1 - left / this.warnTotal;          // 0=予告直後 1=着弾直前
+      const blink = 0.35 + 0.65 * Math.abs(Math.sin(left * (6 + near * 14)));
+      this.warnG.clear();
+      this.warnG.rect(0, 0, W, H).fill({ color: 0xff2200, alpha: 0.10 + 0.22 * near * blink });
+      // 上下から迫る帯。見ていなくても視界の端で気づける。
+      const band = 10 + 46 * near;
+      this.warnG.rect(0, 0, W, band).fill({ color: 0xff4422, alpha: 0.30 + 0.4 * blink });
+      this.warnG.rect(0, H - band, W, band).fill({ color: 0xff4422, alpha: 0.30 + 0.4 * blink });
+      this.warnText.alpha = blink;
+      this.warnText.scale.set(1 + near * 0.18);
+      if (this.warnT <= 0) {
+        this.warnText.visible = false;
+        this.warnG.visible = false;
+      }
+    }
 
     // 画面揺れ(地震)
     if (this.shakeT > 0) {

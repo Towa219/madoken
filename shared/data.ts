@@ -344,6 +344,12 @@ export interface EnemyDef {
   shape: EnemyShape;
   tier: number;        // 出現帯(1〜8)
   drops: ElementId[];  // ボス撃破時の報酬候補
+  // ===== 全体攻撃(今はボスだけが持つ) =====
+  // 何回かに一度、狙いを定めず全員を巻き込む一撃を放つ。
+  // これが無いと、挑発役が攻撃を全部引き受けるだけで他の3人は無傷でいられ、
+  // 回復・護符・全体護盾を持つ意味がほとんど無くなる。
+  aoeEvery?: number;   // 攻撃◯回に1回。未設定なら全体攻撃をしない
+  aoeMul?: number;     // 通常の一撃に対する威力倍率
 }
 
 // キャラクターの表示倍率。見た目だけの調整で、性能や当たり判定の計算には影響しない。
@@ -501,43 +507,53 @@ export const BOSSES: EnemyDef[] = [
   { id: 'core', name: '魔導核', hp: 150, atk: 14, interval: 2.8, tier: 1,
     affinity: { light: 1, dark: 1 },
     attackAttr: 'dark', color: 0xee66ff, size: 1.5, shape: 'orb',
-    drops: ['light', 'dark', 'thunder', 'ice'] },
+    drops: ['light', 'dark', 'thunder', 'ice'],
+    aoeEvery: 5, aoeMul: 1.5 },
   { id: 'stoneguardian', name: '石の守護者', hp: 300, atk: 20, interval: 3.4, tier: 2,
     affinity: { thunder: 2, water: 1, earth: -2, fire: -1 },
     attackAttr: 'earth', color: 0x889988, size: 1.6, shape: 'golem',
-    drops: ['earth', 'earth', 'thunder', 'light'] },
+    drops: ['earth', 'earth', 'thunder', 'light'],
+    aoeEvery: 5, aoeMul: 1.6 },
   { id: 'crimsondragon', name: '紅蓮竜', hp: 480, atk: 28, interval: 2.9, tier: 3,
     affinity: { water: 2, ice: 2, fire: -2, wind: -1 },
     attackAttr: 'fire', color: 0xcc2222, size: 1.7, shape: 'serpent',
-    drops: ['fire', 'fire', 'dark', 'light'] },
+    drops: ['fire', 'fire', 'dark', 'light'],
+    aoeEvery: 4, aoeMul: 1.7 },
   { id: 'icequeen', name: '氷獄女王', hp: 700, atk: 34, interval: 2.8, tier: 4,
     affinity: { fire: 2, thunder: 1, ice: -2, water: -2 },
     attackAttr: 'ice', color: 0x99ddff, size: 1.65, shape: 'knight',
-    drops: ['ice', 'ice', 'water', 'light'] },
+    drops: ['ice', 'ice', 'water', 'light'],
+    aoeEvery: 4, aoeMul: 1.8 },
   { id: 'thunderking', name: '雷帝', hp: 950, atk: 42, interval: 2.2, tier: 5,
     affinity: { earth: 2, dark: 1, thunder: -2, wind: -2 },
     attackAttr: 'thunder', color: 0xffee44, size: 1.7, shape: 'bird',
-    drops: ['thunder', 'thunder', 'wind', 'dark'] },
+    drops: ['thunder', 'thunder', 'wind', 'dark'],
+    aoeEvery: 4, aoeMul: 1.9 },
   { id: 'gaia', name: '大地母神', hp: 1400, atk: 46, interval: 3.6, tier: 6,
     affinity: { water: 2, wind: 1, earth: -2, ice: -1 },
     attackAttr: 'earth', color: 0x88bb66, size: 1.8, shape: 'plant',
-    drops: ['earth', 'earth', 'water', 'light'] },
+    drops: ['earth', 'earth', 'water', 'light'],
+    aoeEvery: 4, aoeMul: 2.0 },
   { id: 'seraph', name: '光輝天使', hp: 1800, atk: 54, interval: 2.7, tier: 7,
     affinity: { dark: 2, fire: 1, light: -2, thunder: -1 },
     attackAttr: 'light', color: 0xffffdd, size: 1.75, shape: 'knight',
-    drops: ['light', 'light', 'light', 'dark'] },
+    drops: ['light', 'light', 'light', 'dark'],
+    aoeEvery: 3, aoeMul: 2.1 },
   { id: 'abysslord', name: '深淵の主', hp: 2300, atk: 60, interval: 2.6, tier: 8,
     affinity: { light: 2, water: 1, dark: -2, earth: -1 },
     attackAttr: 'dark', color: 0x221133, size: 1.8, shape: 'eye',
-    drops: ['dark', 'dark', 'dark', 'light'] },
+    drops: ['dark', 'dark', 'dark', 'light'],
+    aoeEvery: 3, aoeMul: 2.2 },
   { id: 'stareater', name: '星喰らい', hp: 3000, atk: 68, interval: 2.5, tier: 8,
     affinity: { light: 1, dark: 1, thunder: -1 },
     attackAttr: 'dark', color: 0x4422aa, size: 1.85, shape: 'orb',
-    drops: ['light', 'dark', 'thunder', 'ice'] },
+    drops: ['light', 'dark', 'thunder', 'ice'],
+    aoeEvery: 3, aoeMul: 2.3 },
   { id: 'endcore', name: '終焉の魔導核', hp: 4000, atk: 76, interval: 2.4, tier: 8,
     affinity: { light: 1, dark: 1 },
     attackAttr: 'light', color: 0xff66cc, size: 1.9, shape: 'orb',
-    drops: ['light', 'light', 'dark', 'dark'] },
+    drops: ['light', 'light', 'dark', 'dark'],
+    aoeEvery: 3, aoeMul: 2.5 },
 ];
 
 export const isBossStage = (stage: number) => stage % 5 === 0;
@@ -575,6 +591,11 @@ export const DUEL_MAX_HP = 300;   // 決闘は読み合いのぶんさらに長�
 export const DUEL_MAX_MP = 140;
 export const ENEMY_HP_MUL = 3.5;  // 敵HPの全体倍率
 export const ENEMY_ATK_MUL = 0.8; // 敵攻撃力の全体倍率
+
+// ボスの全体攻撃を予告してから着弾するまでの秒数。
+// 何の前触れも無く全員が削られると理不尽に感じるので、必ず間を置く。
+// 短くすると回復や護盾を挟む余裕が無くなる。
+export const BOSS_AOE_WARN_SEC = 1.8;
 
 // ステージ補正(tier別の基礎値で強さを表すため、伸びは緩やかに)
 export const stageHpMul = (stage: number) => Math.pow(1.15, stage - 1);

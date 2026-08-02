@@ -21,7 +21,8 @@ import { CODE_REPLACED } from '../../shared/netcodes';
 import { clampNickname } from '../../shared/nickname';
 import { clampCharId } from '../../shared/characters';
 import {
-  affinityMul, battleRP, bossForStage, ENEMY_ATK_MUL, ENEMY_HP_MUL, isBossStage,
+  affinityMul, battleRP, BOSS_AOE_WARN_SEC, bossForStage, ENEMY_ATK_MUL, ENEMY_HP_MUL,
+  isBossStage,
   pickEnemiesForStage, PLAYER_MAX_HP, PLAYER_MAX_MP, PLAYER_MP_REGEN,
   stageAtkMul, stageHpMul,
 } from '../../shared/data';
@@ -129,6 +130,7 @@ interface EInternal {
   dotTick: number;
   dotOwner: string; // 継続ダメージの所有者(スコア加算用)
   sealedT: number;  // 封印の残り
+  atkCount: number; // 何回攻撃したか(全体攻撃の周期に使う)
 }
 
 export class CoopRoom extends Room<CoopState> {
@@ -339,7 +341,7 @@ export class CoopRoom extends Room<CoopState> {
       this.eInternals.push({
         def, atkTimer: Math.random() * def.interval * 0.7,
         frozenT: 0, slowPct: 0, slowT: 0,
-        dotDps: 0, dotT: 0, dotTick: 0, dotOwner: '', sealedT: 0,
+        dotDps: 0, dotT: 0, dotTick: 0, dotOwner: '', sealedT: 0, atkCount: 0,
       });
     });
   }
@@ -781,6 +783,31 @@ export class CoopRoom extends Room<CoopState> {
       if (p.alive) alive.push({ sid, hate: this.internals.get(sid)?.hate ?? 0 });
     });
     if (alive.length === 0) return;
+
+    ei.atkCount++;
+    const base = ei.def.atk * ENEMY_ATK_MUL * stageAtkMul(this.state.stage);
+
+    // ボスは何回かに一度、狙いを定めず全員を巻き込む一撃を放つ。
+    // 予告してから着弾するので、回復や護盾を挟む余裕がある。
+    if (ei.def.aoeEvery && ei.atkCount % ei.def.aoeEvery === 0) {
+      const dmg = Math.round(base * (ei.def.aoeMul ?? 1.5) * (0.9 + Math.random() * 0.2));
+      this.broadcast('eaoewarn', {
+        i: idx, name: ei.def.name, attr: ei.def.attackAttr, sec: BOSS_AOE_WARN_SEC,
+      });
+      this.pending.push({
+        t: BOSS_AOE_WARN_SEC,
+        fn: () => {
+          if (this.state.phase !== 'fight') return;
+          // 予告中に倒されたら不発。避けきったご褒美になる。
+          if (!this.state.enemies[idx]?.alive) return;
+          this.broadcast('eaoehit', { i: idx, attr: ei.def.attackAttr });
+          this.state.players.forEach((p, sid) => {
+            if (p.alive) this.damagePlayer(sid, dmg, ei.def.attackAttr);
+          });
+        },
+      });
+      return;
+    }
     // ヘイト制: 70%で最高ヘイトを、30%でヘイト比例の抽選
     let target: { sid: string; hate: number };
     if (Math.random() < 0.7) {
@@ -796,9 +823,7 @@ export class CoopRoom extends Room<CoopState> {
     }
     const delayMs = 500;
     this.broadcast('eproj', { i: idx, targetSid: target.sid, delayMs });
-    const dmg = Math.round(
-      ei.def.atk * ENEMY_ATK_MUL * stageAtkMul(this.state.stage) * (0.9 + Math.random() * 0.2),
-    );
+    const dmg = Math.round(base * (0.9 + Math.random() * 0.2));
     this.pending.push({
       t: delayMs / 1000,
       fn: () => {
