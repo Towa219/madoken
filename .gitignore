@@ -7,3 +7,6 @@ tools/artgen/*.png
 tools/soundgen/_range.json
 public/sound/bgm/_preview/
 public/sound/sfx/_試聴.html
+
+# 宣伝用スクリーンショット(生成物)
+tools/shots/
