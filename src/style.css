@@ -299,6 +299,15 @@ button.tab.active { background: #5533aa; border-color: #7755cc; }
 .char-picker.compact .char-name { font-size: 10px; }
 .char-picker.compact .char-note { display: none; }
 
+/* サウンド設定 */
+.sound-row {
+  display: flex; align-items: center; gap: 10px; margin: 8px 0;
+}
+.sound-row label { font-size: 12px; color: #aaaacc; width: 48px; }
+.sound-row input[type="range"] { flex: 1; max-width: 260px; accent-color: #7755cc; }
+.sound-val { font-size: 12px; color: #8888aa; width: 44px; text-align: right; }
+#btn-mute.muted { border-color: #cc5555; color: #ff9988; }
+
 /* 設定画面 */
 #reset-panel { margin-top: 12px; }
 #reset-panel .danger {

@@ -1,0 +1,32 @@
+{
+  "_使い方": "このファイルを manifest.json という名前でコピーし、実際に置いた音の行だけ残す。書かなかったものは無音のまま。",
+
+  "bgm": {
+    "lobby": "bgm/lobby.ogg",
+    "battle": "bgm/battle.ogg",
+    "boss": "bgm/boss.ogg",
+    "duel": "bgm/duel.ogg"
+  },
+
+  "sfx": {
+    "cast": "sfx/cast.ogg",
+    "hit": "sfx/hit.ogg",
+    "crit": "sfx/crit.ogg",
+    "damage": "sfx/damage.ogg",
+    "defeat": "sfx/defeat.ogg",
+    "heal": "sfx/heal.ogg",
+    "shield": "sfx/shield.ogg",
+    "buff": "sfx/buff.ogg",
+    "quake": "sfx/quake.ogg",
+    "countdown": "sfx/countdown.ogg",
+    "start": "sfx/start.ogg",
+    "win": "sfx/win.ogg",
+    "lose": "sfx/lose.ogg",
+    "gather": "sfx/gather.ogg",
+    "craft": "sfx/craft.ogg",
+    "craftFail": "sfx/craft_fail.ogg",
+    "discover": "sfx/discover.ogg",
+    "transmute": "sfx/transmute.ogg",
+    "click": "sfx/click.ogg"
+  }
+}

@@ -97,6 +97,23 @@
         <div id="char-picker" class="char-picker"></div>
       </section>
 
+      <section class="panel" id="sound-panel">
+        <h2>サウンド</h2>
+        <p class="note" id="sound-note"></p>
+        <div class="sound-row">
+          <label for="bgm-volume">BGM</label>
+          <input id="bgm-volume" type="range" min="0" max="100" step="1">
+          <span id="bgm-volume-val" class="sound-val"></span>
+        </div>
+        <div class="sound-row">
+          <label for="sfx-volume">効果音</label>
+          <input id="sfx-volume" type="range" min="0" max="100" step="1">
+          <span id="sfx-volume-val" class="sound-val"></span>
+        </div>
+        <button id="btn-mute">ミュート</button>
+        <p class="note">音量の設定はこの端末だけに保存され、引き継ぎでは移りません。</p>
+      </section>
+
       <section class="panel" id="cloud-panel">
         <h2>データの引き継ぎ</h2>
         <p class="note">

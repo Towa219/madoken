@@ -15,6 +15,7 @@ import { renderTips } from './tips';
 import { initShare } from './share';
 import { loadArtwork } from './artwork';
 import { initCharPicker, renderCharPickers } from './character';
+import { initSound, initSoundUI, playBgm, renderSoundUI } from './sound';
 import {
   combatPower, spellDisplayName, spellMagicValue, statsSummary,
 } from '../shared/spellcraft';
@@ -51,6 +52,7 @@ function switchTab(tab: Tab): void {
   if (tab === 'settings') {
     renderCloudStatus();
     renderCharPickers();
+    renderSoundUI();
     initShare(); // 共有文に今の戦闘力・発見数を載せ直す
   }
   if (tab === 'battle' && !battle.isActive()) {
@@ -61,6 +63,7 @@ function switchTab(tab: Tab): void {
 // ===== 出撃準備(ソロ) =====
 
 function showSetup(): void {
+  playBgm('lobby'); // 戦闘が終わったら普段の曲へ戻す
   $('#battle-setup').classList.remove('hidden');
   $('#battle-view').classList.add('hidden');
   $('#battle-overlay').classList.add('hidden');
@@ -114,6 +117,7 @@ async function startBattle(stage: number): Promise<void> {
       'ボス戦はこの画面からは挑めない。オンラインで共闘部屋を作ろう(1人でも可)。';
     return;
   }
+  playBgm('battle'); // ボス戦はこの手前で弾いている(共闘部屋のみ)
   lastStage = stage;
   $('#battle-setup').classList.add('hidden');
   $('#battle-view').classList.remove('hidden');
@@ -255,6 +259,9 @@ function main(): void {
     scheduleCloudSave(); // 変更のたびにクラウドへ(まとめて数秒後に1回)
     if (!$('#battle-setup').classList.contains('hidden')) renderSetup();
   });
+
+  // 音は素材が無ければ無音のまま。読み込めたら設定画面を作る
+  void initSound().then(() => { initSoundUI(); playBgm('lobby'); });
 
   initCloudUI();
   initCharPicker('#char-picker');    // 設定タブ

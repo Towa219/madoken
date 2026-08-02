@@ -8,9 +8,11 @@ import { spellDisplayName } from '../shared/spellcraft';
 import {
   NICK_MAX_FULL, NICK_MAX_WIDTH, normalizeNickname, validateNickname,
 } from '../shared/nickname';
+import { isBossStage } from '../shared/data';
 import { CODE_REPLACED } from '../shared/netcodes';
 import { equippedSpells, notify, state } from './state';
 import { pushCloudSave } from './cloudsave';
+import { playBgm } from './sound';
 import type { SpellPayload } from '../shared/protocol';
 
 const $ = <T extends HTMLElement = HTMLElement>(sel: string) =>
@@ -493,8 +495,10 @@ async function joinDuel(): Promise<void> {
     $('#lobby-msg').textContent = '';
     $('#online-lobby').classList.add('hidden');
     $('#duel-view').classList.remove('hidden');
+    playBgm('duel');
     void duel.start(room, () => {
       $('#duel-view').classList.add('hidden');
+      playBgm('lobby');
       if (lobbyRoom) {
         $('#online-lobby').classList.remove('hidden');
         void refreshRanking();
@@ -510,10 +514,13 @@ async function joinDuel(): Promise<void> {
 
 function enterCoop(room: Room): void {
   $('#lobby-msg').textContent = '';
+  const st = room.state as { stage?: number } | undefined;
+  playBgm(isBossStage(Number(st?.stage ?? 1)) ? 'boss' : 'battle');
   $('#online-lobby').classList.add('hidden');
   $('#coop-view').classList.remove('hidden');
   void coop.start(room, () => {
     $('#coop-view').classList.add('hidden');
+    playBgm('lobby');
     if (lobbyRoom) {
       $('#online-lobby').classList.remove('hidden');
       renderStageOptions();
