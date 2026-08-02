@@ -216,7 +216,7 @@ button.tab.active { background: #5533aa; border-color: #7755cc; }
   overflow: hidden; white-space: nowrap;
   background: linear-gradient(90deg, #1a1630, #241c3c, #1a1630);
   border-top: 1px solid #3a3060; border-bottom: 1px solid #3a3060;
-  color: #ddccff; font-size: 12px; padding: 5px 0;
+  color: #ddccff; font-size: 11px; padding: 4px 0;
 }
 #tips-bar .tips-track {
   display: inline-block; white-space: nowrap;

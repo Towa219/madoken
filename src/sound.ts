@@ -14,7 +14,9 @@
 //   sfx/<名前>.mp3  … 効果音
 
 const BASE = 'sound/';
-const PREF_KEY = 'madoken_sound_v1';
+// 既定音量を変えたら末尾の番号を上げる。古い保存値を読まなくなり、
+// 既に遊んでいる端末にも新しい既定値が行き渡る。
+const PREF_KEY = 'madoken_sound_v2';
 
 export type BgmId = 'lobby' | 'battle' | 'boss' | 'duel';
 
@@ -32,7 +34,7 @@ interface Prefs {
 let manifest: Manifest | null = null;
 // 初期値は控えめに。うるさいと感じた人が下げるより、
 // 物足りない人が上げる方が受け入れられやすい(設定でいつでも変えられる)。
-let prefs: Prefs = { bgmVolume: 0.05, sfxVolume: 0.30, muted: false };
+let prefs: Prefs = { bgmVolume: 0.05, sfxVolume: 0.20, muted: false };
 
 // ループの継ぎ目をなだらかにする秒数。
 // 生成した曲は「曲として終わる」ので、頭と尻が音楽的につながらない。

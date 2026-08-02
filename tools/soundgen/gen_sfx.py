@@ -207,7 +207,8 @@ def sfx_gathering():
         base = highpass(noise(d, 3), 1200) * 0.5
         base *= 0.55 + 0.45 * np.sin(2 * np.pi * 2.3 * t)
         return lowpass(base, 6000)
-    return seamless(make, 1.6), 0.30
+    # 採取中はずっと鳴り続けるので、控えめにしてある(0.30は大きすぎた)
+    return seamless(make, 1.6), 0.15
 
 
 def sfx_gather():
@@ -402,6 +403,56 @@ def sfx_escape():
     return lowpass(mix(air, body), 5000), 0.42
 
 
+# ===== 敵撃破音の候補 =====
+#
+# 現行は sfx_defeat(下降音+砂ぼこり)。差し替えても戻せるよう、
+# 現行の関数はそのまま残してある。ALL の 'defeat' を書き換えるだけで入れ替わる。
+
+
+def sfx_defeat_a():
+    """霧散: 敵が光の粒になって散る。上へ抜けていく明るい消え方。"""
+    d = 0.55
+    parts = []
+    for i, f in enumerate([880, 1320, 1760]):
+        # 上へ吸い込まれるように、少し遅らせて重ねる
+        e = env_ad(d, 0.005, 3.5) * (0.55 - 0.13 * i)
+        v = sine(sweep(f, f * 2.1, d, 0.6), d) * e
+        parts.append(np.concatenate([np.zeros(int(SR * 0.035 * i)), v]))
+    shimmer = highpass(noise(d, 71), 3000) * env_ad(d, 0.01, 2.2) * 0.35
+    parts.append(shimmer)
+    return lowpass(mix(*parts), 11000), 0.5
+
+
+def sfx_defeat_b():
+    """破砕: 硬いものが砕けて崩れ落ちる。手応えのある重い消え方。"""
+    d = 0.7
+    crack = highpass(noise(0.09, 11), 2200) * env_decay(0.09, 1.6)
+    body = sine(sweep(180, 55, 0.35, 1.8), 0.35) * env_decay(0.35, 2.2) * 0.9
+    # 破片が転がる音を少しずつ間を空けて散らす
+    bits = np.zeros(int(SR * d))
+    for i, (at, f, sd) in enumerate([(0.10, 1500, 3), (0.17, 1100, 5),
+                                     (0.26, 1800, 7), (0.38, 900, 9)]):
+        g = highpass(noise(0.1, sd), 1400) * env_decay(0.1, 4) * (0.3 - 0.05 * i)
+        o = int(SR * at)
+        bits[o:o + len(g)] += g
+    return lowpass(mix(crack, body, bits), 9000), 0.5
+
+
+def sfx_defeat_c():
+    """昇天: 短い和音がすっと解決する。倒した達成感が残る消え方。"""
+    d = 0.75
+    parts = []
+    # ラ→ド#→ミ を素早く重ねて長三和音にする
+    for i, f in enumerate([440.0, 554.4, 659.3]):
+        e = env_ad(d - 0.06 * i, 0.008, 2.6) * (0.6 - 0.1 * i)
+        v = (sine(f, d - 0.06 * i) * 0.75
+             + sine(f * 2, d - 0.06 * i) * 0.25) * e
+        parts.append(np.concatenate([np.zeros(int(SR * 0.06 * i)), v]))
+    air = highpass(noise(d, 23), 4000) * env_ad(d, 0.02, 3) * 0.2
+    parts.append(air)
+    return lowpass(mix(*parts), 8000), 0.5
+
+
 ALL = {
     'select': sfx_select, 'unselect': sfx_unselect, 'click': sfx_click,
     'crafting': sfx_crafting, 'craft': sfx_craft, 'craftFail': sfx_craft_fail,
@@ -410,6 +461,8 @@ ALL = {
     'discover': sfx_discover,
     'casting': sfx_casting, 'cast': sfx_cast, 'enemyCast': sfx_enemy_cast,
     'hit': sfx_hit, 'crit': sfx_crit, 'damage': sfx_damage, 'defeat': sfx_defeat,
+    # 候補(--audition で試聴用フォルダに書き出す。採用時は 'defeat' を差し替える)
+    'defeat_a': sfx_defeat_a, 'defeat_b': sfx_defeat_b, 'defeat_c': sfx_defeat_c,
     'heal': sfx_heal, 'shield': sfx_shield, 'buff': sfx_buff, 'quake': sfx_quake,
     'countdown': sfx_countdown, 'start': sfx_start,
     'win': sfx_win, 'lose': sfx_lose, 'escape': sfx_escape,
@@ -428,7 +481,11 @@ def write_manifest():
     if os.path.isdir(SFX_DIR):
         for f in sorted(os.listdir(SFX_DIR)):
             base, ext = os.path.splitext(f)
-            if ext.lower() in ('.wav', '.mp3', '.ogg', '.m4a'):
+            if ext.lower() not in ('.wav', '.mp3', '.ogg', '.m4a'):
+                continue
+            if base.startswith('defeat_'):   # 試聴用の候補は登録しない
+                continue
+            if True:
                 sfx[base] = f'sfx/{f}'
     if sfx:
         m['sfx'] = sfx
@@ -444,10 +501,20 @@ def main():
     ap.add_argument('--only', help='hit / cast など')
     ap.add_argument('--all', action='store_true')
     ap.add_argument('--manifest', action='store_true')
+    ap.add_argument('--audition', action='store_true',
+                    help='撃破音の候補を public/sound/audition/ に書き出す')
     args = ap.parse_args()
 
     if args.manifest:
         write_manifest()
+        return
+    if args.audition:
+        global SFX_DIR
+        SFX_DIR = os.path.join(SOUND_DIR, 'audition')
+        print('候補を試聴フォルダに書き出す…')
+        for n in ('defeat', 'defeat_a', 'defeat_b', 'defeat_c'):
+            x, peak = ALL[n]()
+            save('defeat_now' if n == 'defeat' else n, x, peak)
         return
     if not args.only and not args.all:
         ap.error('--only か --all か --manifest を指定する')

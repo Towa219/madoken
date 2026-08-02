@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>敵撃破音の候補 — 魔導研究記</title>
+<style>
+  body { background:#12121e; color:#ddddee; font-family:"Meiryo",sans-serif;
+         margin:0; padding:24px; line-height:1.7; }
+  h1 { font-size:20px; color:#ddccff; margin:0 0 4px; }
+  .note { font-size:13px; color:#8888aa; margin:0 0 18px; }
+  .row { background:#1a1a2c; border:1px solid #33335a; border-radius:10px;
+         padding:12px 16px; margin-bottom:12px; }
+  .row.now { border-color:#665533; background:#241f18; }
+  .nm { color:#ffdd66; font-size:15px; font-weight:bold; }
+  .row.now .nm { color:#ccaa77; }
+  .desc { font-size:13px; color:#aaaacc; margin:4px 0 8px; }
+  audio { width:100%; max-width:320px; }
+  code { color:#88ddaa; }
+</style>
+</head>
+<body>
+<h1>敵を倒した時の音 — 候補3案</h1>
+<p class="note">
+  一番上が<b>現行の音</b>です。聴き比べて、気に入ったものの記号(A / B / C)を伝えてください。<br>
+  現行の音も残してあるので、あとで気が変わっても元に戻せます。
+</p>
+
+<div class="row now">
+  <div class="nm">現行</div>
+  <div class="desc">音程が下がっていく音 + 砂ぼこり。しぼんで終わる印象。</div>
+  <audio controls preload="none" src="defeat_now.wav"></audio>
+</div>
+
+<div class="row">
+  <div class="nm">A 霧散</div>
+  <div class="desc">
+    敵が光の粒になって散る感じ。3つの音が上へ吸い込まれていく、
+    明るく軽い消え方。連戦でも耳が疲れにくい。
+  </div>
+  <audio controls preload="none" src="defeat_a.wav"></audio>
+</div>
+
+<div class="row">
+  <div class="nm">B 破砕</div>
+  <div class="desc">
+    硬いものが砕けて、破片が転がり落ちる感じ。低音があるので手応えが強く、
+    「倒した」感が一番はっきりする。
+  </div>
+  <audio controls preload="none" src="defeat_b.wav"></audio>
+</div>
+
+<div class="row">
+  <div class="nm">C 昇天</div>
+  <div class="desc">
+    短い和音(ラ・ド♯・ミ)がすっと解決する音。効果音というより小さなファンファーレで、
+    達成感が残る。BGMとも喧嘩しにくい。
+  </div>
+  <audio controls preload="none" src="defeat_c.wav"></audio>
+</div>
+
+<p class="note">
+  ※ 採用すると <code>gen_sfx.py</code> の <code>ALL['defeat']</code> を差し替えます。
+  現行の <code>sfx_defeat()</code> は消さずに残すので、1行戻すだけで復帰できます。<br>
+  ※ このフォルダは試聴用で、ゲーム本体は読み込みません。
+</p>
+</body>
+</html>
