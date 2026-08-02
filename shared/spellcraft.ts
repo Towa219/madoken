@@ -1,4 +1,6 @@
-import { ELEMENTS, ELEMENT_ORDER, PLAYER_MP_REGEN, RARITIES, RECIPES } from './data';
+import {
+  ELEMENTS, ELEMENT_ORDER, PLAYER_MAX_HP, PLAYER_MP_REGEN, RARITIES, RECIPES,
+} from './data';
 import type { RecipeDef } from './data';
 import type { ElementCounts, ElementId, Rarity, SpellKind, SpellStats } from './types';
 
@@ -284,7 +286,9 @@ export function dotDpsOf(s: SpellStats): number {
 
 // 行動不能にする秒数(威力から換算・上限6秒)
 export function sealTimeOf(s: SpellStats): number {
-  return Math.round(Math.min(13, 6 + s.power / 11.5) * 10) / 10;
+  // 威力への傾きを立ててある。緩いと強化1段階で0.3秒しか延びず、
+  // 強くなった実感がまったく無い。
+  return Math.round(Math.min(17, 1.2 + s.power / 5.2) * 10) / 10;
 }
 
 // 封印が相手にどれだけ効くか(0〜1.5)。相手の属性相性で決まる。
@@ -313,7 +317,9 @@ export function sealWardMul(wardPct: number): number {
 // 封印だけが突出してしまう。長く止める代わりに間隔も長い「切り札」にした。
 export function sealCoolOf(level: number): number {
   const L = Math.max(0, Math.min(ENHANCE_MAX, Math.floor(level || 0)));
-  return Math.round((40 - 1.4 * L) * 10) / 10;
+  // 止める時間が大きく延びるぶん、再使用の縮み方は控えめにしてある。
+  // 両方を強く伸ばすと、強化した封印だけが他を引き離してしまう。
+  return Math.round((40 - 0.9 * L) * 10) / 10;
 }
 
 // 最大HP上昇量(威力から換算。全体版は7割)
@@ -422,7 +428,12 @@ export function spellMagicValue(raw: SpellStats): number {
     // 1秒あたりに肩代わりできるダメージ量
     v = (s.barrier * all / cycle) * 15;
   } else if (s.kind === 'heal') {
-    v = (s.healPower * all / cycle) * 15;
+    // 最大HPを超えて回復した分は捨てられる。1回で全快してしまう回復量から先は
+    // ほとんど価値が増えないので、そこから上は伸びを鈍らせる。
+    // これが無いと、消費MPを気にせず回復量だけ大きくした構成が突出する。
+    const cap = PLAYER_MAX_HP * 0.5;
+    const useful = s.healPower <= cap ? s.healPower : cap + (s.healPower - cap) * 0.35;
+    v = (useful * all / cycle) * 15;
   } else if (s.kind === 'ward') {
     // 被ダメを wardPct% 減らす。全属性(=どの敵にも効く)と単属性で価値が大きく違う。
     v = REF_DPS * (s.wardPct / 100) * 12 * upTime(s) * (s.targetAll ? 3.1 : 1.0);
@@ -432,7 +443,7 @@ export function spellMagicValue(raw: SpellStats): number {
   } else if (s.kind === 'seal') {
     // 敵全体の行動を止める = その割合ぶん敵のDPSを消している
     const stop = Math.min(0.85, s.sealTime / (s.castTime + spellCooldown(s)));
-    v = REF_DPS * stop * 12 * 4.2;
+    v = REF_DPS * stop * 12 * 3.8;
   } else if (s.kind === 'empower') {
     // 与ダメ+atkBoost%。維持できるので、そのまま基準DPSへの上乗せとみなす。
     v = REF_DPS * (s.atkBoost / 100) * 12 * upTime(s) * all * 3.3;
@@ -441,10 +452,18 @@ export function spellMagicValue(raw: SpellStats): number {
     v = REF_DPS * (s.mpRegenBonus / BASE_MP_REGEN) * 12 * upTime(s) * all * 1.0;
   } else {
     // 挑発: 敵の狙いを引き受ける。仲間が殴られない時間を作る役目。
-    v = (s.hateGain / cycle) * 1.4 * 2.4 + 60;
+    // 味方の被弾を丸ごと肩代わりするので、他の支援と同じ水準まで見てよい。
+    v = (s.hateGain / cycle) * 1.4 * 3.0 + 70;
   }
 
-  v *= 1 + Math.max(-0.25, (18 - s.manaCost) / 120); // MP効率
+  // MP効率。回復魔法は「回復量の半分」を消費MPの下限にしているので、
+  // 強化して回復量が増えると消費MPも必ず増える。そのまま減点すると、
+  // 強化しても魔導値の伸びだけが鈍る(回復1.50倍に対し攻撃1.97倍だった)。
+  // 回復については下限を超えた分だけを無駄と見なす。
+  const mpForEff = s.kind === 'heal'
+    ? Math.max(4, s.manaCost - healManaFloor(s) + 18)
+    : s.manaCost;
+  v *= 1 + Math.max(-0.25, (18 - mpForEff) / 120);
   v -= s.selfDamage * 1.8;
   if (!Number.isFinite(v)) return 1;
   return Math.max(1, Math.round(v));
