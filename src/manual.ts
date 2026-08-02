@@ -11,7 +11,7 @@ import {
   LIBRARY_BONUS_START, libraryBonus,
   PLAYER_MAX_HP, PLAYER_MAX_MP, RARITIES, RECIPES,
   SLOT3_COST, SLOT4_BOSS_STAGE, SLOT4_COST, SLOT5_BOSS_STAGE, SLOT5_COST,
-  START_SLOTS,
+  START_SLOTS, TRANSMUTE_COST,
 } from '../shared/data';
 import { ENHANCE_MAX } from '../shared/spellcraft';
 import { NICK_MAX_FULL, NICK_MAX_WIDTH } from '../shared/nickname';
@@ -68,6 +68,10 @@ export function renderManual(): void {
   ② <b>ボス撃破</b>(共闘のみ。まとまった数が手に入る)<br>
   ③ <b>魔法の分解</b>(素材1個につき約${Math.round(DISASSEMBLE_RATE * 100)}%で回収。強化・品質が高いほど戻りやすい)<br>
   通常ステージのクリアでは素材は手に入らず、研究Pだけが増えます。</p>
+  <p class="man-note">総数は増えませんが、<b>錬成</b>で偏りを直せます。
+  余った素材${TRANSMUTE_COST}個がランダムな1個に変わり、研究Pはかかりません。
+  使うのは手持ちが最も多い種類で、<b>使った種類以外</b>が出ます。
+  貴重な光・闇は、他の素材が尽きるまで使われません。</p>
 </section>
 
 <section class="man-sec">

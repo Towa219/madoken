@@ -112,6 +112,17 @@ button.tab.active { background: #5533aa; border-color: #7755cc; }
 #gather-box { margin-top: 12px; }
 #gather-box .note { margin-top: 4px; margin-bottom: 0; }
 
+/* エレメント錬成(余った素材3個 → ランダム1個) */
+#transmute-box {
+  margin-top: 14px; padding-top: 12px; border-top: 1px solid #2a2a44;
+}
+#transmute-box h3 {
+  margin: 0 0 4px; font-size: 13px; color: #bb99ff; font-weight: normal;
+}
+#transmute-box .note { margin: 4px 0 0; }
+#btn-transmute { margin-top: 6px; }
+#transmute-msg { min-height: 16px; }
+
 /* 調合台 */
 #slot-row { display: flex; gap: 8px; margin: 10px 0; justify-content: center; }
 .slot {

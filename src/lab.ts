@@ -1,10 +1,11 @@
 // 研究室(調合・魔導書・図鑑)のDOM UI
 
 import {
-  DISASSEMBLE_RATE, DISCOVERY_BONUS_RP, ELEMENTS, ELEMENT_ORDER,
+  DISASSEMBLE_RATE, DISCOVERY_BONUS_RP, ELEMENT_POOL, ELEMENTS, ELEMENT_ORDER,
   GATHER_COST, GATHER_COUNT, LIBRARY_BONUS_MAX, LIBRARY_BONUS_START,
-  libraryBonus, RARITIES, rarityMultiplier, RECIPES, rollRarity,
+  libraryBonus, pickSurplus, RARITIES, rarityMultiplier, RECIPES, rollRarity,
   SLOT3_COST, SLOT4_BOSS_STAGE, SLOT4_COST, SLOT5_BOSS_STAGE, SLOT5_COST,
+  TRANSMUTE_COST, transmuteResult,
 } from '../shared/data';
 import {
   bestCompositionFor, computeSpell, ENHANCE_MAX, finalStats, spellDisplayName,
@@ -82,6 +83,7 @@ function findSameRecipeSpell(counts: ElementCounts): Spell | undefined {
 export function initLab(): void {
   $('#btn-craft').addEventListener('click', craft);
   $('#btn-gather').addEventListener('click', gather);
+  $('#btn-transmute').addEventListener('click', transmute);
   $('#btn-sort-spells').addEventListener('click', () => {
     state.sortByPower = !state.sortByPower;
     notify();
@@ -97,6 +99,7 @@ export function renderLab(): void {
   slotSel = slotSel.slice(0, state.slots);
 
   renderInventory();
+  renderTransmute();
   renderSlots();
   renderPreview();
   renderSpellbook();
@@ -453,15 +456,10 @@ function resolveGather(pity: boolean): void {
     }
     state.researchP -= GATHER_COST;
   }
-  // 希少な光・闇は出にくい
-  const pool: ElementId[] = [
-    'fire', 'fire', 'fire', 'water', 'water', 'water',
-    'wind', 'wind', 'wind', 'earth', 'earth', 'earth',
-    'thunder', 'thunder', 'ice', 'ice', 'light', 'dark',
-  ];
+  // 希少な光・闇は出にくい(錬成と同じ抽選プール)
   const got: ElementId[] = [];
   for (let i = 0; i < GATHER_COUNT; i++) {
-    got.push(pool[Math.floor(Math.random() * pool.length)]);
+    got.push(ELEMENT_POOL[Math.floor(Math.random() * ELEMENT_POOL.length)]);
   }
   addElements(got);
   markGained(got);
@@ -470,6 +468,61 @@ function resolveGather(pity: boolean): void {
   msg.textContent = `✨ 採取で ${got.map(g => ELEMENTS[g].name).join('・')} を手に入れた!`;
   showToast(`✨ ${got.map(g => ELEMENTS[g].name).join('・')} を入手`);
   notify();
+}
+
+// ---- エレメント錬成(余った素材3つ → ランダムな1つ) ----
+//
+// ※「分解」は魔法を素材に戻す機能なので、こちらは「錬成」と呼び分けている。
+
+// 調合スロットに置いている分を除いた、実際に使える手持ち
+function freeInventory(): Partial<Record<ElementId, number>> {
+  const free: Partial<Record<ElementId, number>> = {};
+  for (const id of ELEMENT_ORDER) {
+    free[id] = Math.max(0, (state.inventory[id] ?? 0) - placedOf(id));
+  }
+  return free;
+}
+
+function renderTransmute(): void {
+  const btn = $<HTMLButtonElement>('#btn-transmute');
+  const note = $('#transmute-note');
+  const picks = pickSurplus(freeInventory());
+  if (!picks) {
+    btn.disabled = true;
+    btn.textContent = `錬成する (エレメント${TRANSMUTE_COST}個が必要)`;
+    note.textContent = '手持ちが足りない。採取か戦闘でエレメントを集めよう。';
+    return;
+  }
+  btn.disabled = false;
+  // 何が減るかを押す前に見せる(自動で選ぶので、確認できないと不安になる)
+  const used = picks.map(id => ELEMENTS[id].name).join('・');
+  btn.textContent = `錬成する (${used} → ランダム1個)`;
+  note.textContent = '手持ちが最も多い種類から使う。使った種類以外が出る。';
+}
+
+let transmuting = false;
+
+function transmute(): void {
+  if (transmuting) return;
+  const picks = pickSurplus(freeInventory());
+  if (!picks) return;
+  transmuting = true;
+
+  const counts: Partial<Record<ElementId, number>> = {};
+  for (const id of picks) counts[id] = (counts[id] ?? 0) + 1;
+  if (!spendElements(counts)) { transmuting = false; return; }
+
+  const got = transmuteResult(picks);
+  addElements([got]);
+  markGained([got]);
+
+  const usedText = picks.map(id => ELEMENTS[id].name).join('・');
+  const msg = $('#transmute-msg');
+  msg.style.color = '#88ffaa';
+  msg.textContent = `⚗ ${usedText} を錬成して ${ELEMENTS[got].name} になった!`;
+  showToast(`⚗ ${ELEMENTS[got].name} を錬成した`);
+  notify();
+  transmuting = false;
 }
 
 // ---- 魔導書 ----
