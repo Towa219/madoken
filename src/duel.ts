@@ -264,10 +264,16 @@ export class DuelView {
       const p = st?.players?.get(m.sid);
       if (p) this.addPopup(XS[p.slot] ?? 140, cy(132), `耐性 -${m.amount}`, 0x88ffcc);
     });
-    room.onMessage('dseal', (m: { sid: string; sec: number }) => {
+    room.onMessage('dseal', (m: { sid: string; sec: number; resisted?: boolean }) => {
       const st: any = room.state;
       const p = st?.players?.get(m.sid);
-      if (p) this.addPopup(XS[p.slot] ?? 140, cy(145), `封印! ${m.sec.toFixed(1)}秒`, 0xbb77ee);
+      if (!p) return;
+      // 護符を張っていれば封印は弾かれる
+      if (m.resisted || m.sec <= 0) {
+        this.addPopup(XS[p.slot] ?? 140, cy(145), 'レジスト!', 0xff9977);
+      } else {
+        this.addPopup(XS[p.slot] ?? 140, cy(145), `封印! ${m.sec.toFixed(1)}秒`, 0xbb77ee);
+      }
     });
     room.onMessage('dempower', (m: { sid: string; pct: number }) => {
       const st: any = room.state;

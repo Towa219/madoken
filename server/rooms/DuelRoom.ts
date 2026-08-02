@@ -9,7 +9,7 @@ import type { Client } from 'colyseus';
 import type { MapSchema as MapSchemaType } from '@colyseus/schema';
 import type { IncomingMessage } from 'node:http';
 import { DUEL_MAX_HP, DUEL_MAX_MP } from '../../shared/data';
-import { spellCooldown } from '../../shared/spellcraft';
+import { sealWardMul, spellCooldown } from '../../shared/spellcraft';
 import { parseSpells } from '../spellPayload';
 import { clientIp, logConnection } from '../connlog';
 import { clearRoomPresence, setRoomPresence } from '../presence';
@@ -372,10 +372,18 @@ export class DuelRoom extends Room<DuelState> {
       if (foe0) {
         const fi = this.internals.get(foe0.sid);
         if (fi) {
-          fi.sealedT = Math.max(fi.sealedT, st.sealTime * 0.6); // 対人では短め
-          foe0.p.castingIdx = -1;
-          foe0.p.castName = '';
-          this.broadcast('dseal', { sid: foe0.sid, sec: fi.sealedT });
+          // 相手が同じ属性の護符を張っていれば、そのぶん封印が効かなくなる。
+          // 全属性の護符(wardAttr=null)はどの封印にも効く。
+          const covered = fi.wardT > 0
+            && (fi.wardAttr === null || fi.wardAttr === st.attr);
+          const mul = covered ? sealWardMul(fi.wardPct) : 1;
+          const sec = st.sealTime * 0.6 * mul;   // 対人では元から短め
+          if (sec > 0) {
+            fi.sealedT = Math.max(fi.sealedT, sec);
+            foe0.p.castingIdx = -1;
+            foe0.p.castName = '';
+          }
+          this.broadcast('dseal', { sid: foe0.sid, sec, resisted: sec <= 0 });
         }
       }
       return;

@@ -11,7 +11,7 @@ import {
 } from '../shared/data';
 import type { AffinityGrade, EnemyDef } from '../shared/data';
 import { backgroundArt, enemyArt, playerArt, projectileArt } from './artwork';
-import { spellCooldown, spellDisplayName } from '../shared/spellcraft';
+import { sealResistMul, spellCooldown, spellDisplayName } from '../shared/spellcraft';
 import { state } from './state';
 import { playSfx, startSfxLoop, stopSfxLoop } from './sound';
 import type { BattleResult, ElementId, Spell, SpellStats } from '../shared/types';
@@ -498,10 +498,24 @@ export class BattleManager {
           this.hp = Math.min(this.maxHp, this.hp + heal);
           this.addPopup(PLAYER_X, cy(115), `+${heal}`, 0x88ddaa);
         } else if (st.kind === 'seal') {
+          // 封印の効きは敵ごとに違う。属性相性がそのまま止まる時間に効く。
+          let sealed = 0;
+          let resisted = 0;
           for (const e of this.enemies) {
-            if (e.alive) { e.sealed = Math.max(e.sealed, st.sealTime); e.frozen = 0; }
+            if (!e.alive) continue;
+            const g = (e.def.affinity[st.attr] ?? 0) as AffinityGrade;
+            const sec = st.sealTime * sealResistMul(g);
+            if (sec <= 0) { resisted++; continue; }
+            e.sealed = Math.max(e.sealed, sec);
+            e.frozen = 0;
+            sealed = Math.max(sealed, sec);
           }
-          this.addPopup(W / 2, cy(150), `封印! ${st.sealTime.toFixed(1)}秒`, 0xbb77ee);
+          if (sealed > 0) {
+            this.addPopup(W / 2, cy(150), `封印! ${sealed.toFixed(1)}秒`, 0xbb77ee);
+          }
+          if (resisted > 0) {
+            this.addPopup(W / 2, cy(178), `レジスト ${resisted}体`, 0xff9977);
+          }
         } else if (st.kind === 'empower') {
           playSfx('buff');
           this.atkBoost = st.atkBoost;

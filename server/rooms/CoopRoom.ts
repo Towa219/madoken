@@ -9,7 +9,7 @@ import { Schema, MapSchema, ArraySchema, defineTypes } from '@colyseus/schema';
 import type { Client } from 'colyseus';
 
 const { Room } = colyseusPkg;
-import { finalStats, spellCooldown } from '../../shared/spellcraft';
+import { finalStats, sealResistMul, spellCooldown } from '../../shared/spellcraft';
 import type { IncomingMessage } from 'node:http';
 import { parseSpells } from '../spellPayload';
 import { clientIp, logConnection } from '../connlog';
@@ -503,13 +503,20 @@ export class CoopRoom extends Room<CoopState> {
 
     // 封印: 敵全体を一定時間行動不能に
     if (st.kind === 'seal') {
+      // 封印の効きは敵ごとに違う。属性相性がそのまま止まる時間に効く。
+      let sealed = 0;
+      let resisted = 0;
       this.eInternals.forEach((ei, i) => {
-        if (this.state.enemies[i]?.alive) {
-          ei.sealedT = Math.max(ei.sealedT, st.sealTime);
-        }
+        const e = this.state.enemies[i];
+        if (!e?.alive) return;
+        const g = (ei.def.affinity[st.attr] ?? 0) as AffinityGrade;
+        const sec = st.sealTime * sealResistMul(g);
+        if (sec <= 0) { resisted++; return; }
+        ei.sealedT = Math.max(ei.sealedT, sec);
+        sealed = Math.max(sealed, sec);
       });
-      this.broadcast('seal', { sid, sec: st.sealTime });
-      if (casterInternal) casterInternal.hate += st.sealTime * 40;
+      this.broadcast('seal', { sid, sec: sealed, resisted });
+      if (casterInternal) casterInternal.hate += sealed * 40;
       return;
     }
 

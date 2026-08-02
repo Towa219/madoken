@@ -343,8 +343,14 @@ export class CoopView {
       if (p) this.addPopup(PLAYER_XS[p.slot] ?? 110, cy(128), `耐性 -${m.amount}`, 0x88ffcc);
     });
 
-    room.onMessage('seal', (m: { sec: number }) => {
-      this.addPopup(W / 2, cy(150), `封印! ${m.sec.toFixed(1)}秒`, 0xbb77ee);
+    room.onMessage('seal', (m: { sec: number; resisted?: number }) => {
+      // 闇に強い敵にはレジストされるので、効いた分と弾かれた分を両方出す
+      if (m.sec > 0) {
+        this.addPopup(W / 2, cy(150), `封印! ${m.sec.toFixed(1)}秒`, 0xbb77ee);
+      }
+      if (m.resisted && m.resisted > 0) {
+        this.addPopup(W / 2, cy(178), `レジスト ${m.resisted}体`, 0xff9977);
+      }
     });
     room.onMessage('empower', (m: { sid: string; pct: number }) => {
       playSfx('buff');

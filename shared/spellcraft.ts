@@ -284,6 +284,25 @@ export function sealTimeOf(s: SpellStats): number {
   return Math.round(Math.min(13, 6 + s.power / 11.5) * 10) / 10;
 }
 
+// 封印が相手にどれだけ効くか(0〜1.5)。相手の属性相性で決まる。
+//
+// 攻撃魔法と同じで、闇に強い相手ほど封印も効きにくい。
+// ✕(ほぼ無効)の相手には一切効かない = レジストされる。
+// ソロ・共闘・決闘のどれでも同じ規則にするため、ここに1つだけ置く。
+export function sealResistMul(grade: number): number {
+  if (grade <= -2) return 0;      // レジスト(まったく効かない)
+  if (grade === -1) return 0.5;   // 耐性: 半分の時間しか止まらない
+  return 1;
+}
+
+// 決闘では相手は敵ではなく研究者なので、相性の代わりに護符(属性耐性)で判定する。
+// 耐性60%以上でレジスト、それ未満は耐性のぶんだけ短くなる。
+export function sealWardMul(wardPct: number): number {
+  const p = Math.max(0, Math.min(100, wardPct));
+  if (p >= 60) return 0;
+  return Math.round((1 - p / 60) * 100) / 100;
+}
+
 // 封印の再使用時間(秒)。強化するほど短くなる。
 //
 // 敵全体を止める効果は、止めている時間の割合がそのまま強さになる。
@@ -484,7 +503,8 @@ export function statsSummary(s: SpellStats): string {
   if (s.kind === 'seal') {
     const parts = [
       `【封印】敵全体を${s.sealTime.toFixed(1)}秒 行動不能`,
-      '決闘では相手の詠唱を封じる',
+      `${ELEMENTS[s.attr].name}耐性△の敵には半減・✕の敵にはレジスト`,
+      '決闘では相手の詠唱を封じる(護符で軽減される)',
       `詠唱${s.castTime.toFixed(2)}秒`, `MP${s.manaCost}`,
       `再使用${spellCooldown(s).toFixed(1)}秒`,
     ];
