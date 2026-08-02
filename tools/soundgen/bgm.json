@@ -10,15 +10,15 @@
       "name": "ロビー・研究室",
       "seconds": 70,
       "bpm": 96,
-      "seed": 2068,
+      "seed": 2067,
       "keyscale": "F major",
-      "tags": "cozy tavern theme, lute and fiddle melody, hand percussion, medieval folk dance, warm and inviting, foot tapping",
+      "tags": "magic library theme, celesta and music box lead, soft pizzicato strings, curious and whimsical, gentle waltz, storybook feeling",
       "variants": {
-        "D": "cozy tavern theme, lute and fiddle melody, hand percussion, medieval folk dance, warm and inviting, foot tapping",
-        "E": "cozy tavern theme, lute and fiddle melody, hand percussion, medieval folk dance, warm and inviting, foot tapping",
-        "F": "cozy tavern theme, warm lute and hand drum, mellow fiddle countermelody, relaxed medieval folk, soft and unobtrusive, low key"
+        "A": "fantasy town theme, JRPG overworld, warm flute lead melody, acoustic guitar, light strings, gentle percussion, cozy, hopeful, singable tune",
+        "B": "magic library theme, celesta and music box lead, soft pizzicato strings, curious and whimsical, gentle waltz, storybook feeling",
+        "C": "cozy tavern theme, lute and fiddle melody, hand percussion, medieval folk dance, warm and inviting, foot tapping"
       },
-      "_採用": "案C"
+      "_採用": "案B(魔導書庫風)"
     },
     {
       "out": "battle.mp3",

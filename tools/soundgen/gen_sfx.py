@@ -1,167 +1,424 @@
-# 魔導研究記 効果音ジェネレータ(Stable Audio Open)
+# 魔導研究記 効果音ジェネレータ(自前合成)
 #
-# ローカルの ComfyUI で効果音を作り、public/sound/sfx/_preview/ に書き出す。
-# 聴き比べて良ければ sfx/ へ移す(--adopt)。
+# 波形を直接組み立てて効果音を作る。外部の学習モデルを使わないので、
+# ライセンスの制約も表示義務も無く、完全に自前の素材になる。
 #
-# ※ライセンス: Stability AI Community License。
-#   商用利用は年間売上100万ドル未満なら無償だが、Stability AI への登録と
-#   「Powered by Stability AI」の表示が必要。試作(評価・テスト)の段階では不要。
-#
-#   python gen_sfx.py --all            … 全部を _preview/ に作る
+#   python gen_sfx.py --all        … 27種すべてを public/sound/sfx/ に作る
 #   python gen_sfx.py --only hit
-#   python gen_sfx.py --adopt          … _preview/ の音を sfx/ へ採用する
-#   python gen_sfx.py --manifest       … manifest.json を作り直す
+#   python gen_sfx.py --manifest   … manifest.json に登録する
+#
+# 音量の方針:
+#   鳴る回数が桁違いに多いもの(hit / cast / select / click)は小さめに、
+#   滅多に鳴らないもの(discover / win / lose)は大きめにしてある。
 
 import argparse
-import json
 import os
-import shutil
-import time
-import urllib.parse
-import urllib.request
+import struct
+import sys
+import wave
+
+TOOLS_DIR = os.environ.get('ARTGEN_TOOLS', r'D:\ComfyUI\_tools')
+if os.path.isdir(TOOLS_DIR):
+    sys.path.insert(0, TOOLS_DIR)
+
+import numpy as np  # noqa: E402
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 PROJECT = os.path.abspath(os.path.join(HERE, '..', '..'))
 SOUND_DIR = os.path.join(PROJECT, 'public', 'sound')
 SFX_DIR = os.path.join(SOUND_DIR, 'sfx')
-PREVIEW_DIR = os.path.join(SFX_DIR, '_preview')
 
-SERVER = os.environ.get('COMFY_URL', 'http://127.0.0.1:8188')
-CKPT = os.environ.get('SAO_CKPT', 'stable-audio-open-1.0.safetensors')
-# Stable Audio Open のチェックポイントにはテキストエンコーダが入っていないため、
-# T5 を別に読み込む(models/clip/ に置く)。
-T5 = os.environ.get('SAO_T5', 't5-base.safetensors')
-
-STEPS = 50
-CFG = 6.0
-SAMPLER = 'dpmpp_3m_sde_gpu'
-SCHEDULER = 'exponential'
+SR = 44100
 
 
-def load_conf():
-    with open(os.path.join(HERE, 'sfx.json'), encoding='utf-8') as f:
-        return json.load(f)
+# ===== 基本の道具 =====
+
+def t_axis(dur):
+    return np.arange(int(SR * dur)) / SR
 
 
-def post_prompt(workflow):
-    data = json.dumps({'prompt': workflow}).encode('utf-8')
-    req = urllib.request.Request(
-        SERVER + '/prompt', data=data,
-        headers={'Content-Type': 'application/json'})
-    with urllib.request.urlopen(req, timeout=60) as res:
-        return json.loads(res.read())['prompt_id']
+def sine(freq, dur, phase=0.0):
+    """freq は数値でも配列(時間変化)でもよい。"""
+    t = t_axis(dur)
+    f = np.asarray(freq, dtype=float)
+    if f.ndim == 0:
+        return np.sin(2 * np.pi * f * t + phase)
+    # 周波数が動く場合は位相を積分して作る(ブツ切れを防ぐ)
+    return np.sin(2 * np.pi * np.cumsum(f) / SR + phase)
 
 
-def wait_files(prompt_id, timeout=900):
-    deadline = time.time() + timeout
-    while time.time() < deadline:
-        try:
-            with urllib.request.urlopen(
-                    SERVER + '/history/' + prompt_id, timeout=30) as res:
-                hist = json.loads(res.read())
-        except Exception:
-            time.sleep(1.0)
-            continue
-        entry = hist.get(prompt_id)
-        if entry and entry.get('status', {}).get('status_str') == 'error':
-            msgs = []
-            for m in entry['status'].get('messages', []):
-                if m[0] == 'execution_error':
-                    d = m[1]
-                    msgs.append(f"{d.get('node_type')}: {d.get('exception_message')}")
-            raise RuntimeError('ComfyUI でエラー: ' + ('; '.join(msgs) or '詳細不明'))
-        if entry and entry.get('outputs'):
-            for node in entry['outputs'].values():
-                for a in node.get('audio', []):
-                    q = urllib.parse.urlencode({
-                        'filename': a['filename'],
-                        'subfolder': a.get('subfolder', ''),
-                        'type': a.get('type', 'output'),
-                    })
-                    with urllib.request.urlopen(
-                            SERVER + '/view?' + q, timeout=120) as r2:
-                        return r2.read()
-        time.sleep(1.0)
-    raise TimeoutError('生成が時間内に終わらなかった')
+def sweep(f0, f1, dur, curve=1.0):
+    """f0 から f1 へ変化する周波数列。curve>1 で最初が速い。"""
+    x = np.linspace(0, 1, int(SR * dur)) ** curve
+    return f0 + (f1 - f0) * x
 
 
-def sampler_choice():
-    """使えるサンプラーから手頃なものを選ぶ(環境によって顔ぶれが違う)。"""
-    try:
-        with urllib.request.urlopen(SERVER + '/object_info/KSampler',
-                                    timeout=60) as res:
-            info = json.loads(res.read())
-        spec = info['KSampler']['input']['required']['sampler_name']
-        opts = spec[0] if isinstance(spec[0], list) else spec[1].get('options', [])
-    except Exception:
-        return SAMPLER
-    for want in (SAMPLER, 'dpmpp_3m_sde', 'dpmpp_2m', 'euler'):
-        if want in opts:
-            return want
-    return opts[0]
+def noise(dur, seed=0):
+    rng = np.random.default_rng(seed)
+    return rng.uniform(-1, 1, int(SR * dur))
 
 
-def build_workflow(conf, item, sampler):
-    prompt = f"{item['prompt']}, {conf['common']}"
-    sec = float(item['seconds'])
-    return {
-        '0': {'class_type': 'CLIPLoader',
-              'inputs': {'clip_name': T5, 'type': 'stable_audio'}},
-        '1': {'class_type': 'CheckpointLoaderSimple',
-              'inputs': {'ckpt_name': CKPT}},
-        '2': {'class_type': 'CLIPTextEncode',
-              'inputs': {'text': prompt, 'clip': ['0', 0]}},
-        '3': {'class_type': 'CLIPTextEncode',
-              'inputs': {'text': conf['negative'], 'clip': ['0', 0]}},
-        '4': {'class_type': 'ConditioningStableAudio',
-              'inputs': {'positive': ['2', 0], 'negative': ['3', 0],
-                         'seconds_start': 0.0, 'seconds_total': sec}},
-        '5': {'class_type': 'EmptyLatentAudio',
-              'inputs': {'seconds': sec, 'batch_size': 1}},
-        '6': {'class_type': 'KSampler',
-              'inputs': {'model': ['1', 0], 'seed': int(item['seed']),
-                         'steps': STEPS, 'cfg': CFG, 'sampler_name': sampler,
-                         'scheduler': SCHEDULER, 'denoise': 1.0,
-                         'positive': ['4', 0], 'negative': ['4', 1],
-                         'latent_image': ['5', 0]}},
-        '7': {'class_type': 'VAEDecodeAudio',
-              'inputs': {'samples': ['6', 0], 'vae': ['1', 2]}},
-        '8': {'class_type': 'SaveAudioMP3',
-              'inputs': {'audio': ['7', 0], 'filename_prefix': 'madoken_sfx',
-                         'quality': '128k'}},
-    }
+def lowpass(x, cutoff):
+    """一次のローパス(素直で軽い)。"""
+    a = np.exp(-2 * np.pi * cutoff / SR)
+    y = np.empty_like(x)
+    acc = 0.0
+    for i in range(len(x)):          # 短い音なので素直に回して問題ない
+        acc = (1 - a) * x[i] + a * acc
+        y[i] = acc
+    return y
 
 
-def gen_one(conf, item, sampler):
-    print(f"♪ {item['name']}({item['seconds']}秒)を生成中…")
-    t0 = time.time()
-    data = wait_files(post_prompt(build_workflow(conf, item, sampler)))
-    os.makedirs(PREVIEW_DIR, exist_ok=True)
-    path = os.path.join(PREVIEW_DIR, item['out'])
-    with open(path, 'wb') as f:
-        f.write(data)
-    print(f"  保存: sfx/_preview/{item['out']}  "
-          f'({len(data) / 1024:.0f} KB / {time.time() - t0:.0f}秒)')
+def highpass(x, cutoff):
+    return x - lowpass(x, cutoff)
 
 
-def adopt():
-    """_preview/ の音を sfx/ へ移す(採用)。"""
-    if not os.path.isdir(PREVIEW_DIR):
-        print('_preview/ が無い。先に生成すること。')
-        return
+def env_decay(dur, power=3.0):
+    """立ち上がりが速く、あとは減衰していく包絡。"""
+    return (1 - np.linspace(0, 1, int(SR * dur))) ** power
+
+
+def env_ad(dur, attack=0.01, power=3.0):
+    """短い立ち上がり + 減衰。"""
+    n = int(SR * dur)
+    na = max(1, int(SR * attack))
+    e = np.empty(n)
+    e[:na] = np.linspace(0, 1, na)
+    e[na:] = (1 - np.linspace(0, 1, n - na)) ** power
+    return e
+
+
+def fit(a, b):
+    """長さの違う配列を短い方に合わせる。"""
+    n = min(len(a), len(b))
+    return a[:n], b[:n]
+
+
+def mix(*parts):
+    n = max(len(p) for p in parts)
+    out = np.zeros(n)
+    for p in parts:
+        out[:len(p)] += p
+    return out
+
+
+def norm(x, peak=0.7):
+    m = np.max(np.abs(x))
+    return x * (peak / m) if m > 1e-9 else x
+
+
+def seamless(make, dur, cross=0.12):
+    """繰り返しても継ぎ目が分からないループを作る。
+
+    末尾を先頭に重ねて溶かすことで、最後から最初へ戻る瞬間の段差を消す。
+    """
+    x = make(dur + cross)
+    n = int(SR * dur)
+    c = int(SR * cross)
+    out = x[:n].copy()
+    fade = np.linspace(0, 1, c)
+    out[:c] = out[:c] * fade + x[n:n + c] * (1 - fade)
+    return out
+
+
+def save(name, x, peak=0.7):
     os.makedirs(SFX_DIR, exist_ok=True)
-    n = 0
-    for f in sorted(os.listdir(PREVIEW_DIR)):
-        if not f.lower().endswith(('.mp3', '.ogg', '.wav')):
-            continue
-        shutil.copy(os.path.join(PREVIEW_DIR, f), os.path.join(SFX_DIR, f))
-        print(f'  採用: {f}')
-        n += 1
-    print(f'{n}個を sfx/ へ採用した。--manifest で登録すること。')
+    y = norm(x, peak)
+    # 端のプチッという音を防ぐため、ごく短くフェードする
+    e = int(SR * 0.004)
+    if len(y) > 2 * e:
+        y[:e] *= np.linspace(0, 1, e)
+        y[-e:] *= np.linspace(1, 0, e)
+    data = np.clip(y, -1, 1)
+    pcm = (data * 32767).astype('<i2')
+    path = os.path.join(SFX_DIR, f'{name}.wav')
+    with wave.open(path, 'wb') as w:
+        w.setnchannels(1)
+        w.setsampwidth(2)
+        w.setframerate(SR)
+        w.writeframes(pcm.tobytes())
+    print(f'  {name}.wav  {len(pcm) / SR:.2f}秒  {os.path.getsize(path) / 1024:.0f} KB')
+
+
+# ===== 各効果音 =====
+# 返り値は (波形, ピーク音量)
+
+def sfx_select():
+    d = 0.09
+    x = sine(sweep(760, 1000, d), d) * env_ad(d, 0.004, 4)
+    return x, 0.30
+
+
+def sfx_unselect():
+    d = 0.09
+    x = sine(sweep(620, 400, d), d) * env_ad(d, 0.004, 4)
+    return x, 0.28
+
+
+def sfx_click():
+    d = 0.05
+    x = mix(sine(1500, d) * env_ad(d, 0.002, 6) * 0.5,
+            highpass(noise(d, 1), 3000) * env_decay(d, 8) * 0.3)
+    return x, 0.20
+
+
+def sfx_crafting():
+    # ぐつぐつと煮える持続音。低い唸りに、泡がぽこぽこ弾ける
+    def make(d):
+        n = int(SR * d)
+        t = np.arange(n) / SR
+        hum = np.sin(2 * np.pi * 70 * t) * 0.5 + np.sin(2 * np.pi * 105 * t) * 0.25
+        hum *= 0.8 + 0.2 * np.sin(2 * np.pi * 1.5 * t)
+        bub = np.zeros(n)
+        rng = np.random.default_rng(7)
+        for k in range(int(d * 9)):
+            at = int(rng.uniform(0, n - SR * 0.1))
+            ln = int(SR * 0.07)
+            f = sweep(rng.uniform(180, 320), rng.uniform(500, 800), 0.07)
+            bub[at:at + ln] += (sine(f, 0.07) * env_ad(0.07, 0.005, 5))[:ln] * 0.5
+        return lowpass(mix(hum, bub), 2200)
+    return seamless(make, 1.6), 0.42
+
+
+def sfx_craft():
+    # 完成のきらめき(和音を短く重ねる)
+    d = 0.9
+    parts = []
+    for i, f in enumerate([523.25, 659.25, 783.99, 1046.5]):
+        s = i * 0.055
+        seg = sine(f, d - s) * env_decay(d - s, 3.5)
+        seg = np.concatenate([np.zeros(int(SR * s)), seg])
+        parts.append(seg * (0.9 - i * 0.12))
+    return mix(*parts), 0.55
+
+
+def sfx_craft_fail():
+    d = 0.6
+    x = mix(sine(sweep(400, 150, d, 0.7), d) * env_decay(d, 2) * 0.8,
+            sine(sweep(404, 152, d, 0.7), d) * env_decay(d, 2) * 0.5)  # わずかにずらして濁らせる
+    return lowpass(x, 2500), 0.45
+
+
+def sfx_gathering():
+    # 草をかき分けるような、さらさらした持続音
+    def make(d):
+        n = int(SR * d)
+        t = np.arange(n) / SR
+        base = highpass(noise(d, 3), 1200) * 0.5
+        base *= 0.55 + 0.45 * np.sin(2 * np.pi * 2.3 * t)
+        return lowpass(base, 6000)
+    return seamless(make, 1.6), 0.30
+
+
+def sfx_gather():
+    d = 0.5
+    parts = []
+    for i, f in enumerate([1046.5, 1318.5, 1568.0]):
+        s = i * 0.06
+        seg = sine(f, 0.22) * env_ad(0.22, 0.004, 5)
+        parts.append(np.concatenate([np.zeros(int(SR * s)), seg]))
+    x = mix(*parts)
+    return np.concatenate([x, np.zeros(max(0, int(SR * d) - len(x)))]), 0.45
+
+
+def sfx_transmuting():
+    # 材質が変わっていくような、揺らぐ持続音
+    def make(d):
+        n = int(SR * d)
+        t = np.arange(n) / SR
+        a = np.sin(2 * np.pi * 330 * t)
+        b = np.sin(2 * np.pi * 333.5 * t)      # わずかにずらしてうねりを出す
+        c = np.sin(2 * np.pi * 495 * t) * 0.4
+        x = (a + b + c) * (0.6 + 0.4 * np.sin(2 * np.pi * 3.1 * t))
+        return lowpass(x, 3500)
+    return seamless(make, 1.6), 0.34
+
+
+def sfx_transmute():
+    d = 0.7
+    x = mix(sine(sweep(300, 900, 0.35), 0.35) * env_ad(0.35, 0.01, 2) * 0.7,
+            np.concatenate([np.zeros(int(SR * 0.28)),
+                            sine(1174.7, 0.42) * env_decay(0.42, 3)]) * 0.8)
+    return np.concatenate([x, np.zeros(max(0, int(SR * d) - len(x)))]), 0.5
+
+
+def sfx_discover():
+    # 滅多に鳴らないので、最も豪華に
+    d = 1.4
+    parts = []
+    for i, f in enumerate([523.25, 659.25, 783.99, 987.77, 1318.5]):
+        s = i * 0.075
+        ln = d - s
+        seg = mix(sine(f, ln) * env_decay(ln, 2.2),
+                  sine(f * 2, ln) * env_decay(ln, 3.5) * 0.35)
+        parts.append(np.concatenate([np.zeros(int(SR * s)), seg]) * (1 - i * 0.1))
+    shimmer = highpass(noise(d, 11), 5000) * env_decay(d, 1.5) * 0.15
+    return mix(*parts, shimmer), 0.7
+
+
+def sfx_casting():
+    # 力を溜める持続音。目立ちすぎないよう低めに
+    def make(d):
+        n = int(SR * d)
+        t = np.arange(n) / SR
+        low = np.sin(2 * np.pi * 110 * t) * 0.6 + np.sin(2 * np.pi * 165 * t) * 0.3
+        shim = highpass(noise(d, 5), 2500) * 0.18
+        shim *= 0.5 + 0.5 * np.sin(2 * np.pi * 4.7 * t)
+        return lowpass(mix(low, shim), 4000)
+    return seamless(make, 1.6), 0.26
+
+
+def sfx_cast():
+    d = 0.3
+    air = highpass(noise(d, 13), 900) * env_ad(d, 0.01, 3) * 0.5
+    body = sine(sweep(520, 900, d, 0.6), d) * env_ad(d, 0.008, 4) * 0.6
+    return mix(air, body), 0.32
+
+
+def sfx_enemy_cast():
+    d = 0.34
+    air = lowpass(noise(d, 17), 1800) * env_ad(d, 0.015, 3) * 0.6
+    body = sine(sweep(300, 170, d, 0.8), d) * env_ad(d, 0.01, 3) * 0.7
+    return mix(air, body), 0.34
+
+
+def sfx_hit():
+    d = 0.16
+    thump = sine(sweep(220, 70, d, 0.5), d) * env_decay(d, 4) * 0.9
+    crack = highpass(noise(d, 19), 1800) * env_decay(d, 9) * 0.5
+    return mix(thump, crack), 0.30
+
+
+def sfx_crit():
+    d = 0.4
+    thump = sine(sweep(300, 80, 0.2, 0.5), 0.2) * env_decay(0.2, 4)
+    crack = highpass(noise(0.2, 23), 2500) * env_decay(0.2, 7) * 0.7
+    ring = mix(sine(1760, d) * env_decay(d, 2.5) * 0.35,
+               sine(2637, d) * env_decay(d, 3.5) * 0.2)
+    return mix(thump, crack, ring), 0.5
+
+
+def sfx_damage():
+    d = 0.3
+    thud = sine(sweep(150, 55, d, 0.6), d) * env_decay(d, 3) * 1.0
+    body = lowpass(noise(d, 29), 700) * env_decay(d, 5) * 0.6
+    return mix(thud, body), 0.42
+
+
+def sfx_defeat():
+    d = 0.6
+    fall = sine(sweep(420, 90, d, 1.4), d) * env_decay(d, 2) * 0.8
+    dust = lowpass(highpass(noise(d, 31), 600), 4000) * env_decay(d, 2.5) * 0.5
+    return mix(fall, dust), 0.5
+
+
+def sfx_heal():
+    d = 0.8
+    parts = []
+    for i, f in enumerate([523.25, 783.99, 1046.5]):
+        s = i * 0.09
+        ln = d - s
+        parts.append(np.concatenate([np.zeros(int(SR * s)),
+                                     sine(f, ln) * env_ad(ln, 0.05, 2.2)]) * (0.9 - i * 0.15))
+    x = mix(*parts)
+    t = np.arange(len(x)) / SR
+    return x * (0.85 + 0.15 * np.sin(2 * np.pi * 5.5 * t)), 0.45
+
+
+def sfx_shield():
+    d = 0.55
+    ring = mix(sine(392, d) * env_ad(d, 0.012, 2.5),
+               sine(587.3, d) * env_ad(d, 0.012, 3) * 0.6,
+               sine(784, d) * env_ad(d, 0.012, 4) * 0.3)
+    clang = highpass(noise(0.06, 37), 2000) * env_decay(0.06, 5) * 0.4
+    return mix(ring, clang), 0.45
+
+
+def sfx_buff():
+    d = 0.55
+    parts = []
+    for i, f in enumerate([440, 554.4, 659.3, 880]):
+        s = i * 0.05
+        ln = d - s
+        parts.append(np.concatenate([np.zeros(int(SR * s)),
+                                     sine(f, ln) * env_decay(ln, 3)]) * (0.85 - i * 0.1))
+    return mix(*parts), 0.45
+
+
+def sfx_quake():
+    d = 1.1
+    t = np.arange(int(SR * d)) / SR
+    rumble = lowpass(noise(d, 41), 120) * 1.0
+    rumble *= 0.6 + 0.4 * np.sin(2 * np.pi * 7 * t)
+    sub = np.sin(2 * np.pi * 42 * t) * 0.5
+    x = mix(rumble, sub) * env_ad(d, 0.05, 1.6)
+    return x, 0.6
+
+
+def sfx_countdown():
+    d = 0.16
+    return sine(700, d) * env_ad(d, 0.005, 4), 0.4
+
+
+def sfx_start():
+    d = 0.8
+    x = mix(sine(880, d) * env_decay(d, 2.2),
+            sine(1318.5, d) * env_decay(d, 2.8) * 0.6,
+            sine(1760, d) * env_decay(d, 3.5) * 0.3)
+    return x, 0.6
+
+
+def sfx_win():
+    # 短いファンファーレ(ド→ミ→ソ→高いド)
+    notes = [(523.25, 0.0, 0.30), (659.25, 0.16, 0.30),
+             (783.99, 0.32, 0.30), (1046.5, 0.48, 0.85)]
+    total = 1.4
+    parts = []
+    for f, s, ln in notes:
+        seg = mix(sine(f, ln) * env_ad(ln, 0.01, 2.4),
+                  sine(f * 2, ln) * env_ad(ln, 0.01, 3.2) * 0.3)
+        parts.append(np.concatenate([np.zeros(int(SR * s)), seg]))
+    x = mix(*parts)
+    return np.concatenate([x, np.zeros(max(0, int(SR * total) - len(x)))]), 0.65
+
+
+def sfx_lose():
+    # 沈んでいく(ラ→ファ→レ)
+    notes = [(440, 0.0, 0.5), (349.2, 0.3, 0.5), (293.7, 0.6, 0.8)]
+    total = 1.5
+    parts = []
+    for f, s, ln in notes:
+        seg = mix(sine(f, ln) * env_ad(ln, 0.02, 2),
+                  sine(f * 0.5, ln) * env_ad(ln, 0.02, 2) * 0.5)
+        parts.append(np.concatenate([np.zeros(int(SR * s)), seg]))
+    x = lowpass(mix(*parts), 2000)
+    return np.concatenate([x, np.zeros(max(0, int(SR * total) - len(x)))]), 0.5
+
+
+def sfx_escape():
+    d = 0.65
+    air = highpass(noise(d, 43), 700) * env_ad(d, 0.02, 2) * 0.6
+    body = sine(sweep(700, 180, d, 1.2), d) * env_ad(d, 0.02, 2) * 0.7
+    return lowpass(mix(air, body), 5000), 0.42
+
+
+ALL = {
+    'select': sfx_select, 'unselect': sfx_unselect, 'click': sfx_click,
+    'crafting': sfx_crafting, 'craft': sfx_craft, 'craftFail': sfx_craft_fail,
+    'gathering': sfx_gathering, 'gather': sfx_gather,
+    'transmuting': sfx_transmuting, 'transmute': sfx_transmute,
+    'discover': sfx_discover,
+    'casting': sfx_casting, 'cast': sfx_cast, 'enemyCast': sfx_enemy_cast,
+    'hit': sfx_hit, 'crit': sfx_crit, 'damage': sfx_damage, 'defeat': sfx_defeat,
+    'heal': sfx_heal, 'shield': sfx_shield, 'buff': sfx_buff, 'quake': sfx_quake,
+    'countdown': sfx_countdown, 'start': sfx_start,
+    'win': sfx_win, 'lose': sfx_lose, 'escape': sfx_escape,
+}
 
 
 def write_manifest():
-    """置かれている音だけを manifest.json に登録する(BGMの登録は保つ)。"""
+    """置かれている音を manifest.json に登録する(BGMの登録は残す)。"""
+    import json
     path = os.path.join(SOUND_DIR, 'manifest.json')
     m = {}
     if os.path.exists(path):
@@ -171,7 +428,7 @@ def write_manifest():
     if os.path.isdir(SFX_DIR):
         for f in sorted(os.listdir(SFX_DIR)):
             base, ext = os.path.splitext(f)
-            if ext.lower() in ('.mp3', '.ogg', '.wav', '.m4a'):
+            if ext.lower() in ('.wav', '.mp3', '.ogg', '.m4a'):
                 sfx[base] = f'sfx/{f}'
     if sfx:
         m['sfx'] = sfx
@@ -186,31 +443,24 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--only', help='hit / cast など')
     ap.add_argument('--all', action='store_true')
-    ap.add_argument('--adopt', action='store_true', help='_preview/ を sfx/ へ採用')
     ap.add_argument('--manifest', action='store_true')
     args = ap.parse_args()
 
-    if args.adopt:
-        adopt()
-        return
     if args.manifest:
         write_manifest()
         return
-
-    conf = load_conf()
     if not args.only and not args.all:
-        ap.error('--only か --all か --adopt か --manifest を指定する')
+        ap.error('--only か --all か --manifest を指定する')
 
-    sampler = sampler_choice()
-    print(f'サンプラー: {sampler}')
-    targets = conf['sfx']
-    if args.only:
-        targets = [x for x in conf['sfx']
-                   if os.path.splitext(x['out'])[0] == args.only]
-        if not targets:
-            ap.error(f'不明な効果音: {args.only}')
-    for item in targets:
-        gen_one(conf, item, sampler)
+    names = [args.only] if args.only else list(ALL)
+    for n in names:
+        if n not in ALL:
+            ap.error(f'不明な効果音: {n}')
+    print(f'{len(names)}種を合成する…')
+    for n in names:
+        x, peak = ALL[n]()
+        save(n, x, peak)
+    write_manifest()
 
 
 if __name__ == '__main__':
