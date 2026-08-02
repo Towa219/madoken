@@ -60,6 +60,8 @@ export class CoopView {
     string, { cont: Container; nameT: Text; castT: Text; buffT: Text }
   >();
   private eViews: { cont: Container; body: Graphics | Sprite }[] = [];
+  // 今表示している敵の顔ぶれ。変わったら絵と表示を作り直す目印
+  private enemySig = '';
   private anims: Anim[] = [];
   private popups: Popup[] = [];
   private fxs: Fx[] = [];
@@ -99,6 +101,7 @@ export class CoopView {
     this.prevCastingIdx = -1;
     this.pViews.clear();
     this.eViews = [];
+    this.enemySig = '';
     this.anims = [];
     this.popups = [];
     this.fxs = [];
@@ -623,8 +626,16 @@ export class CoopView {
   private syncEnemies(st: any): void {
     const enemies: any[] = [];
     st.enemies.forEach((e: any) => enemies.push(e));
-    // ステージ切替で敵が入れ替わったら表示をリセット
-    if (enemies.length < this.eViews.length) {
+
+    // ステージが替わって敵の顔ぶれが変わったら、絵も下の表示も作り直す。
+    //
+    // 以前は「数が減った時」しか作り直していなかった。ボス(1体)から
+    // ステージ6(2体)へ進むと数は増えるだけなので作り直されず、
+    // ボスの絵が残ったまま、HPバーの下の行も1体ぶんの古い内容が残っていた。
+    // 数ではなく顔ぶれで見る。
+    const sig = enemies.map((e: any) => `${String(e.defId)}/${Number(e.maxHp)}`).join(',');
+    if (sig !== this.enemySig) {
+      this.enemySig = sig;
       for (const v of this.eViews) v.cont.destroy({ children: true });
       this.eViews = [];
       this.statusEls = [];
