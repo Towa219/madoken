@@ -29,10 +29,15 @@ export function computeSpell(counts: ElementCounts): CraftResult {
 
   const c = (id: ElementId) => counts[id] ?? 0;
 
+  // 雷と風は以前まったく威力に寄与せず、雷3が威力10・会心29%で魔導値60という
+  // 全属性で最低の魔法になっていた。元の威力が10では会心が上がっても意味がない。
+  // 雷は「速くて当たれば大きい」、風は「軽くて速い」という役割を保ったまま、
+  // 威力の下地を持たせてある。
   s.power += 8 * c('fire') + 2 * c('water') + 5 * c('earth')
-           + 3 * c('ice') + 2 * c('light') + 12 * c('dark');
+           + 3 * c('ice') + 2 * c('light') + 12 * c('dark')
+           + 7 * c('thunder') + 3 * c('wind');
   s.manaCost += 6 * c('fire') - 4 * c('water') + 3 * c('earth')
-              + 6 * c('dark') + 2 * c('thunder') + 2 * c('light');
+              + 6 * c('dark') + 4 * c('thunder') + 2 * c('light');
   s.castTime -= 0.2 * c('wind');
   s.projSpeed += 70 * c('wind') + 130 * c('thunder');
   s.critRate += 8 * c('thunder');
