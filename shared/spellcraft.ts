@@ -1,6 +1,6 @@
 import { ELEMENTS, ELEMENT_ORDER, RARITIES, RECIPES } from './data';
 import type { RecipeDef } from './data';
-import type { ElementCounts, ElementId, Rarity, SpellStats } from './types';
+import type { ElementCounts, ElementId, Rarity, SpellKind, SpellStats } from './types';
 
 // 属性ごとの命名用一文字
 const ATTR_CHAR: Record<ElementId, string> = {
@@ -258,6 +258,9 @@ export function healManaFloor(s: SpellStats): number {
   return Math.round(s.healPower * HEAL_MP_RATIO);
 }
 
+// MP自然回復の基礎(毎秒)。battle.ts の mpRegen と揃えること。
+export const BASE_MP_REGEN = 3;
+
 // MP自然回復の上乗せ(毎秒)。基礎の自然回復は毎秒3なので、+3で倍になる。
 // 上限6(毎秒9=3倍)。全体版は7割。
 export function mpRegenBonusOf(s: SpellStats): number {
@@ -336,9 +339,31 @@ export function normalizeStats(raw: SpellStats): SpellStats {
   };
 }
 
+// 支援・防御の効果時間(秒)。battle.ts で実際に設定している値と揃えること。
+// ここがずれると、強さの評価だけが実態と食い違う。
+const EFFECT_TIME: Partial<Record<SpellKind, number>> = {
+  shield: 10, ward: 12, vigor: 25, empower: 20, focus: 20,
+};
+
+// 攻撃魔法は「12 × 実質DPS」で評価している。
+// 支援・防御もこの物差しに載せないと、割合で効くもの(与ダメ上昇・耐性)が
+// 不当に安く見積もられる。以前は闘気(全員の与ダメ+31%を維持)が
+// 攻撃1本の1/8という評価になっていた。
+const REF_DPS = 34;   // 良い攻撃魔法1本ぶんのDPS(魔導値およそ400に相当)
+const PARTY = 1.8;    // 全体対象の割り増し(共闘は2人以上・単独もあるので控えめ)
+
+// その効果を戦闘中どれだけ張り続けられるか(0〜1)。
+// 効果時間が再使用時間より長ければ常時維持できる。
+function upTime(s: SpellStats): number {
+  const dur = EFFECT_TIME[s.kind];
+  if (!dur) return 1;
+  return Math.min(1, dur / (s.castTime + spellCooldown(s)));
+}
+
 export function spellMagicValue(raw: SpellStats): number {
   const s = normalizeStats(raw);
   const cycle = s.castTime + spellCooldown(s) * 0.6; // 1発に要する実時間
+  const all = s.targetAll ? PARTY : 1;
   let v = 0;
 
   if (s.kind === 'attack') {
@@ -353,22 +378,29 @@ export function spellMagicValue(raw: SpellStats): number {
     eff += s.dotDps * s.dotTime * 0.8; // 継続ダメージ分
     v = (eff / cycle) * 12;
   } else if (s.kind === 'shield') {
-    v = ((s.barrier * (s.targetAll ? 1.9 : 1)) / cycle) * 9;
+    // 1秒あたりに肩代わりできるダメージ量
+    v = (s.barrier * all / cycle) * 15;
   } else if (s.kind === 'heal') {
-    v = ((s.healPower * (s.targetAll ? 1.9 : 1)) / cycle) * 9;
+    v = (s.healPower * all / cycle) * 15;
   } else if (s.kind === 'ward') {
-    v = s.wardPct * (s.targetAll ? 2.6 : 1.6);
+    // 被ダメを wardPct% 減らす。全属性(=どの敵にも効く)と単属性で価値が大きく違う。
+    v = REF_DPS * (s.wardPct / 100) * 12 * upTime(s) * (s.targetAll ? 3.1 : 1.0);
   } else if (s.kind === 'vigor') {
-    v = s.hpBoost * (s.targetAll ? 1.5 : 0.9);
+    // 最大HP上昇 + 同量の即時回復。1秒あたりに供給するHPとして数える。
+    v = (s.hpBoost * 2 * all / (s.castTime + spellCooldown(s))) * 27 * upTime(s);
   } else if (s.kind === 'seal') {
-    v = s.sealTime * 26;
+    // 敵全体の行動を止める = その割合ぶん敵のDPSを消している
+    const stop = Math.min(0.85, s.sealTime / (s.castTime + spellCooldown(s)));
+    v = REF_DPS * stop * 12 * 4.2;
   } else if (s.kind === 'empower') {
-    v = s.atkBoost * (s.targetAll ? 3.2 : 2.0);
+    // 与ダメ+atkBoost%。維持できるので、そのまま基準DPSへの上乗せとみなす。
+    v = REF_DPS * (s.atkBoost / 100) * 12 * upTime(s) * all * 3.3;
   } else if (s.kind === 'focus') {
-    // 20秒で得られる追加MPを、MP1あたりの価値に換算して評価する
-    v = s.mpRegenBonus * 20 * (s.targetAll ? 1.6 : 1.0);
+    // MP回復の上乗せ。MPが尽きて詠唱できない時間が減る = そのぶん手数が増える。
+    v = REF_DPS * (s.mpRegenBonus / BASE_MP_REGEN) * 12 * upTime(s) * all * 0.75;
   } else {
-    v = (s.hateGain / cycle) * 1.4 + 25;   // 挑発
+    // 挑発: 敵の狙いを引き受ける。仲間が殴られない時間を作る役目。
+    v = (s.hateGain / cycle) * 1.4 * 2.4 + 60;
   }
 
   v *= 1 + Math.max(-0.25, (18 - s.manaCost) / 120); // MP効率
