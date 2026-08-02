@@ -26,7 +26,8 @@ export interface SpellStats {
   sealTime: number;   // 行動不能にする秒数。kind=seal で使用
   atkBoost: number;   // 与ダメージ上昇(%)。kind=empower で使用
   mpRegenBonus: number; // MP自然回復の上乗せ(毎秒)。kind=focus で使用
-  dotDps: number;     // 継続ダメージ(毎秒)
+  dotDps: number;     // 継続ダメージ(毎秒)。威力から算出する
+  dotStrong: boolean; // 継続ダメージが強い型か(延焼系)。dotDpsの倍率が変わる
   dotTime: number;    // 継続ダメージの持続秒数
   power: number;      // 威力
   castTime: number;   // 詠唱時間(秒)

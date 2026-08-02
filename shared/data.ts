@@ -190,7 +190,7 @@ export const RECIPES: RecipeDef[] = [
     hint: '火に風を送り続ければ、燃え広がって消えない (火×2+風×2以上)',
     desc: '命中した敵を8秒間燃やし続ける。腐蝕より短いが火力は高い。',
     check: c => n(c, 'fire') >= 2 && n(c, 'wind') >= 2,
-    apply: s => { s.dotTime = 8; s.dotDps = 1; }, // dotDps>0 は「強めの継続」の目印
+    apply: s => { s.dotTime = 8; s.dotStrong = true; }, // 腐蝕より短いが強い
   },
   {
     id: 'touki', name: '闘気系', spellNoun: '闘気',

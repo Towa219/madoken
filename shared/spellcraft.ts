@@ -20,7 +20,7 @@ export function computeSpell(counts: ElementCounts): CraftResult {
     kind: 'attack', barrier: 0, healPower: 0, hateGain: 0, targetAll: false,
     quake: false, wardPct: 0, hpBoost: 0, sealTime: 0, atkBoost: 0,
     mpRegenBonus: 0,
-    dotDps: 0, dotTime: 0,
+    dotDps: 0, dotTime: 0, dotStrong: false,
     power: 10, castTime: 1.3, manaCost: 20, projSpeed: 260,
     radius: 0, pierce: false, chain: 0, critRate: 5,
     lifesteal: 0, freeze: 0, slow: 0, selfDamage: 0,
@@ -53,7 +53,7 @@ export function computeSpell(counts: ElementCounts): CraftResult {
   for (const r of matched) r.apply(s);
 
   // クランプ
-  s.castTime = Math.max(0.35, s.castTime);
+  s.castTime = Math.max(0.35, Math.round(s.castTime * 100) / 100);
   s.manaCost = Math.max(4, Math.round(s.manaCost));
   s.power = Math.max(1, Math.round(s.power));
   s.projSpeed = Math.round(s.projSpeed);
@@ -64,7 +64,15 @@ export function computeSpell(counts: ElementCounts): CraftResult {
   if (s.kind === 'heal') s.healPower = Math.round(s.power * 1.8 + 10);
   if (s.kind === 'taunt') s.hateGain = Math.round(s.power * 10);
   if (s.kind === 'focus') s.mpRegenBonus = mpRegenBonusOf(s);
+  // ここは調合台のプレビューでも使う。1つでも抜けると
+  // 「敵全体を0.0秒 行動不能」のように効果0で表示され、魔導値も1になる。
+  // finalStats と同じ顔ぶれを揃えること。
+  if (s.kind === 'ward') s.wardPct = wardPctOf(s);
+  if (s.kind === 'vigor') s.hpBoost = hpBoostOf(s);
+  if (s.kind === 'seal') s.sealTime = sealTimeOf(s);
+  if (s.kind === 'empower') s.atkBoost = atkBoostOf(s);
   if (s.kind === 'heal') s.manaCost = Math.max(s.manaCost, healManaFloor(s));
+  if (s.dotTime > 0) s.dotDps = dotDpsOf(s);
 
   // 自動命名: 主属性接頭辞 + 系統名 + 威力階級 + 構成タグ
   // 構成タグ〈火2風〉はレシピの完全な符号なので、
@@ -225,8 +233,7 @@ export function finalStats(
   if (s.kind === 'focus') s.mpRegenBonus = mpRegenBonusOf(s);
   // 強化で回復量が増えた分、消費MPの下限も上がる(MP1あたりの効率は一定に保つ)
   if (s.kind === 'heal') s.manaCost = Math.max(s.manaCost, healManaFloor(s));
-  // 継続ダメージ: 延焼(dotDpsの目印あり)は強め
-  if (s.dotTime > 0) s.dotDps = Math.max(1, Math.round(s.power * (s.dotDps > 0 ? 0.28 : 0.18)));
+  if (s.dotTime > 0) s.dotDps = dotDpsOf(s);
   return s;
 }
 
@@ -256,6 +263,11 @@ export function healManaFloor(s: SpellStats): number {
 export function mpRegenBonusOf(s: SpellStats): number {
   const base = Math.min(6, 1.5 + s.power / 16);
   return Math.round((s.targetAll ? base * 0.7 : base) * 10) / 10;
+}
+
+// 継続ダメージ(毎秒)。延焼系は腐蝕系より短いぶん強い。
+export function dotDpsOf(s: SpellStats): number {
+  return Math.max(1, Math.round(s.power * (s.dotStrong ? 0.28 : 0.18)));
 }
 
 // 行動不能にする秒数(威力から換算・上限6秒)
@@ -316,6 +328,7 @@ export function normalizeStats(raw: SpellStats): SpellStats {
     wardPct: n(raw?.wardPct), hpBoost: n(raw?.hpBoost), sealTime: n(raw?.sealTime),
     atkBoost: n(raw?.atkBoost), mpRegenBonus: n(raw?.mpRegenBonus),
     dotDps: n(raw?.dotDps), dotTime: n(raw?.dotTime),
+    dotStrong: Boolean(raw?.dotStrong),
     power: n(raw?.power), castTime: n(raw?.castTime), manaCost: n(raw?.manaCost),
     projSpeed: n(raw?.projSpeed), radius: n(raw?.radius), chain: n(raw?.chain),
     critRate: n(raw?.critRate), lifesteal: n(raw?.lifesteal), freeze: n(raw?.freeze),
