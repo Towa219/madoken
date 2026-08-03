@@ -6,7 +6,8 @@
 import { Application, Container, Graphics, Sprite, Text } from 'pixi.js';
 import {
   affinityMul, affinitySymbol, battleRP, bossForStage, ELEMENTS, ELEMENT_ORDER,
-  ENEMY_ATK_MUL, ENEMY_HP_MUL, ENEMY_SCALE, enemyTopY, isBossStage, pickEnemiesForStage,
+  bossHpMul, ENEMY_ATK_MUL, ENEMY_HP_MUL, ENEMY_SCALE, enemyTopY, isBossStage,
+  pickEnemiesForStage,
   PLAYER_MAX_HP, PLAYER_MAX_MP, PLAYER_MP_REGEN, SPRITE_SCALE, stageAtkMul, stageHpMul,
 } from '../shared/data';
 import type { AffinityGrade, EnemyDef } from '../shared/data';
@@ -313,7 +314,10 @@ export class BattleManager {
       nameT.position.set(0, enemyTopY(def) - 30);
       cont.addChild(nameT);
 
-      const hpMul = stageHpMul(this.stage) * ENEMY_HP_MUL;
+      // ボスは厚みの付け方が別(ステージ成長を掛けない)
+      const hpMul = isBossStage(this.stage)
+        ? bossHpMul()
+        : stageHpMul(this.stage) * ENEMY_HP_MUL;
       const unit: EnemyUnit = {
         def,
         hp: Math.round(def.hp * hpMul),

@@ -30,6 +30,7 @@ function initialState(): GameState {
     bestStage: 0,
     bossCleared: [],
     sortMode: 'use',
+    legendRewarded: false,
     codexRewarded: false,
   };
 }
@@ -88,6 +89,7 @@ function migrate(parsed: Partial<GameState>): GameState {
       }
     }
     if (typeof merged.codexRewarded !== 'boolean') merged.codexRewarded = false;
+    if (typeof merged.legendRewarded !== 'boolean') merged.legendRewarded = false;
     // 素材庫の欠損も0で補う
     for (const id of ELEMENT_ORDER) {
       if (typeof merged.inventory[id] !== 'number' || !Number.isFinite(merged.inventory[id])) {

@@ -7,7 +7,7 @@ import {
   battleRP, DEFEAT_RP_RATE,
   DISASSEMBLE_RATE, DISCOVERY_BONUS_RP, ELEMENTS, ELEMENT_ORDER, ENEMIES,
   ENEMY_HP_MUL, BOSSES, DUEL_MAX_HP, GATHER_COST, GATHER_COUNT,
-  LIBRARY_BONUS_FULL_KINDS, LIBRARY_BONUS_MAX, LIBRARY_BONUS_PER_KIND,
+  LEGEND_BOSS_STAGE, LIBRARY_BONUS_FULL_KINDS, LIBRARY_BONUS_MAX, LIBRARY_BONUS_PER_KIND,
   LIBRARY_BONUS_START, libraryBonus,
   PLAYER_MAX_HP, PLAYER_MAX_MP, RARITIES, RECIPES,
   SLOT3_COST, SLOT4_BOSS_STAGE, SLOT4_COST, SLOT5_BOSS_STAGE, SLOT5_COST,
@@ -123,10 +123,17 @@ export function renderManual(): void {
   <ul>
     <li><b>共闘</b>は最大3人。全員が準備完了で開始し、<b>クリアすると自動で次のステージへ</b>進み続けます</li>
     <li>誰かが倒れても、ステージを越えればHP50%で復活します。<b>全滅すると終了</b>です</li>
-    <li>戦闘中に誰かが退出すると、前のステージまでのクリア扱いで全員ロビーに戻ります</li>
+    <li>戦闘中に誰かの通信が切れても、<b>90秒は席を空けて待ちます</b>。戻ってこられなくても、<b>残った人はそのまま続けられます</b>(全員いなくなった時だけ、前のステージまでのクリア扱いで終わります)</li>
     <li><b>ボス戦(5の倍数)はオンラインの共闘部屋から</b>挑みます。<b>1人でも挑戦できます</b>が、仲間がいるほど楽になります</li>
+    <li>ボスは何回かに一度、<b>狙いを定めず全員を巻き込む一撃</b>を放ちます。
+    予告が出てから着弾するので、その間に回復・護盾・護符で備えてください</li>
+    <li>👑 <b>ステージ${LEGEND_BOSS_STAGE}のボスを初めて倒すと、
+    【${RARITIES.legend.name}】品質の魔法(性能×${RARITIES.legend.mul})が1つ贈られます。</b>
+    通常の調合では滅多に出ない品質です</li>
     <li><b>決闘</b>は1対1。HP${DUEL_MAX_HP}で、挑発は「構え」(被弾-20%)として働きます</li>
-    <li><b>ランキング</b>はニックネームごとに自己ベスト1件。スコア = クリアステージ×10 + 与ダメージ÷20</li>
+    <li><b>魔導値ランキング</b>はニックネームごとに自己ベスト1件。
+    スコア = <b>持っている魔法のうち、装備できる数だけ魔導値の高い順に合計</b>した値。
+    装備中のものではないので、装備を入れ替えても順位は変わりません</li>
     <li>ニックネームは初回接続時に登録され、<b>初期化するまで変更できません</b>。
     全角${NICK_MAX_FULL}文字(半角${NICK_MAX_WIDTH}文字)まで・
     使えるのは<b>ひらがな/カタカナ/漢字/英数字</b>だけで、

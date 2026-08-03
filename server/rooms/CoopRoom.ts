@@ -21,7 +21,8 @@ import { CODE_REPLACED } from '../../shared/netcodes';
 import { clampNickname } from '../../shared/nickname';
 import { clampCharId } from '../../shared/characters';
 import {
-  affinityMul, battleRP, BOSS_AOE_WARN_SEC, bossForStage, ENEMY_ATK_MUL, ENEMY_HP_MUL,
+  affinityMul, battleRP, BOSS_AOE_WARN_SEC, bossForStage, bossHpMul,
+  ENEMY_ATK_MUL, ENEMY_HP_MUL,
   isBossStage,
   pickEnemiesForStage, RECONNECT_SEC, PLAYER_MAX_HP, PLAYER_MAX_MP, PLAYER_MP_REGEN,
   stageAtkMul, stageHpMul,
@@ -370,7 +371,9 @@ export class CoopRoom extends Room<CoopState> {
 
     // 人数に応じて敵HPを増強(1人=等倍, 2人=1.5倍, 3人=2倍)
     const playerCount = this.state.players.size;
-    const hpMul = stageHpMul(stage) * ENEMY_HP_MUL * (0.5 + 0.5 * playerCount);
+    // ボスは厚みの付け方が別(ステージ成長を掛けず、専用の倍率で厚くする)
+    const base = isBossStage(stage) ? bossHpMul() : stageHpMul(stage) * ENEMY_HP_MUL;
+    const hpMul = base * (0.5 + 0.5 * playerCount);
 
     defs.forEach((def, i) => {
       const e = new EnemyS();

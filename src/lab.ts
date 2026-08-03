@@ -2,7 +2,7 @@
 
 import {
   DISASSEMBLE_RATE, DISCOVERY_BONUS_RP, ELEMENT_POOL, ELEMENTS, ELEMENT_ORDER,
-  GATHER_COST, GATHER_COUNT, LIBRARY_BONUS_MAX, LIBRARY_BONUS_START,
+  GATHER_COST, GATHER_COUNT, LEGEND_BOSS_STAGE, LIBRARY_BONUS_MAX, LIBRARY_BONUS_START,
   libraryBonus, RARITIES, rarityMultiplier, RECIPES, rollRarity,
   nextEquipUnlock,
   SLOT3_COST, SLOT4_BOSS_STAGE, SLOT4_COST, SLOT5_BOSS_STAGE, SLOT5_COST,
@@ -83,6 +83,12 @@ function findSameRecipeSpell(counts: ElementCounts): Spell | undefined {
 }
 
 export function initLab(): void {
+  // 討伐報酬の確認用の入口。ステージ50まで実際に進めるのは時間がかかるため、
+  // test/legend_reward_check.ts からここを呼んで「初回だけ渡る」ことを確かめる。
+  // 遊びの流れからは触れられない(押せるボタンはどこにも無い)。
+  (window as unknown as { __madokenGrantLegend?: () => void })
+    .__madokenGrantLegend = grantLegendReward;
+
   $('#btn-craft').addEventListener('click', craft);
   $('#btn-gather').addEventListener('click', gather);
   $('#btn-transmute').addEventListener('click', transmute);
@@ -753,6 +759,39 @@ function disassemble(sp: Spell): void {
 
 // ---- 発見図鑑 ----
 
+// ステージ50のボスを初めて倒したら、レジェンド品質の魔法を1つだけ授ける。
+//
+// 系統はランダムに選び、その系統が成立する構成の中で最も魔導値が高いものを作る。
+// レジェンドは通常の調合では1万分の1でしか出ないので、最深部のボスを
+// 倒した証として確実に1本渡す。2本目は出ない。
+export function grantLegendReward(): void {
+  if (state.legendRewarded) return;
+  state.legendRewarded = true; // 先に立てて二重取得を防ぐ
+
+  const def = RECIPES[Math.floor(Math.random() * RECIPES.length)];
+  const counts = bestCompositionFor(def.id, Math.max(3, state.slots));
+  if (!counts) { save(); return; }
+
+  const { matched } = computeSpell(counts);
+  const rewardName = spellNameFor(counts, 'legend'); // カタカナの真名(二つ名つき)
+  const spell: Spell = {
+    id: `sp_legend_${Date.now()}`,
+    name: rewardName,
+    recipe: counts,
+    stats: finalStats(counts, 0, 'legend'),
+    discoveries: matched.map(r => r.id),
+    level: 0, equipCount: 0,
+    rarity: 'legend',
+  };
+  addSpell(spell);
+  save();
+  notify();   // 図鑑の案内・魔導書・戦闘力をその場で描き直す
+  showToast(
+    `👑 ステージ${LEGEND_BOSS_STAGE}のボスを討伐! `
+    + `【${RARITIES.legend.name}】「${rewardName}」を授かった!`,
+  );
+}
+
 // 全系統を発見していたら、その証としてエピック品質の魔法を1つだけ授ける。
 // 系統はランダムに選び、その系統が成立する構成の中で最も魔導値が高いものを作る。
 function grantCodexRewardIfDue(): void {
@@ -799,6 +838,19 @@ function renderRecipes(): void {
       + `品質の魔法(性能×${RARITIES.epic.mul})がランダムな系統で1つ贈られます。`
       + ` あと<b>${RECIPES.length - found}</b>系統。`;
   list.appendChild(banner);
+
+  // 最深部のボスの報酬も並べて出す。存在を知らないと目標にならない。
+  const legend = document.createElement('div');
+  legend.className = 'codex-reward' + (state.legendRewarded ? ' done' : '');
+  legend.innerHTML = state.legendRewarded
+    ? `👑 <b>ステージ${LEGEND_BOSS_STAGE}のボス討伐済み</b> — 報酬の`
+      + `<span style="color:${RARITIES.legend.cssColor}">【${RARITIES.legend.name}】</span>`
+      + `魔法は魔導書に収めてあります。`
+    : `👑 <b>最深部の報酬</b> — <b>ステージ${LEGEND_BOSS_STAGE}</b>のボスを倒すと、`
+      + `<span style="color:${RARITIES.legend.cssColor}">【${RARITIES.legend.name}】</span>`
+      + `品質の魔法(性能×${RARITIES.legend.mul})がランダムな系統で1つ贈られます。`
+      + ` 通常の調合では${(1 / RARITIES.legend.chance).toLocaleString('ja-JP')}回に1回しか出ません。`;
+  list.appendChild(legend);
 
   for (const r of RECIPES) {
     const found = state.discovered.includes(r.id);

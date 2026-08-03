@@ -6,13 +6,15 @@ import {
   affinitySymbol, ALL_ENEMIES, ELEMENTS, ELEMENT_ORDER, enemyTopY, SPRITE_SCALE,
 } from '../shared/data';
 import type { AffinityGrade, EnemyDef } from '../shared/data';
-import { EQUIP_MAX , RECONNECT_TRIES, RECONNECT_WAIT_MS } from '../shared/data';
+import {
+  EQUIP_MAX, LEGEND_BOSS_STAGE, RECONNECT_TRIES, RECONNECT_WAIT_MS,
+} from '../shared/data';
 import {
   COUNT_STYLE, makeEnemySprite, makePlayerSprite, makeProjectileGfx, START_LABEL,
 } from './battle';
 import { clampCharId } from '../shared/characters';
 import { spellCooldown, spellDisplayName } from '../shared/spellcraft';
-import { markGained, showToast } from './lab';
+import { grantLegendReward, markGained, showToast } from './lab';
 import { addElements, equippedSpells, markBossCleared, notify, state } from './state';
 import type { ElementId, Spell } from '../shared/types';
 import { playBgm, playSfx, startSfxLoop, stopAllSfxLoops, stopSfxLoop } from './sound';
@@ -467,7 +469,11 @@ export class CoopView {
       state.researchP += m.rp;
       state.bestStage = Math.max(state.bestStage, m.stage);
       state.maxStage = Math.max(state.maxStage, m.stage + 1);
-      if (m.boss) markBossCleared(m.stage);
+      if (m.boss) {
+        markBossCleared(m.stage);
+        // 最深部のボスは初回だけレジェンドを授ける
+        if (m.stage === LEGEND_BOSS_STAGE) grantLegendReward();
+      }
       notify();
       const dropStr = m.drops.length > 0
         ? ` 素材:${m.drops.map(d => ELEMENTS[d].name).join('・')}`

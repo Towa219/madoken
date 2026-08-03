@@ -611,7 +611,12 @@ export const PLAYER_MAX_MP = 150;
 export const PLAYER_MP_REGEN = 6;   // 毎秒。src/battle.ts と CoopRoom.ts の両方で使う
 export const DUEL_MAX_HP = 300;   // 決闘は読み合いのぶんさらに長め
 export const DUEL_MAX_MP = 140;
-export const ENEMY_HP_MUL = 2.0;  // 敵HPの全体倍率
+export const ENEMY_HP_MUL = 3.5;  // 敵HPの全体倍率
+
+// ボスだけにさらに掛かる倍率。
+// ボスは通常の敵と同じ扱いだと、種類の格が上がるだけで手応えが出ない。
+// 共闘は最大3人なので、1人で挑むと長く、仲間がいるほど短くなる。
+export const BOSS_HP_MUL = 2.2;
 export const ENEMY_ATK_MUL = 0.8; // 敵攻撃力の全体倍率
 
 // ボスの全体攻撃を予告してから着弾するまでの秒数。
@@ -638,8 +643,15 @@ export const RECONNECT_TRIES = Math.ceil((RECONNECT_SEC * 1000) / RECONNECT_WAIT
 //
 // プレイヤー側の火力とHPは青天井ではない(魔法の構成と強化で頭打ちになる)ので、
 // 敵の伸びも頭打ちのある形にしないと、どこかで必ず追いつけなくなる。
-export const stageHpMul = (stage: number) => 1 + 0.06 * (stage - 1);
+export const stageHpMul = (stage: number) => 1 + 0.045 * (stage - 1);
 export const stageAtkMul = (stage: number) => 1 + 0.04 * (stage - 1);
+
+// ボスのHP倍率。ステージ成長を掛けない。
+//
+// ボスは種類の格そのものが 150 → 4000 と27倍も伸びるので、
+// そこへステージ倍率まで掛けると深部が手に負えなくなる
+// (試算でステージ50が5分超)。厚みは BOSS_HP_MUL だけで付ける。
+export const bossHpMul = () => ENEMY_HP_MUL * BOSS_HP_MUL;
 
 // 採取・スロット解放コスト
 export const GATHER_COST = 35;   // 採取は高価に(エレメントは貴重)
@@ -648,6 +660,10 @@ export const START_SLOTS = 2;        // 最初は2スロット(調合は2素材�
 export const SLOT3_COST = 40;        // 第3スロットは研究Pのみで解放
 export const SLOT4_COST = 120;
 export const SLOT5_COST = 400;
+// ここのボスを初めて倒すと、レジェンド品質の魔法を1つだけ授かる。
+// 節目を動かしたい時はこの数字だけ変えればよい。
+export const LEGEND_BOSS_STAGE = 50;
+
 export const SLOT4_BOSS_STAGE = 10;  // 第4スロットに必要なボス撃破ステージ
 export const SLOT5_BOSS_STAGE = 20;
 
