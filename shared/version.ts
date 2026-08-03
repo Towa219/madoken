@@ -4,6 +4,6 @@
 // BUILD_DATE は npm run build のたびに tools/stamp-version.mjs が
 // 実際の時刻(日本時間)で書き換えるので、手で触らないこと。
 
-export const VERSION = '0.33.0';
-export const BUILD_DATE = '2026-08-03 08:31';
+export const VERSION = '0.34.0';
+export const BUILD_DATE = '2026-08-03 10:58';
 export const COPYRIGHT = 'Copyright © 2026 YuriPapa';

@@ -151,6 +151,14 @@ export const RECIPES: RecipeDef[] = [
     apply: s => { s.kind = 'vigor'; s.targetAll = true; },
   },
   {
+    id: 'kyoumei', name: '共鳴系', spellNoun: '魔力共鳴',
+    hint: '澄んだ心に風を通せば、魔力の波は仲間へ渡る (氷×2+光×1+風×1以上)',
+    desc: '瞑想を仲間全員に広げる。MPの自然回復を20秒間だけ引き上げる'
+      + '(効果は単体版の70%)。全員が同時にMPを使うボス戦向け。',
+    check: c => n(c, 'ice') >= 2 && n(c, 'light') >= 1 && n(c, 'wind') >= 1,
+    apply: s => { s.kind = 'focus'; s.targetAll = true; },
+  },
+  {
     id: 'shugo', name: '守護系', spellNoun: '護符',
     hint: '水を重ね氷で封じれば、その力は身を弾く (水×2+氷×1以上)',
     desc: 'この魔法の属性に対する耐性を自分に付与(12秒)。敵の攻撃属性を見て選ぼう。',
