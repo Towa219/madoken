@@ -15,7 +15,7 @@ import { spellCooldown, spellDisplayName } from '../shared/spellcraft';
 import { markGained, showToast } from './lab';
 import { addElements, equippedSpells, markBossCleared, notify, state } from './state';
 import type { ElementId, Spell } from '../shared/types';
-import { playSfx, startSfxLoop, stopAllSfxLoops, stopSfxLoop } from './sound';
+import { playBgm, playSfx, startSfxLoop, stopAllSfxLoops, stopSfxLoop } from './sound';
 
 const W = 960;
 const H = 540;
@@ -648,6 +648,10 @@ export class CoopView {
 
     const bossFight = Number(st.stage) % 5 === 0;
     this.stageText.text = `ステージ ${st.stage}${bossFight ? ' — ボス戦' : ''} (共闘)`;
+    // ボス戦かどうかで曲を変える。
+    // 部屋に入る時だけ選んでいたため、勝ち上がってボスのステージに来ても
+    // 通常戦闘の曲のままだった。毎回呼んでも、同じ曲なら playBgm 側で無視される。
+    playBgm(bossFight ? 'boss' : 'battle');
 
     this.syncPlayers(st);
     this.syncEnemies(st);
