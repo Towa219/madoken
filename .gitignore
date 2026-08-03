@@ -10,3 +10,6 @@ public/sound/sfx/_試聴.html
 
 # 宣伝用スクリーンショット(生成物)
 tools/shots/
+
+# 魔法一覧の元データ(生成物)
+tools/spell_list.json
