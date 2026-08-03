@@ -129,7 +129,8 @@ async function main(): Promise<void> {
     if (st.phase !== 'ready') fail('片方だけreadyで開始してしまった');
   }
   roomB.send('ready');
-  await waitFor(() => (roomA.state as any)?.phase === 'fight', '戦闘開始');
+  // カウントダウンを挟むので少し待つ
+  await waitFor(() => (roomA.state as any)?.phase === 'fight', '戦闘開始(カウント後)', 15_000);
   ok('全員準備完了で戦闘開始(phase=fight)');
   {
     const st: any = roomA.state;
@@ -160,6 +161,7 @@ async function main(): Promise<void> {
   // 自動で次ステージへ進むことを確認
   await waitFor(() => {
     const st: any = roomA.state;
+    // 次ステージもカウントダウンから始まるので、fight になるまで待つ
     return st?.stage === 2 && st?.phase === 'fight' && st?.enemies?.length > 0;
   }, '次ステージ自動開始(stage=2, fight)', 15_000);
   clearInterval(caster);
@@ -212,7 +214,9 @@ async function main(): Promise<void> {
     name: NAME_A, spells: spellsA, stage: 5, maxStage: 5, nickToken: TOKEN_A,
   });
   bossRoom.send('ready');
-  await sleep(1500);
+  // 準備完了のあとカウントダウン(3.6秒)を挟んでから戦闘が始まる
+  await waitFor(() => (bossRoom.state as any)?.phase === 'fight',
+    'ボス戦の開始(カウント後にfight)', 15_000);
   const bossPhase = (bossRoom.state as any)?.phase;
   if (bossPhase !== 'fight') {
     fail(`ボス戦が1人で開始しなかった(phase=${String(bossPhase)})`);

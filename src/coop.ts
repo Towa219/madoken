@@ -7,7 +7,9 @@ import {
 } from '../shared/data';
 import type { AffinityGrade, EnemyDef } from '../shared/data';
 import { EQUIP_MAX , RECONNECT_TRIES, RECONNECT_WAIT_MS } from '../shared/data';
-import { makeEnemySprite, makePlayerSprite, makeProjectileGfx } from './battle';
+import {
+  COUNT_STYLE, makeEnemySprite, makePlayerSprite, makeProjectileGfx, START_LABEL,
+} from './battle';
 import { clampCharId } from '../shared/characters';
 import { spellCooldown, spellDisplayName } from '../shared/spellcraft';
 import { markGained, showToast } from './lab';
@@ -50,6 +52,9 @@ export class CoopView {
   private uiLayer!: Container;
   private barsG!: Graphics;
   private stageText!: Text;
+  // 3→2→1→開戦
+  private countText!: Text;
+  private prevCount = -99;
 
   private room: Room | null = null;
   private mySid = '';
@@ -119,6 +124,7 @@ export class CoopView {
     this.eViews = [];
     this.enemySig = '';
     this.warnT = 0;
+    this.prevCount = -99;
     this.anims = [];
     this.popups = [];
     this.fxs = [];
@@ -180,6 +186,11 @@ export class CoopView {
     this.stageText.anchor.set(0.5, 0);
     this.stageText.position.set(W / 2, 12);
     this.uiLayer.addChild(this.stageText);
+
+    this.countText = new Text({ text: '', style: { ...COUNT_STYLE } });
+    this.countText.anchor.set(0.5);
+    this.countText.position.set(W / 2, H / 2 - 30);
+    this.uiLayer.addChild(this.countText);
 
     // ボスの全体攻撃の予告。画面全体を赤く染めて、中央に警告を出す。
     // 見落とすと全員が一気に削られるので、目立たせることを優先している。
@@ -643,6 +654,30 @@ export class CoopView {
     this.updateWaiting(st);
     this.updateBar(st, dt);
     this.drawBars(st);
+
+    // カウントダウン(開戦前・次ステージへ進んだ時の両方)
+    if (st.phase === 'count') {
+      const left = Number(st.countdown);
+      const n = Math.ceil(left - 0.6);
+      if (n !== this.prevCount) {
+        this.prevCount = n;
+        playSfx(n > 0 ? 'countdown' : 'start');
+      }
+      this.countText.text = n > 0 ? String(n) : START_LABEL;
+      if (n > 0) {
+        const frac = (left - 0.6) - Math.floor(left - 0.6);
+        this.countText.scale.set(1 + (1 - frac) * 0.35);
+        this.countText.alpha = 1;
+      } else {
+        // 「開戦」は押し広がりながら薄れて消える
+        const t = Math.max(0, Math.min(1, left / 0.6));
+        this.countText.scale.set(1.05 + (1 - t) * 0.35);
+        this.countText.alpha = 0.15 + t * 0.85;
+      }
+    } else {
+      this.countText.text = '';
+      this.prevCount = -99;
+    }
 
     // 全体攻撃の予告。着弾が近づくほど赤く、速く点滅する。
     if (this.warnT > 0) {

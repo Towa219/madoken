@@ -94,7 +94,8 @@ async function startCoop(tag: string) {
   await waitFor(() => (ra.state as any)?.players?.size === 2, 15_000);
   ra.send('ready');
   rb.send('ready');
-  const started = await waitFor(() => (ra.state as any)?.phase === 'fight', 20_000);
+  // 準備完了のあとカウントダウン(3.6秒)を挟む
+  const started = await waitFor(() => (ra.state as any)?.phase === 'fight', 25_000);
   return { a, b, ca, cb, ra, rb, wa, wb, started };
 }
 
@@ -161,7 +162,8 @@ async function main(): Promise<void> {
     check('残った人のランは終わっていない', d.wa.aborted === null,
       d.wa.aborted ? '中断された' : '');
     check('残った人はまだ戦える',
-      (d.ra.state as any)?.phase === 'fight', String((d.ra.state as any)?.phase));
+      ['fight', 'count'].includes(String((d.ra.state as any)?.phase)),
+      String((d.ra.state as any)?.phase));
 
     try { void d.ra.leave(); } catch { /* 切断済み */ }
     await sleep(1200);

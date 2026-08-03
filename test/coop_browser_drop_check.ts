@@ -194,6 +194,8 @@ async function main(): Promise<void> {
     check('部屋を作れた', await cdp.click('#btn-create-room'));
     await sleep(2500);
     check('準備完了を押せた', await cdp.click('#btn-coop-ready'));
+    await sleep(1600);
+    await cdp.shot('coop_countdown');
 
     const inCoop = () => cdp.evaluate<boolean>(
       'document.querySelector("#coop-view")?.classList.contains("hidden") === false');

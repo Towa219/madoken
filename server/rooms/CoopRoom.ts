@@ -82,20 +82,22 @@ defineTypes(EnemyS, {
 });
 
 class CoopState extends Schema {
-  declare phase: string; // ready | fight | done
+  declare phase: string; // ready | count | fight | done
+  declare countdown: number; // 3→2→1→開戦 の残り秒(phase='count' の間)
   declare stage: number;
   declare players: MapSchema<PlayerS>;
   declare enemies: ArraySchema<EnemyS>;
   constructor() {
     super();
     this.phase = 'ready';
+    this.countdown = 0;
     this.stage = 1;
     this.players = new MapSchema<PlayerS>();
     this.enemies = new ArraySchema<EnemyS>();
   }
 }
 defineTypes(CoopState, {
-  phase: 'string', stage: 'number',
+  phase: 'string', countdown: 'number', stage: 'number',
   players: { map: PlayerS }, enemies: [EnemyS],
 });
 
@@ -336,8 +338,11 @@ export class CoopRoom extends Room<CoopState> {
     if (ps.every(p => p.ready)) this.startFight();
   }
 
+  // 3→2→1→開戦 の長さ。ソロ・決闘と揃えてある。
+  private static readonly COUNTDOWN_SEC = 3.6;
+
   private startFight(): void {
-    this.state.phase = 'fight';
+    this.beginCountdown();
     this.lock(); // 開始後の途中参加は不可
     const names: string[] = [];
     this.state.players.forEach(p => names.push(p.name));
@@ -346,6 +351,13 @@ export class CoopRoom extends Room<CoopState> {
       + 'この部屋はもう参加できない。',
     );
     this.spawnEnemies();
+  }
+
+  // 敵を出してからカウントダウンに入る。数えている間は誰も動けない。
+  // 次のステージへ進んだ時も同じ入り方にして、いきなり殴られないようにする。
+  private beginCountdown(): void {
+    this.state.phase = 'count';
+    this.state.countdown = CoopRoom.COUNTDOWN_SEC;
   }
 
   private spawnEnemies(): void {
@@ -408,6 +420,13 @@ export class CoopRoom extends Room<CoopState> {
       if (ev.t <= 0) { ev.fn(); return false; }
       return true;
     });
+
+    // カウントダウン中は誰も動かない(敵の攻撃も詠唱も止まる)
+    if (this.state.phase === 'count') {
+      this.state.countdown = Math.max(0, this.state.countdown - dt);
+      if (this.state.countdown <= 0) this.state.phase = 'fight';
+      return;
+    }
 
     if (this.state.phase !== 'fight') return;
 
@@ -978,6 +997,6 @@ export class CoopRoom extends Room<CoopState> {
     this.state.enemies.splice(0, this.state.enemies.length);
     this.eInternals = [];
     this.spawnEnemies();
-    this.state.phase = 'fight';
+    this.beginCountdown();
   }
 }
