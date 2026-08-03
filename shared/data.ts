@@ -5,7 +5,10 @@ import type { ElementCounts, ElementId, Rarity, SpellStats } from './types';
 
 export interface ElementDef {
   name: string;
-  emoji: string;       // 素材庫・調合台で名前の前に出す
+  emoji: string;       // 素材庫・調合台で名前の前に出す。
+  // 半角幅で表示される字(🌪⛰❄)には異体字セレクタ U+FE0F を付けて
+  // 絵文字表示に固定してある。付けないと字によって幅が変わり、
+  // 後ろに続く漢字の位置が左右にずれる。
   color: number;       // Pixi用
   cssColor: string;    // DOM用
   desc: string;
@@ -22,13 +25,13 @@ export const ELEMENTS: Record<ElementId, ElementDef> = {
              desc: '威力+8 / 消費MP+6' },
   water:   { name: '水', emoji: '💧', color: 0x44aaff, cssColor: '#44aaff',
              desc: '消費MP-4 / 威力+2' },
-  wind:    { name: '風', emoji: '🌪', color: 0x66dd99, cssColor: '#66dd99',
+  wind:    { name: '風', emoji: '🌪️', color: 0x66dd99, cssColor: '#66dd99',
              desc: '詠唱-0.2秒 / 弾速+70 / 威力+3' },
-  earth:   { name: '土', emoji: '⛰', color: 0xcc9955, cssColor: '#cc9955',
+  earth:   { name: '土', emoji: '⛰️', color: 0xcc9955, cssColor: '#cc9955',
              desc: '威力+5 / 消費MP+3' },
   thunder: { name: '雷', emoji: '⚡', color: 0xffdd44, cssColor: '#ffdd44',
              desc: '威力+7 / 弾速+130 / 会心+8% / MP+4' },
-  ice:     { name: '氷', emoji: '❄', color: 0x99eeff, cssColor: '#99eeff',
+  ice:     { name: '氷', emoji: '❄️', color: 0x99eeff, cssColor: '#99eeff',
              desc: '威力+3 / 鈍化+12%' },
   light:   { name: '光', emoji: '✨', color: 0xffffbb, cssColor: '#ffffbb',
              desc: '威力+3 / 吸収+8% / MP+2' },

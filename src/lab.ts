@@ -164,7 +164,8 @@ function renderSlots(): void {
     if (id) {
       const def = ELEMENTS[id];
       slot.innerHTML =
-        `<span style="color:${def.cssColor}">${def.emoji}${def.name}</span>` +
+        `<span style="color:${def.cssColor}">`
+        + `<span class="eemoji">${def.emoji}</span>${def.name}</span>` +
         `<span class="slabel">クリックで戻す</span>`;
       slot.style.borderColor = def.cssColor;
       slot.addEventListener('click', () => {

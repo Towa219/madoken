@@ -107,8 +107,15 @@ button.tab.active { background: #5533aa; border-color: #7755cc; }
 }
 
 .elem-card .ename { font-weight: bold; font-size: 15px; }
-/* 絵文字は環境によって色が付くので、文字色の指定から切り離して少しだけ空ける */
-.elem-card .eemoji { margin-right: 3px; }
+/* 絵文字は字によって幅が違う(🔥は全角・⚡は半角など)。
+   そのまま並べると後ろの漢字の位置が左右にずれるので、
+   固定幅の枠に入れて中央に置き、漢字が必ず同じ位置から始まるようにする。 */
+.eemoji {
+  display: inline-block; width: 1.3em; margin-right: 2px;
+  text-align: center; font-style: normal;
+  /* 絵文字用のフォントを先に当てて、環境ごとの差を減らす */
+  font-family: 'Segoe UI Emoji', 'Apple Color Emoji', 'Noto Color Emoji', sans-serif;
+}
 .elem-card .ecount { float: right; color: #ffdd66; }
 .elem-card .edesc { font-size: 10px; color: #9999bb; margin-top: 3px; }
 #gather-box { margin-top: 12px; }
