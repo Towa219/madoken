@@ -9,9 +9,12 @@ import {
   NICK_MAX_FULL, NICK_MAX_WIDTH, normalizeNickname, validateNickname,
 } from '../shared/nickname';
 import { isBossStage } from '../shared/data';
+import { showToast } from './lab';
 import { CODE_REPLACED } from '../shared/netcodes';
 import { equippedSpells, notify, state } from './state';
-import { pushCloudSave, submitMagicRanking } from './cloudsave';
+import {
+  cloudNewerThanHere, pullMine, pushCloudSave, submitMagicRanking,
+} from './cloudsave';
 import { playBgm } from './sound';
 import type { SpellPayload } from '../shared/protocol';
 
@@ -214,7 +217,9 @@ async function connect(): Promise<void> {
     renderStageOptions();
     void refreshRooms();
     void refreshRanking();
-    void pushCloudSave(); // 接続できた時点でサーバーにも保存しておく
+    // 別の端末で先に進めていないかを見る。
+    // 押し付け合いにならないよう、先に確認してから保存する。
+    void checkOtherDevice();
     // 接続時に一度は順位を登録しておく。調合していない日でも一覧に載るように。
     void submitMagicRanking().then(() => refreshRanking());
   } catch (err) {
@@ -400,6 +405,56 @@ async function joinRoom(roomId: string, roomStage: number): Promise<void> {
       : 'その部屋には入れなかった(満員か開始済み)。';
     void refreshRooms();
   }
+}
+
+// 別の端末に新しい記録があれば帯で知らせる。
+//
+// 黙って上書きも取り込みもしない。どちらの端末の記録を残すかは本人しか
+// 決められないため、必ず選んでもらう。
+async function checkOtherDevice(): Promise<void> {
+  const banner = $('#sync-banner');
+  const newerAt = await cloudNewerThanHere();
+  if (newerAt === null) {
+    banner.classList.add('hidden');
+    void pushCloudSave(); // こちらが最新なので、そのまま保存しておく
+    return;
+  }
+
+  const when = new Date(newerAt).toLocaleString('ja-JP', {
+    month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit',
+  });
+  banner.innerHTML = '';
+  const msg = document.createElement('span');
+  msg.innerHTML =
+    `📱 別の端末に<b>もっと新しい記録</b>があります(${when})。`
+    + 'この端末に取り込みますか?';
+  const take = document.createElement('button');
+  take.className = 'sync-take';
+  take.textContent = '取り込む';
+  const keep = document.createElement('button');
+  keep.textContent = 'この端末のまま続ける';
+  const note = document.createElement('span');
+  note.style.color = '#8899aa';
+  note.textContent = '※ 取り込むと、この端末の今の記録は消えます';
+  banner.append(msg, take, keep, note);
+  banner.classList.remove('hidden');
+
+  take.addEventListener('click', () => {
+    take.disabled = true;
+    keep.disabled = true;
+    take.textContent = '取り込み中…';
+    void pullMine().then(err => {
+      banner.classList.add('hidden');
+      showToast(err ?? '別の端末の記録を取り込んだ。');
+    });
+  });
+  keep.addEventListener('click', () => {
+    banner.classList.add('hidden');
+    // この端末を残すと決めたので、こちらでサーバーを上書きする
+    void pushCloudSave(true).then(() => {
+      showToast('この端末の記録でサーバーを更新した。');
+    });
+  });
 }
 
 // ランキング(サーバーAPIから取得)

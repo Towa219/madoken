@@ -71,13 +71,16 @@ export function scheduleCloudSave(): void {
   pushTimer = window.setTimeout(() => void pushCloudSave(), 4000);
 }
 
-export async function pushCloudSave(): Promise<boolean> {
+// force=true は「別の端末に新しい記録があると知らせたうえで、
+// それでもこの端末を残すと本人が選んだ」場合だけ。
+export async function pushCloudSave(force = false): Promise<boolean> {
   if (!state.nickname || !state.nickToken) return false;
   const body = JSON.stringify({
     name: state.nickname,
     token: state.nickToken,
     data: toSlim(state),
     savedAt: Date.now(),
+    force,
   });
   if (body === lastPushed) return true; // 変化なし
   syncing = true;
@@ -95,6 +98,7 @@ export async function pushCloudSave(): Promise<boolean> {
     }
     lastPushed = body;
     lastSyncAt = Date.now();
+    rememberSynced(lastSyncAt);
     void submitMagicRanking();  // 魔法が変わったら順位も更新する
     return true;
   } catch {
@@ -134,6 +138,48 @@ export async function submitMagicRanking(): Promise<void> {
   }
 }
 
+// ---- 別の端末で進めたかどうかの判定 ----
+//
+// 同じニックネームをPCとスマホで使うと、片方で進めた記録がもう片方に
+// 自動では入ってこない。サーバー側は「古いセーブでの上書き」を拒むので
+// データは壊れないが、そのままだと拒まれ続けて先に進めなくなる。
+// そこで接続時にサーバーの保存時刻を見て、こちらより新しければ知らせる。
+
+const SYNC_KEY = 'madoken_synced_at';
+// 時計のずれや保存の行き違いで誤検知しないよう、この差までは「同じ」とみなす
+const SYNC_SLACK_MS = 60_000;
+
+function rememberSynced(at: number): void {
+  try { localStorage.setItem(SYNC_KEY, String(at)); } catch { /* 使えなくても続行 */ }
+}
+
+function lastSyncedAt(): number {
+  try { return Number(localStorage.getItem(SYNC_KEY)) || 0; } catch { return 0; }
+}
+
+// サーバーの方が新しければ、その保存時刻を返す(そうでなければ null)
+export async function cloudNewerThanHere(): Promise<number | null> {
+  if (!state.nickname || !state.nickToken) return null;
+  try {
+    const res = await fetch(`${apiBase()}/api/load`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: state.nickname, token: state.nickToken }),
+    });
+    const data = await res.json() as { ok: boolean; savedAt?: number };
+    if (!data.ok || !data.savedAt) return null;
+    return data.savedAt > lastSyncedAt() + SYNC_SLACK_MS ? data.savedAt : null;
+  } catch {
+    return null;
+  }
+}
+
+// 帯の「取り込む」から呼ぶ。今のニックネームでサーバーの記録を取り込む。
+export async function pullMine(): Promise<string | null> {
+  if (!state.nickname || !state.nickToken) return 'ニックネームが未登録です。';
+  return await pullCloudSave(state.nickname, state.nickToken);
+}
+
 // ---- 復元 ----
 
 export async function pullCloudSave(name: string, token: string): Promise<string | null> {
@@ -152,6 +198,7 @@ export async function pullCloudSave(name: string, token: string): Promise<string
     loaded.nickToken = token;
     applyLoadedState(loaded);
     lastSyncAt = data.savedAt ?? Date.now();
+    rememberSynced(lastSyncAt);
     return null;
   } catch {
     return 'サーバーに接続できなかった。';

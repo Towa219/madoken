@@ -242,6 +242,15 @@ button.tab.active { background: #5533aa; border-color: #7755cc; }
   #tips-bar { white-space: normal; }
 }
 
+/* 別の端末に新しい記録がある時の案内 */
+#sync-banner {
+  background: #1c2a3a; border-bottom: 1px solid #55aadd;
+  color: #cceeff; font-size: 12px; padding: 8px 12px; line-height: 1.6;
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+}
+#sync-banner button { font-size: 12px; padding: 4px 12px; }
+#sync-banner .sync-take { background: #2a5a7a; border-color: #55aadd; }
+
 /* サーバー起動待ちの案内 */
 #wake-banner {
   background: #2a2418; border-bottom: 1px solid #ccaa55;

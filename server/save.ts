@@ -36,6 +36,7 @@ interface Envelope {
 // 保存(本人のトークンでのみ書き込める)
 export async function putSave(
   rawName: unknown, rawToken: unknown, data: unknown, savedAt: number,
+  force = false,
 ): Promise<SaveResult> {
   const name = normalizeNickname(rawName);
   const owner = await claimName(name, rawToken); // 形式チェック+所有確認を兼ねる
@@ -49,9 +50,11 @@ export async function putSave(
 
   const key = nicknameKey(name);
 
-  // 既存より古いデータでの上書きは拒否(別端末の新しい記録を守る)
+  // 既存より古いデータでの上書きは拒否(別端末の新しい記録を守る)。
+  // force は「別の端末に新しい記録があると知らせたうえで、それでもこの端末を
+  // 残すと本人が選んだ」場合だけ立つ。知らずに消えることはない。
   const cur = await readEnvelope(key);
-  if (cur && cur.savedAt > env.savedAt + 60_000) {
+  if (!force && cur && cur.savedAt > env.savedAt + 60_000) {
     return {
       ok: false,
       error: 'サーバーにもっと新しいセーブがあります。先に「復元」してください。',
