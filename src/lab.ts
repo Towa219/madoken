@@ -14,9 +14,9 @@ import {
 } from '../shared/spellcraft';
 import {
   addElements, addSpell, deleteSpell, equipSlots, hasBossCleared, notify, save,
-  spendElements, state, toggleEquip, totalInventory,
+  sortSpells, spendElements, state, toggleEquip, totalInventory,
 } from './state';
-import type { ElementCounts, ElementId, Spell } from '../shared/types';
+import type { ElementCounts, ElementId, Spell, SpellSort } from '../shared/types';
 import { playSfx, startSfxLoop, stopSfxLoop } from './sound';
 
 const $ = <T extends HTMLElement = HTMLElement>(sel: string) =>
@@ -88,7 +88,10 @@ export function initLab(): void {
   $('#btn-transmute').addEventListener('click', transmute);
   $('#btn-transmute-cancel').addEventListener('click', cancelTransmute);
   $('#btn-sort-spells').addEventListener('click', () => {
-    state.sortByPower = !state.sortByPower;
+    // 装備頻度順 → 魔導値順 → 取得順 → 装備頻度順 …
+    const order: SpellSort[] = ['use', 'power', 'order'];
+    const i = order.indexOf(state.sortMode);
+    state.sortMode = order[(i + 1) % order.length];
     notify();
   });
   renderLab();
@@ -129,7 +132,8 @@ function renderInventory(): void {
       + (transmutePick === id ? ' tm-picked' : '');
     card.className = cls;
     card.innerHTML =
-      `<span class="ename" style="color:${def.cssColor}">${def.name}</span>` +
+      `<span class="ename" style="color:${def.cssColor}">`
+      + `<span class="eemoji">${def.emoji}</span>${def.name}</span>` +
       (got > 0 ? `<span class="gain-badge">+${got}</span>` : '') +
       `<span class="ecount">×${free}</span>` +
       `<div class="edesc">${def.desc}</div>`;
@@ -159,7 +163,8 @@ function renderSlots(): void {
     slot.className = 'slot' + (id ? ' filled' : '');
     if (id) {
       const def = ELEMENTS[id];
-      slot.innerHTML = `<span style="color:${def.cssColor}">${def.name}</span>` +
+      slot.innerHTML =
+        `<span style="color:${def.cssColor}">${def.emoji}${def.name}</span>` +
         `<span class="slabel">クリックで戻す</span>`;
       slot.style.borderColor = def.cssColor;
       slot.addEventListener('click', () => {
@@ -407,7 +412,7 @@ function resolveCraft(counts: ElementCounts, same: Spell | undefined): void {
     id: `sp_${Date.now()}_${Math.floor(Math.random() * 10000)}`,
     name, recipe: counts, stats,
     discoveries: matched.map(r => r.id),
-    level: 0, rarity,
+    level: 0, rarity, equipCount: 0,
   };
   addSpell(spell);
 
@@ -654,8 +659,12 @@ function cancelTransmute(): void {
 // ---- 魔導書 ----
 function renderSpellbook(): void {
   const sortBtn = $<HTMLButtonElement>('#btn-sort-spells');
-  sortBtn.textContent = state.sortByPower ? '魔導値順 ▼' : '取得順';
-  sortBtn.classList.toggle('active-sort', state.sortByPower);
+  const sortLabel: Record<SpellSort, string> = {
+    use: '装備頻度順 ▼', power: '魔導値順 ▼', order: '取得順',
+  };
+  sortBtn.textContent = sortLabel[state.sortMode];
+  sortBtn.title = 'クリックで並び替え(装備頻度順 → 魔導値順 → 取得順)';
+  sortBtn.classList.toggle('active-sort', state.sortMode !== 'order');
 
   // 装備できる数はボスを倒すと増えるので、見出しも案内も毎回作り直す
   const cap = equipSlots();
@@ -675,9 +684,7 @@ function renderSpellbook(): void {
     return;
   }
 
-  const shown = state.sortByPower
-    ? [...state.spells].sort((a, b) => spellMagicValue(b.stats) - spellMagicValue(a.stats))
-    : state.spells;
+  const shown = sortSpells(state.spells);
 
   for (const sp of shown) {
     const equipped = state.equipped.includes(sp.id);
@@ -765,7 +772,7 @@ function grantCodexRewardIfDue(): void {
     recipe: counts,
     stats: finalStats(counts, 0, 'epic'),
     discoveries: matched.map(r => r.id),
-    level: 0,
+    level: 0, equipCount: 0,
     rarity: 'epic',
   };
   addSpell(spell);

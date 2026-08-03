@@ -13,6 +13,12 @@ export type SpellKind =
 // 調合時にごく稀に生まれる品質
 export type Rarity = 'normal' | 'rare' | 'epic' | 'legend';
 
+// 魔導書の並び順。
+//   use   = 装備頻度順(よく使うものが上。既定)
+//   power = 魔導値順
+//   order = 取得順(調合した順)
+export type SpellSort = 'use' | 'power' | 'order';
+
 // 調合で決まる魔法の性能
 export interface SpellStats {
   kind: SpellKind;    // attack=攻撃 / shield=護盾 / heal=回復 / taunt=挑発
@@ -53,6 +59,7 @@ export interface Spell {
   discoveries: string[];   // 成立した系統レシピID
   level: number;           // 強化レベル(同一レシピ再調合で+1、最大9)
   rarity: Rarity;          // 品質
+  equipCount: number;      // 装備した回数。魔導書の「装備頻度順」に使う
 }
 
 export interface GameState {
@@ -69,7 +76,8 @@ export interface GameState {
   maxStage: number;        // 挑戦可能ステージ
   bestStage: number;       // 最高クリアステージ
   bossCleared: number[];   // 撃破したボスステージ(共闘でのみ撃破可能)
-  sortByPower: boolean;    // 魔導書を魔導値順に並べるか
+  sortMode: SpellSort;     // 魔導書の並び順
+  sortByPower?: boolean;   // 旧版の並び順(魔導値順かどうか)。読み込み時の変換にだけ使う
   codexRewarded: boolean;  // 発見図鑑コンプリート報酬(エピック魔法)を受け取ったか
 }
 

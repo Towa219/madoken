@@ -40,7 +40,7 @@ function toSlim(s: GameState): Record<string, unknown> {
     maxStage: s.maxStage,
     bestStage: s.bestStage,
     bossCleared: s.bossCleared,
-    sortByPower: s.sortByPower,
+    sortMode: s.sortMode,
     codexRewarded: s.codexRewarded,
   };
 }

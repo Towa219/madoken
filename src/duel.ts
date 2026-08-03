@@ -586,7 +586,11 @@ export class DuelView {
     g.clear();
     st.players.forEach((p: any, sid: string) => {
       const mine = sid === this.mySid;
-      const bx = mine ? 16 : W - 236;
+      // バーの左右は立ち位置(slot)に合わせる。
+      // 「自分かどうか」で決めていたため、自分が右側(slot 1)に入った時に
+      // キャラは右・バーは左となって食い違っていた。
+      // 色は自分かどうかで変える(緑=自分・赤=相手)ので見分けはつく。
+      const bx = p.slot === 1 ? W - 236 : 16;
       // 画面上部の大きなHP/MPバー
       g.rect(bx, 16, 220, 16).fill(0x222238);
       g.rect(bx, 16, 220 * Math.max(0, p.hp / p.maxHp), 16)

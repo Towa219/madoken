@@ -29,7 +29,7 @@ function initialState(): GameState {
     maxStage: 1,
     bestStage: 0,
     bossCleared: [],
-    sortByPower: false,
+    sortMode: 'use',
     codexRewarded: false,
   };
 }
@@ -70,7 +70,23 @@ function migrate(parsed: Partial<GameState>): GameState {
       merged.nickToken = newNickToken();
     }
     if (!Array.isArray(merged.bossCleared)) merged.bossCleared = [];
-    if (typeof merged.sortByPower !== 'boolean') merged.sortByPower = false;
+    // 並び順: 旧版は「魔導値順かどうか」の真偽値だった。
+    // 既定を装備頻度順に変えたので、魔導値順を選んでいた人だけその設定を引き継ぐ。
+    //
+    // 見るのは merged ではなく parsed(セーブの生の中身)。
+    // merged は initialState() を下敷きにしているので、常に既定値が入っており
+    // 「保存されていない」ことが判別できない。
+    const rawSort = (parsed as { sortMode?: unknown }).sortMode;
+    if (rawSort !== 'use' && rawSort !== 'power' && rawSort !== 'order') {
+      merged.sortMode = merged.sortByPower === true ? 'power' : 'use';
+    }
+    delete merged.sortByPower;
+    // 旧版の魔法には装備回数が無い。今まさに装備しているものは1回とみなす。
+    for (const sp of merged.spells ?? []) {
+      if (typeof sp.equipCount !== 'number' || !Number.isFinite(sp.equipCount)) {
+        sp.equipCount = (merged.equipped ?? []).includes(sp.id) ? 1 : 0;
+      }
+    }
     if (typeof merged.codexRewarded !== 'boolean') merged.codexRewarded = false;
     // 素材庫の欠損も0で補う
     for (const id of ELEMENT_ORDER) {
@@ -136,9 +152,13 @@ export function spendElements(counts: Partial<Record<ElementId, number>>): boole
 }
 
 export function addSpell(spell: Spell): void {
+  if (typeof spell.equipCount !== 'number') spell.equipCount = 0;
   state.spells.push(spell);
   // 空きがあれば自動装備
-  if (state.equipped.length < equipSlots()) state.equipped.push(spell.id);
+  if (state.equipped.length < equipSlots()) {
+    state.equipped.push(spell.id);
+    spell.equipCount++;
+  }
 }
 
 // 今この人が装備できる数。ボスを倒すと増える。
@@ -164,17 +184,32 @@ export function toggleEquip(id: string): void {
     state.equipped = state.equipped.filter(e => e !== id);
   } else if (state.equipped.length < equipSlots()) {
     state.equipped.push(id);
+    // 装備した回数を数える。よく使う魔法が魔導書の上に来るようにするため。
+    // 外した時は減らさない(「これまで何回使ったか」を見たいので)。
+    const sp = state.spells.find(s => s.id === id);
+    if (sp) sp.equipCount = (sp.equipCount ?? 0) + 1;
   }
 }
 
 // 装備中の魔法。並び順は魔導書での表示順に一致させる
 // (戦闘バーの1〜4が、研究室で見えている上からの順番になる)
 export function equippedSpells(): Spell[] {
-  const eq = state.spells.filter(s => state.equipped.includes(s.id));
-  if (state.sortByPower) {
-    eq.sort((a, b) => spellMagicValue(b.stats) - spellMagicValue(a.stats));
+  return sortSpells(state.spells.filter(s => state.equipped.includes(s.id)));
+}
+
+// 魔導書の並び順にそろえる。研究室で見えている順が、そのまま戦闘のキー1〜6になる。
+export function sortSpells(list: Spell[]): Spell[] {
+  const out = [...list];
+  if (state.sortMode === 'power') {
+    out.sort((a, b) => spellMagicValue(b.stats) - spellMagicValue(a.stats));
+  } else if (state.sortMode === 'use') {
+    // 装備回数が同じなら魔導値の高い方を上に。
+    // 回数が0どうし(まだ一度も装備していない)でも並びが安定する。
+    out.sort((a, b) =>
+      (b.equipCount ?? 0) - (a.equipCount ?? 0)
+      || spellMagicValue(b.stats) - spellMagicValue(a.stats));
   }
-  return eq;
+  return out;   // order は調合した順のまま
 }
 
 export function totalInventory(): number {

@@ -80,14 +80,21 @@ export function computeSpell(counts: ElementCounts): CraftResult {
   if (s.kind === 'empower') s.atkBoost = atkBoostOf(s);
   if (s.kind === 'heal') s.manaCost = Math.max(s.manaCost, healManaFloor(s));
   if (s.dotTime > 0) s.dotDps = dotDpsOf(s);
+  // 再使用時間も持たせておく。finalStats 側は強化ぶんを掛けて丸めるので、
+  // ここで丸めておかないと強化前でも小数の分だけ魔導値がずれる。
+  if (s.kind !== 'seal') s.coolTime = Math.round(baseCooldownOf(s) * 10) / 10;
 
   // 自動命名: 主属性接頭辞 + 系統名 + 威力階級 + 構成タグ
   // 構成タグ〈火2風〉はレシピの完全な符号なので、
   // エレメントが1つでも違えば必ず別の名前になる。
   // 例: 火3 →「炎の爆裂弾・改〈火3〉」 / 火2+風1 →「炎の魔弾〈火2風〉」
-  const prefix = `${ATTR_CHAR[s.attr]}の`;
-
   const noun = matched.length > 0 ? matched[matched.length - 1].spellNoun : '魔弾';
+
+  // 属性の一文字が系統名にも入っている場合は接頭を付けない。
+  // 付けると「雷の連鎖雷」「光の治癒光」のように同じ漢字が二度出て見栄えが悪い。
+  // ここで弾いておけば、今後どんな系統名を足しても重複しない。
+  const attrChar = ATTR_CHAR[s.attr];
+  const prefix = noun.includes(attrChar) ? '' : `${attrChar}の`;
 
   let rank = '';
   if (s.power >= 90) rank = '・真';
@@ -229,6 +236,17 @@ export function finalStats(
   s.castTime = Math.max(0.35, Math.round(base.castTime * (1 - 0.02 * L) * 100) / 100);
   s.critRate = Math.min(80, Math.round(base.critRate + (rDef.mul - 1) * 20));
 
+  // 強化すると再使用時間と消費MPも少しずつ下がる。
+  // 威力だけが伸びると「重いけど強い」一辺倒になるので、手数も軽くする。
+  // 下げ幅は控えめ(1段階1.5%、+9で13.5%)。大きくすると強化した魔法だけで
+  // 撃ち続けられてしまい、MPのやりくりが要らなくなる。
+  const ease = 1 - ENHANCE_EASE_PER_LEVEL * L;
+  s.manaCost = Math.max(4, Math.round(base.manaCost * ease));
+  // 封印は「1段階につき1秒」という別の決まりがあるので、そちらに任せる。
+  if (s.kind !== 'seal') {
+    s.coolTime = Math.round(baseCooldownOf(s) * ease * 10) / 10;
+  }
+
   // 派生値は最終威力から再計算
   if (s.kind === 'shield') s.barrier = Math.round(s.power * 2.2);
   // 回復量は下駄の部分にも強化倍率を掛ける。掛けないと、強化しても
@@ -241,8 +259,11 @@ export function finalStats(
   if (s.kind === 'seal') { s.sealTime = sealTimeAt(base, L); s.coolTime = sealCoolOf(L); }
   if (s.kind === 'empower') s.atkBoost = atkBoostOf(s);
   if (s.kind === 'focus') s.mpRegenBonus = mpRegenBonusOf(s);
-  // 強化で回復量が増えた分、消費MPの下限も上がる(MP1あたりの効率は一定に保つ)
-  if (s.kind === 'heal') s.manaCost = Math.max(s.manaCost, healManaFloor(s));
+  // 強化で回復量が増えた分、消費MPの下限も上がる(MP1あたりの効率は一定に保つ)。
+  // 下限にも強化ぶんの割引を効かせる。効かせないと回復だけMPが下がらない。
+  if (s.kind === 'heal') {
+    s.manaCost = Math.max(s.manaCost, Math.round(healManaFloor(s) * ease));
+  }
   if (s.dotTime > 0) s.dotDps = dotDpsOf(s);
   return s;
 }
@@ -290,6 +311,9 @@ export function dotDpsOf(s: SpellStats): number {
 export function sealTimeOf(s: SpellStats): number {
   return Math.round(Math.min(13, 1.2 + s.power / 5.2) * 10) / 10;
 }
+
+// 強化1段階ごとに、再使用時間と消費MPが下がる割合。
+export const ENHANCE_EASE_PER_LEVEL = 0.015;
 
 // 強化1段階ごとに行動不能は1秒延び、再使用は1秒縮む。
 // 端数で刻むと「+1で0.3秒」のように伸びが分からないので、きっちり1秒ずつにしてある。
@@ -356,6 +380,12 @@ export function spellDisplayName(
 export function spellCooldown(s: SpellStats): number {
   // 魔法が自前の再使用時間を持っていればそれを使う(強化で縮むもの)
   if (s.coolTime > 0) return s.coolTime;
+  return baseCooldownOf(s);
+}
+
+// 種類ごとの既定の再使用時間(強化前)。
+// spellCooldown と違い coolTime を見ないので、強化で縮める元の値として使える。
+export function baseCooldownOf(s: SpellStats): number {
   if (s.kind === 'shield') return 6;
   if (s.kind === 'heal') return 5;
   if (s.kind === 'taunt') return 8;
@@ -457,7 +487,7 @@ export function spellMagicValue(raw: SpellStats): number {
     v = REF_DPS * (s.atkBoost / 100) * 12 * upTime(s) * all * 3.3;
   } else if (s.kind === 'focus') {
     // MP回復の上乗せ。MPが尽きて詠唱できない時間が減る = そのぶん手数が増える。
-    v = REF_DPS * (s.mpRegenBonus / BASE_MP_REGEN) * 12 * upTime(s) * all * 1.0;
+    v = REF_DPS * (s.mpRegenBonus / BASE_MP_REGEN) * 12 * upTime(s) * all * 1.5;
   } else {
     // 挑発: 敵の狙いを引き受ける。仲間が殴られない時間を作る役目。
     // 味方の被弾を丸ごと肩代わりするので、他の支援と同じ水準まで見てよい。
@@ -469,7 +499,7 @@ export function spellMagicValue(raw: SpellStats): number {
   // 強化しても魔導値の伸びだけが鈍る(回復1.50倍に対し攻撃1.97倍だった)。
   // 回復については下限を超えた分だけを無駄と見なす。
   const mpForEff = s.kind === 'heal'
-    ? Math.max(4, s.manaCost - healManaFloor(s) + 18)
+    ? Math.max(4, s.manaCost - Math.min(healManaFloor(s), s.manaCost) + 18)
     : s.manaCost;
   v *= 1 + Math.max(-0.25, (18 - mpForEff) / 120);
   v -= s.selfDamage * 1.8;
@@ -490,7 +520,7 @@ export function statsSummary(s: SpellStats): string {
       : `【護盾】耐久${s.barrier}`;
     const parts = [
       head, '持続10秒',
-      `詠唱${s.castTime.toFixed(2)}秒`, `MP${s.manaCost}`, `再使用6秒`,
+      `詠唱${s.castTime.toFixed(2)}秒`, `MP${s.manaCost}`, `再使用${spellCooldown(s).toFixed(1)}秒`,
     ];
     if (s.selfDamage > 0) parts.push(`自傷${s.selfDamage}`);
     parts.push(`属性:${ELEMENTS[s.attr].name}`);
@@ -502,7 +532,7 @@ export function statsSummary(s: SpellStats): string {
       : `【治癒】回復${s.healPower}`;
     const parts = [
       head, s.targetAll ? '対象:パーティ全員' : '対象:最も傷ついた味方',
-      `詠唱${s.castTime.toFixed(2)}秒`, `MP${s.manaCost}`, `再使用5秒`,
+      `詠唱${s.castTime.toFixed(2)}秒`, `MP${s.manaCost}`, `再使用${spellCooldown(s).toFixed(1)}秒`,
     ];
     if (s.selfDamage > 0) parts.push(`自傷${s.selfDamage}`);
     parts.push(`属性:${ELEMENTS[s.attr].name}`);
@@ -514,7 +544,7 @@ export function statsSummary(s: SpellStats): string {
         ? `【戦鼓】全員の与ダメ+${s.atkBoost}%`
         : `【闘気】与ダメ+${s.atkBoost}%`,
       '20秒',
-      `詠唱${s.castTime.toFixed(2)}秒`, `MP${s.manaCost}`, '再使用14秒',
+      `詠唱${s.castTime.toFixed(2)}秒`, `MP${s.manaCost}`, `再使用${spellCooldown(s).toFixed(1)}秒`,
     ];
     if (s.selfDamage > 0) parts.push(`自傷${s.selfDamage}`);
     return parts.join(' / ');
@@ -525,7 +555,7 @@ export function statsSummary(s: SpellStats): string {
         ? `【瞑想】全員のMP回復 毎秒+${s.mpRegenBonus.toFixed(1)}`
         : `【瞑想】MP回復 毎秒+${s.mpRegenBonus.toFixed(1)}(通常は毎秒${BASE_MP_REGEN})`,
       '20秒',
-      `詠唱${s.castTime.toFixed(2)}秒`, `MP${s.manaCost}`, '再使用14秒',
+      `詠唱${s.castTime.toFixed(2)}秒`, `MP${s.manaCost}`, `再使用${spellCooldown(s).toFixed(1)}秒`,
     ];
     if (s.selfDamage > 0) parts.push(`自傷${s.selfDamage}`);
     return parts.join(' / ');
@@ -547,7 +577,7 @@ export function statsSummary(s: SpellStats): string {
         ? `【鼓舞】全員の最大HP+${s.hpBoost}`
         : `【活力】最大HP+${s.hpBoost}`,
       '25秒・同量を回復',
-      `詠唱${s.castTime.toFixed(2)}秒`, `MP${s.manaCost}`, '再使用14秒',
+      `詠唱${s.castTime.toFixed(2)}秒`, `MP${s.manaCost}`, `再使用${spellCooldown(s).toFixed(1)}秒`,
     ];
     if (s.selfDamage > 0) parts.push(`自傷${s.selfDamage}`);
     return parts.join(' / ');
@@ -558,7 +588,7 @@ export function statsSummary(s: SpellStats): string {
         ? `【万象護符】全属性耐性${s.wardPct}%`
         : `【護符】${ELEMENTS[s.attr].name}属性の被ダメ-${s.wardPct}%`,
       s.targetAll ? '対象:パーティ全員・12秒' : '対象:自分・12秒',
-      `詠唱${s.castTime.toFixed(2)}秒`, `MP${s.manaCost}`, '再使用10秒',
+      `詠唱${s.castTime.toFixed(2)}秒`, `MP${s.manaCost}`, `再使用${spellCooldown(s).toFixed(1)}秒`,
     ];
     if (s.selfDamage > 0) parts.push(`自傷${s.selfDamage}`);
     return parts.join(' / ');
@@ -566,7 +596,7 @@ export function statsSummary(s: SpellStats): string {
   if (s.kind === 'taunt') {
     const parts = [
       `【挑発】ヘイト+${s.hateGain}`, '敵の狙いを自分へ',
-      `詠唱${s.castTime.toFixed(2)}秒`, `MP${s.manaCost}`, `再使用8秒`,
+      `詠唱${s.castTime.toFixed(2)}秒`, `MP${s.manaCost}`, `再使用${spellCooldown(s).toFixed(1)}秒`,
     ];
     if (s.selfDamage > 0) parts.push(`自傷${s.selfDamage}`);
     parts.push(`属性:${ELEMENTS[s.attr].name}`);
@@ -575,7 +605,7 @@ export function statsSummary(s: SpellStats): string {
   const parts = s.quake
     ? [
         `威力${s.power}`, '全体攻撃(地震・威力75%)',
-        `詠唱${s.castTime.toFixed(2)}秒`, `MP${s.manaCost}`, '再使用7秒',
+        `詠唱${s.castTime.toFixed(2)}秒`, `MP${s.manaCost}`, `再使用${spellCooldown(s).toFixed(1)}秒`,
       ]
     : [
         `威力${s.power}`, `詠唱${s.castTime.toFixed(2)}秒`,
