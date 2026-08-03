@@ -14,6 +14,7 @@
 
 import { Client } from 'colyseus.js';
 import type { Room } from 'colyseus.js';
+import { RECONNECT_SEC } from '../shared/data';
 
 const ENDPOINT = process.env.MADOKEN_ENDPOINT ?? 'ws://localhost:2567';
 const HTTP = ENDPOINT.replace(/^ws/, 'http');
@@ -145,9 +146,9 @@ async function main(): Promise<void> {
     check('復帰待ちに入った', await waitFor(() => d.wa.waited !== '', 12_000));
 
     // 30秒待たずに、はっきり棄権した場合はすぐ決着してよい
-    console.log('     (復帰せずに30秒待つ…)');
+    console.log(`     (復帰せずに${RECONNECT_SEC}秒待つ…)`);
     check('戻らなければ残った側の勝ちになる',
-      await waitFor(() => d.wa.end !== null, 45_000),
+      await waitFor(() => d.wa.end !== null, (RECONNECT_SEC + 20) * 1000),
       d.wa.end?.reason ?? '決着しなかった');
 
     try { void d.ra.leave(); } catch { /* 切断済み */ }

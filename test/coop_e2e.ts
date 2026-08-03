@@ -171,15 +171,26 @@ async function main(): Promise<void> {
   }
   ok('ステージ2が自動開始され、全員生存状態で継続');
 
-  // ---- 5. 離脱で全員ロビーへ ----
-  let abortedByB: { name: string; clearedStage: number } | null = null;
-  roomB.onMessage('aborted', (m: { name: string; clearedStage: number }) => { abortedByB = m; });
+  // ---- 5. 1人抜けても、残った人は続行できる ----
+  // 以前は誰か1人が抜けると部屋全員のランを終わらせていた。
+  // 回線が不調な人が1人いるだけで巻き添えが大きすぎたので、
+  // 残っている人がいる限り続ける形に変えた(全員いなくなった時だけ中断)。
+  let mateLeft: { name: string } | null = null;
+  let abortedByB: { name: string } | null = null;
+  roomB.onMessage('mateleft', (m: { name: string }) => { mateLeft = m; });
+  roomB.onMessage('aborted', (m: { name: string }) => { abortedByB = m; });
   void roomA.leave();
-  await waitFor(() => abortedByB !== null, '離脱による中断通知(aborted)', 10_000);
+  await waitFor(() => mateLeft !== null, '離脱の知らせ(mateleft)', 15_000);
   {
-    const m = abortedByB as unknown as { name: string; clearedStage: number };
+    const m = mateLeft as unknown as { name: string };
     if (m.name !== NAME_A) fail(`離脱者名が違う: ${m.name}`);
-    ok(`Aの離脱でBに中断通知が届いた(クリア済みステージ${m.clearedStage})`);
+    ok(`Aの離脱がBに伝わった(${m.name})`);
+  }
+  if (abortedByB !== null) fail('残っている人がいるのにランが中断された');
+  {
+    const st = roomB.state as any;
+    if (st?.phase !== 'fight') fail(`離脱後に戦闘が続いていない: phase=${st?.phase}`);
+    ok('Bはそのまま戦闘を続けられる');
   }
 
   // ---- 6. 未到達ステージの部屋には入れない ----

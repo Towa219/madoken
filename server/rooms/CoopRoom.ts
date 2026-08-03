@@ -277,7 +277,18 @@ export class CoopRoom extends Room<CoopState> {
       this.checkStart();
       return;
     }
-    // 戦闘中の離脱: 前ステージまでのクリア扱いで全員ロビーへ
+
+    // 誰か残っていれば、そのまま続ける。
+    // 以前は1人抜けただけで部屋全員のランを終わらせていたので、
+    // 誰か1人の回線が不調なだけで巻き添えが大きかった。
+    let left = 0;
+    this.state.players.forEach(() => left++);
+    if (left > 0) {
+      this.broadcast('mateleft', { name: leaverName });
+      return;
+    }
+
+    // 全員いなくなった時だけ、前ステージまでのクリア扱いで終える
     this.abortRun(leaverName);
   }
 

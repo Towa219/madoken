@@ -608,7 +608,7 @@ export const PLAYER_MAX_MP = 150;
 export const PLAYER_MP_REGEN = 6;   // 毎秒。src/battle.ts と CoopRoom.ts の両方で使う
 export const DUEL_MAX_HP = 300;   // 決闘は読み合いのぶんさらに長め
 export const DUEL_MAX_MP = 140;
-export const ENEMY_HP_MUL = 3.5;  // 敵HPの全体倍率
+export const ENEMY_HP_MUL = 2.0;  // 敵HPの全体倍率
 export const ENEMY_ATK_MUL = 0.8; // 敵攻撃力の全体倍率
 
 // ボスの全体攻撃を予告してから着弾するまでの秒数。
@@ -621,13 +621,22 @@ export const BOSS_AOE_WARN_SEC = 1.8;
 // サーバーは切れた人の席を RECONNECT_SEC 秒だけ空けて待つ。
 // クライアントはその間ずっと試し続けること。片方だけ短いと、
 // サーバーはまだ待つ気なのにクライアントが先に諦める。
-export const RECONNECT_SEC = 30;
+export const RECONNECT_SEC = 90;
 export const RECONNECT_WAIT_MS = 2500;
 export const RECONNECT_TRIES = Math.ceil((RECONNECT_SEC * 1000) / RECONNECT_WAIT_MS);
 
 // ステージ補正(tier別の基礎値で強さを表すため、伸びは緩やかに)
-export const stageHpMul = (stage: number) => Math.pow(1.15, stage - 1);
-export const stageAtkMul = (stage: number) => Math.pow(1.07, stage - 1);
+// ステージが進むほど敵は強くなるが、伸び方は「足し算」にしてある。
+//
+// 以前は HP 1.15^(n-1)、攻撃 1.07^(n-1) という掛け算だった。敵の基礎値は
+// 出現帯(tier)でも上がるので、掛け算にすると二重の指数成長になる。
+// 実際、ステージ20で敵1体が34,868HP(最強装備でも57秒)、30以降は誰にも倒せず、
+// 攻撃も30で1発262となりHP260のプレイヤーが即死する状態だった。
+//
+// プレイヤー側の火力とHPは青天井ではない(魔法の構成と強化で頭打ちになる)ので、
+// 敵の伸びも頭打ちのある形にしないと、どこかで必ず追いつけなくなる。
+export const stageHpMul = (stage: number) => 1 + 0.06 * (stage - 1);
+export const stageAtkMul = (stage: number) => 1 + 0.04 * (stage - 1);
 
 // 採取・スロット解放コスト
 export const GATHER_COST = 35;   // 採取は高価に(エレメントは貴重)

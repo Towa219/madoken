@@ -15,6 +15,7 @@
 
 import { Client } from 'colyseus.js';
 import type { Room } from 'colyseus.js';
+import { RECONNECT_SEC } from '../shared/data';
 
 const ENDPOINT = process.env.MADOKEN_ENDPOINT ?? 'ws://localhost:2567';
 const HTTP = ENDPOINT.replace(/^ws/, 'http');
@@ -48,14 +49,16 @@ interface Watch {
   ended: boolean;
   wait: string;
   back: string;
+  mateleft: string;
 }
 
 function watch(room: Room): Watch {
-  const w: Watch = { aborted: null, ended: false, wait: '', back: '' };
+  const w: Watch = { aborted: null, ended: false, wait: '', back: '', mateleft: '' };
   room.onMessage('aborted', (m: { name: string }) => { w.aborted = m; });
   room.onMessage('coopend', () => { w.ended = true; });
   room.onMessage('pwait', (m: { name: string }) => { w.wait = m.name; });
   room.onMessage('pback', (m: { name: string }) => { w.back = m.name; });
+  room.onMessage('mateleft', (m: { name: string }) => { w.mateleft = m.name; });
   for (const t of QUIET) room.onMessage(t, () => { /* 表示用 */ });
   return w;
 }
@@ -149,10 +152,16 @@ async function main(): Promise<void> {
 
     kill(d.rb);
     check('復帰待ちに入った', await waitFor(() => d.wa.wait !== '', 12_000));
-    console.log('     (復帰せずに30秒待つ…)');
-    check('戻らなければ中断になる',
-      await waitFor(() => d.wa.aborted !== null, 45_000),
-      d.wa.aborted ? `${(d.wa.aborted as { name: string }).name} が離脱` : '中断されなかった');
+    console.log(`     (復帰せずに${RECONNECT_SEC}秒待つ…)`);
+    // 戻ってこなくても、残った人は続けられる。
+    // 以前は1人抜けただけで部屋全員のランを終わらせていた。
+    check('★戻らなくても残った人は続行できる',
+      await waitFor(() => d.wa.mateleft !== '', (RECONNECT_SEC + 20) * 1000),
+      d.wa.mateleft ? `${d.wa.mateleft} が離脱` : '知らせが来なかった');
+    check('残った人のランは終わっていない', d.wa.aborted === null,
+      d.wa.aborted ? '中断された' : '');
+    check('残った人はまだ戦える',
+      (d.ra.state as any)?.phase === 'fight', String((d.ra.state as any)?.phase));
 
     try { void d.ra.leave(); } catch { /* 切断済み */ }
     await sleep(1200);

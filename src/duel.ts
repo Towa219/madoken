@@ -211,23 +211,41 @@ export class DuelView {
   // クライアントが先に投げ出していた。回線が20秒切れただけで戻れなくなる。
   private async tryReconnect(): Promise<boolean> {
     if (!this.reconnect || !this.token) return false;
-    for (let i = 0; i < RECONNECT_TRIES; i++) {
-      await new Promise(r => setTimeout(r, RECONNECT_WAIT_MS));
-      if (this.exited) return false;
-      try {
-        const room = await this.reconnect(this.token);
-        if (!room) continue;
-        this.room = room;
-        this.mySid = room.sessionId;
-        this.token = room.reconnectionToken;
-        this.wireRoom(room);
-        return true;
-      } catch (err) {
-        // 失敗理由は残しておく。利用者からの報告を追えるようにするため。
-        console.warn('[決闘] 復帰に失敗:', (err as { message?: string })?.message ?? err);
+
+    // 画面が隠れている間、ブラウザはタイマーを大きく間引く。
+    // スマホで画面を消すと再試行がほとんど進まないまま待ち時間だけ過ぎるので、
+    // 画面が戻った瞬間に待ちを打ち切って、すぐ次の試行に入る。
+    let wake: (() => void) | null = null;
+    const onVisible = () => {
+      if (!document.hidden && wake) { const w = wake; wake = null; w(); }
+    };
+    document.addEventListener('visibilitychange', onVisible);
+
+    try {
+      for (let i = 0; i < RECONNECT_TRIES; i++) {
+        await new Promise<void>(resolve => {
+          const timer = window.setTimeout(() => { wake = null; resolve(); },
+            RECONNECT_WAIT_MS);
+          wake = () => { window.clearTimeout(timer); resolve(); };
+        });
+        if (this.exited) return false;
+        try {
+          const room = await this.reconnect(this.token);
+          if (!room) continue;
+          this.room = room;
+          this.mySid = room.sessionId;
+          this.token = room.reconnectionToken;
+          this.wireRoom(room);
+          return true;
+        } catch (err) {
+          // 失敗理由は残しておく。利用者からの報告を追えるようにするため。
+          console.warn('[決闘] 復帰に失敗:', (err as { message?: string })?.message ?? err);
+        }
       }
+      return false;
+    } finally {
+      document.removeEventListener('visibilitychange', onVisible);
     }
-    return false;
   }
 
   private handleExit(): void {
