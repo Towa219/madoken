@@ -605,6 +605,15 @@ export const ENEMY_ATK_MUL = 0.8; // 敵攻撃力の全体倍率
 // 短くすると回復や護盾を挟む余裕が無くなる。
 export const BOSS_AOE_WARN_SEC = 1.8;
 
+// ===== 通信が切れたときの復帰 =====
+//
+// サーバーは切れた人の席を RECONNECT_SEC 秒だけ空けて待つ。
+// クライアントはその間ずっと試し続けること。片方だけ短いと、
+// サーバーはまだ待つ気なのにクライアントが先に諦める。
+export const RECONNECT_SEC = 30;
+export const RECONNECT_WAIT_MS = 2500;
+export const RECONNECT_TRIES = Math.ceil((RECONNECT_SEC * 1000) / RECONNECT_WAIT_MS);
+
 // ステージ補正(tier別の基礎値で強さを表すため、伸びは緩やかに)
 export const stageHpMul = (stage: number) => Math.pow(1.15, stage - 1);
 export const stageAtkMul = (stage: number) => Math.pow(1.07, stage - 1);

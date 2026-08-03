@@ -2,7 +2,7 @@
 
 import { Application, Container, Graphics, Text } from 'pixi.js';
 import type { Room } from 'colyseus.js';
-import { ELEMENTS, EQUIP_MAX, SPRITE_SCALE } from '../shared/data';
+import { ELEMENTS, EQUIP_MAX, SPRITE_SCALE , RECONNECT_TRIES, RECONNECT_WAIT_MS } from '../shared/data';
 import { clampCharId } from '../shared/characters';
 import { spellCooldown, spellDisplayName } from '../shared/spellcraft';
 import {
@@ -204,11 +204,15 @@ export class DuelView {
     this.handleExit();
   }
 
-  // 少し間を置いて何度か試す。サーバー側は30秒だけ席を空けて待っている。
+  // 少し間を置いて何度か試す。
+  //
+  // 粘る時間はサーバーが席を空けて待つ秒数(RECONNECT_SEC)に合わせること。
+  // 以前は2.5秒×6回=15秒で諦めていて、サーバーはまだ30秒待つ気なのに
+  // クライアントが先に投げ出していた。回線が20秒切れただけで戻れなくなる。
   private async tryReconnect(): Promise<boolean> {
     if (!this.reconnect || !this.token) return false;
-    for (let i = 0; i < 6; i++) {
-      await new Promise(r => setTimeout(r, 2500));
+    for (let i = 0; i < RECONNECT_TRIES; i++) {
+      await new Promise(r => setTimeout(r, RECONNECT_WAIT_MS));
       if (this.exited) return false;
       try {
         const room = await this.reconnect(this.token);
@@ -218,7 +222,10 @@ export class DuelView {
         this.token = room.reconnectionToken;
         this.wireRoom(room);
         return true;
-      } catch { /* まだ戻れない。次の試行へ */ }
+      } catch (err) {
+        // 失敗理由は残しておく。利用者からの報告を追えるようにするため。
+        console.warn('[決闘] 復帰に失敗:', (err as { message?: string })?.message ?? err);
+      }
     }
     return false;
   }
@@ -360,10 +367,13 @@ export class DuelView {
       this.handleExit();
     });
     // 相手が切れた/戻ってきた
-    room.onMessage('dwait', (m: { name: string; sec: number }) => {
+    // 自分のことは出さない(「復帰を試みている」を上書きしてしまうため)
+    room.onMessage('dwait', (m: { sid: string; name: string; sec: number }) => {
+      if (m.sid === this.mySid) return;
       showToast(`${m.name} の通信が切れた。${m.sec}秒だけ復帰を待つ…`);
     });
-    room.onMessage('dback', (m: { name: string }) => {
+    room.onMessage('dback', (m: { sid: string; name: string }) => {
+      if (m.sid === this.mySid) return;
       showToast(`${m.name} が決闘に戻ってきた。再開する。`);
     });
 

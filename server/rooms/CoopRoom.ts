@@ -23,7 +23,7 @@ import { clampCharId } from '../../shared/characters';
 import {
   affinityMul, battleRP, BOSS_AOE_WARN_SEC, bossForStage, ENEMY_ATK_MUL, ENEMY_HP_MUL,
   isBossStage,
-  pickEnemiesForStage, PLAYER_MAX_HP, PLAYER_MAX_MP, PLAYER_MP_REGEN,
+  pickEnemiesForStage, RECONNECT_SEC, PLAYER_MAX_HP, PLAYER_MAX_MP, PLAYER_MP_REGEN,
   stageAtkMul, stageHpMul,
 } from '../../shared/data';
 import type { AffinityGrade, EnemyDef } from '../../shared/data';
@@ -246,8 +246,6 @@ export class CoopRoom extends Room<CoopState> {
     return { ip: clientIp(request) };
   }
 
-  // 通信が切れた仲間を待つ秒数。ここを過ぎたら離脱として扱う。
-  private static readonly RECONNECT_SEC = 30;
 
   async onLeave(client: Client, consented?: boolean): Promise<void> {
     const leaverName = this.state.players.get(client.sessionId)?.name ?? '誰か';
@@ -257,11 +255,12 @@ export class CoopRoom extends Room<CoopState> {
     // 部屋にいる全員のランが強制終了していた。
     if (!consented && !this.ended && this.state.phase !== 'ready') {
       this.waiting.add(client.sessionId);
-      this.broadcast('pwait', { name: leaverName, sec: CoopRoom.RECONNECT_SEC });
+      this.broadcast('pwait',
+        { sid: client.sessionId, name: leaverName, sec: RECONNECT_SEC });
       try {
-        await this.allowReconnection(client, CoopRoom.RECONNECT_SEC);
+        await this.allowReconnection(client, RECONNECT_SEC);
         this.waiting.delete(client.sessionId);
-        this.broadcast('pback', { name: leaverName });
+        this.broadcast('pback', { sid: client.sessionId, name: leaverName });
         return; // 戻ってきたので続行
       } catch {
         this.waiting.delete(client.sessionId); // 戻ってこなかった
@@ -511,10 +510,15 @@ export class CoopRoom extends Room<CoopState> {
     if (!this.ended) {
       let enemyAlive = false;
       this.state.enemies.forEach(e => { if (e.alive) enemyAlive = true; });
+      // 復帰待ちの人も「生きている」と数える。
+      // 外してしまうと、1人だけの部屋でその人の通信が切れた瞬間に
+      // 全滅と判定され、戦闘が終わってしまう。本人には終了の知らせも
+      // 届かない(接続が切れているので)ため、戻ってきても魔法が撃てない
+      // 戦闘画面に取り残される。
+      // 復帰待ちの人は敵に狙われないので、全員が待機中なら戦闘は
+      // 進まずに止まる。それが正しい。
       let playerAlive = false;
-      this.state.players.forEach((p, sid) => {
-        if (p.alive && !this.waiting.has(sid)) playerAlive = true;
-      });
+      this.state.players.forEach(p => { if (p.alive) playerAlive = true; });
 
       if (this.state.enemies.length > 0 && !enemyAlive) this.endFight(true);
       else if (this.state.players.size > 0 && !playerAlive) this.endFight(false);

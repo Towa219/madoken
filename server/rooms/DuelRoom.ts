@@ -8,7 +8,7 @@ import { Schema, MapSchema, defineTypes } from '@colyseus/schema';
 import type { Client } from 'colyseus';
 import type { MapSchema as MapSchemaType } from '@colyseus/schema';
 import type { IncomingMessage } from 'node:http';
-import { DUEL_MAX_HP, DUEL_MAX_MP } from '../../shared/data';
+import { DUEL_MAX_HP, DUEL_MAX_MP, RECONNECT_SEC } from '../../shared/data';
 import { sealWardMul, spellCooldown } from '../../shared/spellcraft';
 import { parseSpells } from '../spellPayload';
 import { clientIp, logConnection } from '../connlog';
@@ -185,8 +185,6 @@ export class DuelRoom extends Room<DuelState> {
     });
   }
 
-  // 通信が切れた相手を待つ秒数。ここを過ぎたら離脱として扱う。
-  private static readonly RECONNECT_SEC = 30;
 
   async onLeave(client: Client, consented?: boolean): Promise<void> {
     const leaver = this.state.players.get(client.sessionId);
@@ -196,11 +194,11 @@ export class DuelRoom extends Room<DuelState> {
     // 待たずに終わらせていたため、電波が一瞬途切れただけで決闘が落ちていた。
     if (!consented && !this.ended && this.state.phase !== 'ready') {
       this.waiting.add(client.sessionId);
-      this.broadcast('dwait', { name, sec: DuelRoom.RECONNECT_SEC });
+      this.broadcast('dwait', { sid: client.sessionId, name, sec: RECONNECT_SEC });
       try {
-        await this.allowReconnection(client, DuelRoom.RECONNECT_SEC);
+        await this.allowReconnection(client, RECONNECT_SEC);
         this.waiting.delete(client.sessionId);
-        this.broadcast('dback', { name });
+        this.broadcast('dback', { sid: client.sessionId, name });
         return; // 戻ってきたので決闘は続く
       } catch {
         this.waiting.delete(client.sessionId); // 戻ってこなかった
