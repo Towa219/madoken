@@ -56,6 +56,10 @@ export class CoopView {
   private spells: Spell[] = [];
   private onExit: (() => void) | null = null;
   private exited = true;
+  // 切れた時に共闘へ戻るための手段。ロビー側から渡してもらう。
+  private reconnect: ((token: string) => Promise<Room | null>) | null = null;
+  private token = '';
+  private reconnecting = false;
 
   private pViews = new Map<
     string, { cont: Container; nameT: Text; castT: Text; buffT: Text }
@@ -96,11 +100,17 @@ export class CoopView {
     this.app = app;
   }
 
-  async start(room: Room, onExit: () => void): Promise<void> {
+  async start(
+    room: Room, onExit: () => void,
+    reconnect?: (token: string) => Promise<Room | null>,
+  ): Promise<void> {
     await this.ensureApp();
     this.room = room;
     this.mySid = room.sessionId;
     this.onExit = onExit;
+    this.reconnect = reconnect ?? null;
+    this.token = room.reconnectionToken;
+    this.reconnecting = false;
     this.exited = false;
     this.spells = equippedSpells().slice(0, EQUIP_MAX);
     this.cds = [0, 0, 0, 0];
@@ -484,8 +494,16 @@ export class CoopView {
       void room.leave();
       this.handleExit();
     });
-    room.onLeave(() => this.leftUnexpectedly());
-    room.onError(() => this.leftUnexpectedly());
+    // 仲間が切れた/戻ってきた
+    room.onMessage('pwait', (m: { name: string; sec: number }) => {
+      showToast(`${m.name} の通信が切れた。${m.sec}秒だけ復帰を待つ…`);
+    });
+    room.onMessage('pback', (m: { name: string }) => {
+      showToast(`${m.name} が戻ってきた。`);
+    });
+
+    room.onLeave(() => void this.handleDisconnect());
+    room.onError(() => void this.handleDisconnect());
   }
 
   private showResult(m: { win: boolean; drops: ElementId[]; rp: number }): void {
@@ -524,12 +542,44 @@ export class CoopView {
     });
   }
 
-  // 中断や決着の知らせが無いまま切れた場合は、理由を伝えてから戻る
-  private leftUnexpectedly(): void {
-    if (!this.exited && !this.toldWhy) {
-      showToast('通信が切れたため共闘から退出した。ロビーで入り直してください。');
+  // 決着も退出の知らせも無いまま切れた場合。
+  // 電波が一瞬途切れただけのことが多いので、まず共闘へ戻ることを試みる。
+  // 以前はここで即座に退出しており、しかもサーバー側は1人の離脱で
+  // 部屋全員のランを終わらせていたため、巻き添えが大きかった。
+  private async handleDisconnect(): Promise<void> {
+    if (this.exited || this.toldWhy) { this.handleExit(); return; }
+    if (this.reconnecting) return;
+    this.reconnecting = true;
+    showToast('通信が切れた。共闘への復帰を試みている…');
+
+    const back = await this.tryReconnect();
+    this.reconnecting = false;
+    if (back) {
+      showToast('共闘に復帰した。');
+      return;
     }
+    showToast('共闘に復帰できなかった。'
+      + 'サーバーが更新された可能性がある。ロビーから入り直してほしい。');
     this.handleExit();
+  }
+
+  // 少し間を置いて何度か試す。サーバー側は30秒だけ席を空けて待っている。
+  private async tryReconnect(): Promise<boolean> {
+    if (!this.reconnect || !this.token) return false;
+    for (let i = 0; i < 6; i++) {
+      await new Promise(r => setTimeout(r, 2500));
+      if (this.exited) return false;
+      try {
+        const room = await this.reconnect(this.token);
+        if (!room) continue;
+        this.room = room;
+        this.mySid = room.sessionId;
+        this.token = room.reconnectionToken;
+        this.wireRoom(room);
+        return true;
+      } catch { /* まだ戻れない。次の試行へ */ }
+    }
+    return false;
   }
 
   private handleExit(): void {

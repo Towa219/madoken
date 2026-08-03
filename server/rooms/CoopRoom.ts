@@ -141,6 +141,9 @@ export class CoopRoom extends Room<CoopState> {
   private pending: { t: number; fn: () => void }[] = [];
   private ended = false;
   private aborting = false;
+  // 復帰待ちの仲間。待っている間は敵に狙われず、生存判定からも外す。
+  // (決闘と違って時間は止めない。他の人まで待たせるのは酷なので)
+  private waiting = new Set<string>();
 
   onCreate(options: { stage?: unknown }): void {
     this.setState(new CoopState());
@@ -243,8 +246,28 @@ export class CoopRoom extends Room<CoopState> {
     return { ip: clientIp(request) };
   }
 
-  onLeave(client: Client): void {
+  // 通信が切れた仲間を待つ秒数。ここを過ぎたら離脱として扱う。
+  private static readonly RECONNECT_SEC = 30;
+
+  async onLeave(client: Client, consented?: boolean): Promise<void> {
     const leaverName = this.state.players.get(client.sessionId)?.name ?? '誰か';
+
+    // 戦闘中に通信が切れただけなら、少しの間だけ戻りを待つ。
+    // 待たずに abortRun していたため、1人の電波が一瞬途切れただけで
+    // 部屋にいる全員のランが強制終了していた。
+    if (!consented && !this.ended && this.state.phase !== 'ready') {
+      this.waiting.add(client.sessionId);
+      this.broadcast('pwait', { name: leaverName, sec: CoopRoom.RECONNECT_SEC });
+      try {
+        await this.allowReconnection(client, CoopRoom.RECONNECT_SEC);
+        this.waiting.delete(client.sessionId);
+        this.broadcast('pback', { name: leaverName });
+        return; // 戻ってきたので続行
+      } catch {
+        this.waiting.delete(client.sessionId); // 戻ってこなかった
+      }
+    }
+
     releaseBattleSlot(leaverName, client.sessionId);
     this.submitToRanking(client.sessionId); // 途中離脱でもスコアは記録
     this.state.players.delete(client.sessionId);
@@ -489,7 +512,9 @@ export class CoopRoom extends Room<CoopState> {
       let enemyAlive = false;
       this.state.enemies.forEach(e => { if (e.alive) enemyAlive = true; });
       let playerAlive = false;
-      this.state.players.forEach(p => { if (p.alive) playerAlive = true; });
+      this.state.players.forEach((p, sid) => {
+        if (p.alive && !this.waiting.has(sid)) playerAlive = true;
+      });
 
       if (this.state.enemies.length > 0 && !enemyAlive) this.endFight(true);
       else if (this.state.players.size > 0 && !playerAlive) this.endFight(false);
@@ -780,7 +805,10 @@ export class CoopRoom extends Room<CoopState> {
   private enemyAttack(idx: number, ei: EInternal): void {
     const alive: { sid: string; hate: number }[] = [];
     this.state.players.forEach((p, sid) => {
-      if (p.alive) alive.push({ sid, hate: this.internals.get(sid)?.hate ?? 0 });
+      // 復帰待ちの人は操作できないので狙わない。放置して倒すのは酷。
+      if (p.alive && !this.waiting.has(sid)) {
+        alive.push({ sid, hate: this.internals.get(sid)?.hate ?? 0 });
+      }
     });
     if (alive.length === 0) return;
 
@@ -802,7 +830,9 @@ export class CoopRoom extends Room<CoopState> {
           if (!this.state.enemies[idx]?.alive) return;
           this.broadcast('eaoehit', { i: idx, attr: ei.def.attackAttr });
           this.state.players.forEach((p, sid) => {
-            if (p.alive) this.damagePlayer(sid, dmg, ei.def.attackAttr);
+            if (p.alive && !this.waiting.has(sid)) {
+              this.damagePlayer(sid, dmg, ei.def.attackAttr);
+            }
           });
         },
       });
