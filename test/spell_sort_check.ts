@@ -18,6 +18,17 @@ import { spawn } from 'node:child_process';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { spellNameFor } from '../shared/spellcraft';
+import type { ElementCounts } from '../shared/types';
+
+// 名前は読み込み時にレシピから作り直されるので、こちらもレシピから求める。
+// セーブに書いた名前をあてにすると、命名の決まりを変えるたびに壊れる。
+const R_WEAK: ElementCounts = { water: 2 };
+const R_MID: ElementCounts = { ice: 3 };
+const R_STRONG: ElementCounts = { fire: 3 };
+const R_DARK: ElementCounts = { dark: 3 };
+const NM = (c: ElementCounts) => spellNameFor(c, 'normal');
+const WEAK = NM(R_WEAK), MID = NM(R_MID), STRONG = NM(R_STRONG), DARK = NM(R_DARK);
 
 const BASE = process.env.MADOKEN_ENDPOINT ?? 'http://127.0.0.1:2567';
 const HTTP = BASE.replace(/^ws/, 'http');
@@ -91,16 +102,16 @@ class Cdp {
 
 // 旧版のセーブ(sortByPower しか持たず、装備回数も無い)
 function oldSave(name: string, sortByPower: boolean) {
-  const sp = (id: string, sname: string, recipe: Record<string, number>) =>
+  const sp = (id: string, sname: string, recipe: ElementCounts) =>
     ({ id, name: sname, recipe, discoveries: [], level: 0, rarity: 'normal', stats: {} });
   return {
     version: 1, nickname: name, nickToken: `tok_${name}`, charId: 0, researchP: 300,
     inventory: { fire: 9, water: 9, wind: 9, earth: 9, thunder: 9, ice: 9, light: 9, dark: 9 },
     spells: [
-      sp('a', '弱い魔弾', { water: 2 }),      // 魔導値 低
-      sp('b', '中くらいの魔弾', { ice: 3 }),  // 魔導値 中
-      sp('c', '強い魔弾', { fire: 3 }),       // 魔導値 高
-      sp('d', '闇の魔弾', { dark: 3 }),
+      sp('a', WEAK, R_WEAK),    // 魔導値 低
+      sp('b', MID, R_MID),      // 魔導値 中
+      sp('c', STRONG, R_STRONG), // 魔導値 高
+      sp('d', DARK, R_DARK),
     ],
     equipped: ['a'],                          // 今装備しているのは a だけ
     sortByPower,                              // 旧版の設定
@@ -194,7 +205,7 @@ async function main(): Promise<void> {
       JSON.stringify(counts1));
 
     const n1 = await names();
-    check('装備している魔法が一番上', n1[0] === '弱い魔弾', n1.join(' / '));
+    check('装備している魔法が一番上', n1[0] === WEAK, n1.join(' / '));
     console.log(`     並び: ${n1.join(' / ')}`);
 
     // ---- 2. 装備すると回数が増え、順番が上がる ----
@@ -202,12 +213,12 @@ async function main(): Promise<void> {
     // 「強い魔弾」を装備 → 外す → もう一度装備 で2回にする
     const idxOf = async (label: string) => (await names()).indexOf(label);
     for (let k = 0; k < 2; k++) {
-      const i = await idxOf('強い魔弾');
+      const i = await idxOf(STRONG);
       if (i >= 0) { await equipNth(i); await sleep(250); }
-      const j = await idxOf('強い魔弾');
+      const j = await idxOf(STRONG);
       if (j >= 0) { await equipNth(j); await sleep(250); } // 外す
     }
-    const i2 = await idxOf('強い魔弾');
+    const i2 = await idxOf(STRONG);
     if (i2 >= 0) await equipNth(i2); // もう一度装備
     await sleep(400);
 
@@ -215,12 +226,12 @@ async function main(): Promise<void> {
     const c2: Record<string, number> = {};
     for (const sp of s2.spells) c2[sp.id] = sp.equipCount;
     console.log(`     装備回数: ${JSON.stringify(c2)}`);
-    check('装備するたびに回数が増える', c2.c >= 2, `強い魔弾=${c2.c}回`);
-    check('外しても回数は減らない', c2.a >= 1, `弱い魔弾=${c2.a}回`);
+    check('装備するたびに回数が増える', c2.c >= 2, `${STRONG}=${c2.c}回`);
+    check('外しても回数は減らない', c2.a >= 1, `${WEAK}=${c2.a}回`);
 
     const n2 = await names();
     console.log(`     並び: ${n2.join(' / ')}`);
-    check('回数の多い魔法が上に来る', n2.indexOf('強い魔弾') < n2.indexOf('中くらいの魔弾'),
+    check('回数の多い魔法が上に来る', n2.indexOf(STRONG) < n2.indexOf(MID),
       n2.join(' / '));
 
     // ---- 3. ボタンで3種を巡回する ----
@@ -228,12 +239,12 @@ async function main(): Promise<void> {
     await cdp.click('#btn-sort-spells');
     check('2番目は魔導値順', (await sortBtn()).includes('魔導値順'), await sortBtn());
     const nPower = await names();
-    check('魔導値順では強い魔法が一番上', nPower[0] === '闇の魔弾' || nPower[0] === '強い魔弾',
+    check('魔導値順では強い魔法が一番上', nPower[0] === DARK || nPower[0] === STRONG,
       nPower.join(' / '));
     await cdp.click('#btn-sort-spells');
     check('3番目は取得順', (await sortBtn()).includes('取得順'), await sortBtn());
     const nOrder = await names();
-    check('取得順は調合した順のまま', nOrder[0] === '弱い魔弾', nOrder.join(' / '));
+    check('取得順は調合した順のまま', nOrder[0] === WEAK, nOrder.join(' / '));
     await cdp.click('#btn-sort-spells');
     check('一周して装備頻度順に戻る', (await sortBtn()).includes('装備頻度順'), await sortBtn());
 
@@ -267,7 +278,7 @@ async function main(): Promise<void> {
         + ' if (b && !b.disabled) b.click(); })()');
       await sleep(300);
     };
-    for (const n of ['強い魔弾', '闇の魔弾', '弱い魔弾']) await equipByName(n);
+    for (const n of [STRONG, DARK, WEAK]) await equipByName(n);
 
     const marks = await cdp.evaluate<string[]>(
       '[...document.querySelectorAll("#spell-list .spell-card")]'
@@ -276,13 +287,13 @@ async function main(): Promise<void> {
       + ' + c.querySelector(".sname").textContent.replace(/[①-⑨]/g, "").trim().split(" ")[0])');
     console.log(`     番号: ${marks.join('  ')}`);
     check('装備した順に①②③が付く',
-      marks.includes('①強い魔弾') && marks.includes('②闇の魔弾') && marks.includes('③弱い魔弾'),
+      marks.includes('①' + STRONG) && marks.includes('②' + DARK) && marks.includes('③' + WEAK),
       marks.join(' '));
 
     // 外して付け直すと最後尾に回る
-    await equipByName('強い魔弾');   // 解除
+    await equipByName(STRONG);   // 解除
     await sleep(300);
-    await equipByName('強い魔弾');   // 付け直し
+    await equipByName(STRONG);   // 付け直し
     await sleep(300);
     const marks2 = await cdp.evaluate<string[]>(
       '[...document.querySelectorAll("#spell-list .spell-card")]'
@@ -290,9 +301,9 @@ async function main(): Promise<void> {
       + '.map(c => c.querySelector(".eqnum").textContent'
       + ' + c.querySelector(".sname").textContent.replace(/[①-⑨]/g, "").trim().split(" ")[0])');
     console.log(`     番号: ${marks2.join('  ')}`);
-    check('★外して付け直すと最後尾に回る', marks2.includes('③強い魔弾'), marks2.join(' '));
+    check('★外して付け直すと最後尾に回る', marks2.includes('③' + STRONG), marks2.join(' '));
     check('残りは繰り上がる',
-      marks2.includes('①闇の魔弾') && marks2.includes('②弱い魔弾'), marks2.join(' '));
+      marks2.includes('①' + DARK) && marks2.includes('②' + WEAK), marks2.join(' '));
 
     // 並び替えても番号は変わらない
     await cdp.click('#btn-sort-spells');
@@ -303,7 +314,7 @@ async function main(): Promise<void> {
       + '.map(c => c.querySelector(".eqnum").textContent'
       + ' + c.querySelector(".sname").textContent.replace(/[①-⑨]/g, "").trim().split(" ")[0])');
     check('並び替えても番号は変わらない',
-      marks3.includes('③強い魔弾') && marks3.includes('①闇の魔弾'), marks3.join(' '));
+      marks3.includes('③' + STRONG) && marks3.includes('①' + DARK), marks3.join(' '));
 
     // ---- 6. 戦闘バーの並びが装備順と一致する ----
     console.log('\n--- 戦闘バーとの一致 ---');

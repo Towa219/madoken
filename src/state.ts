@@ -1,4 +1,4 @@
-import { finalStats, spellMagicValue } from '../shared/spellcraft';
+import { finalStats, spellMagicValue, spellNameFor } from '../shared/spellcraft';
 import { ELEMENT_ORDER, equipLimit, START_SLOTS } from '../shared/data';
 import { clampCharId } from '../shared/characters';
 import type { ElementId, GameState, Spell } from '../shared/types';
@@ -64,6 +64,12 @@ function migrate(parsed: Partial<GameState>): GameState {
     for (const sp of merged.spells) {
       try {
         sp.stats = finalStats(sp.recipe ?? {}, sp.level, sp.rarity);
+        // 名前もレシピから作り直す。
+        // セーブに書かれた名前をそのまま使うと、命名の決まりを変えても
+        // 昔に作った魔法だけ古い名前で残る(火を「炎」と書いていた頃の
+        // 〈炎2風2〉が消えない、など)。名前は自動で決まるもので、
+        // 本人が付けた名前ではないので作り直して構わない。
+        sp.name = spellNameFor(sp.recipe ?? {}, sp.rarity);
       } catch { /* レシピが壊れている場合は元の値のまま */ }
     }
     if (typeof merged.nickname !== 'string') merged.nickname = '';
