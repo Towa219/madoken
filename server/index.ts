@@ -12,7 +12,7 @@ import { CoopRoom } from './rooms/CoopRoom';
 import { DuelRoom } from './rooms/DuelRoom';
 import { magicRankScore, persistent, removeScore, submitScore, topRanking } from './ranking';
 import { recentConnections } from './connlog';
-import { discordEnabled, sendNow, startDiscordReports } from './discord';
+import { buildReport, discordEnabled, sendNow, startDiscordReports } from './discord';
 import { presenceSnapshot } from './presence';
 import { checkName, claimName, releaseName } from './names';
 import { deleteSave, getSave, putSave } from './save';
@@ -172,8 +172,9 @@ app.get('/api/discord-test', (req, res) => {
     res.status(403).json({ error: 'ADMIN_KEYが必要です' });
     return;
   }
-  void sendNow(onlineCount())
-    .then(ok => res.json({ sent: ok, enabled: discordEnabled }))
+  // 送るだけでなく本文も返す。Webhook未設定の環境でも中身を確かめられる。
+  void Promise.all([sendNow(onlineCount()), buildReport(onlineCount())])
+    .then(([sent, text]) => res.json({ sent, enabled: discordEnabled, text }))
     .catch(() => res.json({ sent: false, enabled: discordEnabled }));
 });
 

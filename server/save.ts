@@ -99,6 +99,27 @@ export async function getSave(rawName: unknown, rawToken: unknown): Promise<Load
 }
 
 // 削除(キャラ初期化時)
+// 名前から到達状況だけを取り出す(Discordの在室レポート用)。
+//
+// 本人確認(トークン)は求めない。返すのはクリア済みステージなど
+// ランキングにも出ている程度の情報だけで、セーブ本体は渡さない。
+export async function progressOf(rawName: unknown): Promise<{
+  bestStage: number; maxStage: number; spells: number; discovered: number;
+} | null> {
+  const name = normalizeNickname(rawName);
+  if (!name) return null;
+  const env = await readEnvelope(nicknameKey(name));
+  const d = env?.data as Record<string, unknown> | undefined;
+  if (!d) return null;
+  const n = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : 0);
+  return {
+    bestStage: n(d.bestStage),
+    maxStage: n(d.maxStage),
+    spells: Array.isArray(d.spells) ? d.spells.length : 0,
+    discovered: Array.isArray(d.discovered) ? d.discovered.length : 0,
+  };
+}
+
 export async function deleteSave(rawName: unknown, rawToken: unknown): Promise<boolean> {
   const name = normalizeNickname(rawName);
   const owner = await claimName(name, rawToken);

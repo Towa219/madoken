@@ -1,4 +1,7 @@
 // Discordに送る在室レポートの中身を確認する(実際には送信しない)
+//
+// ここは本文の見た目を目で見るためのもの。到達ステージが入るかどうかは
+// クラウドセーブを読む必要があるので test/discord_report_stage_check.ts で見る。
 
 import { logConnection } from '../server/connlog';
 import { setRoomPresence } from '../server/presence';
@@ -16,7 +19,7 @@ async function main(): Promise<void> {
   setRoomPresence('room2', '共闘', 'ステージ3', ['魔導士ノ王']);
 
   console.log('===== Discordへ送る本文 =====');
-  console.log(buildReport(2));
+  console.log(await buildReport(2));
   console.log('=============================');
 }
 

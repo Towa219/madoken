@@ -10,6 +10,7 @@
 
 import { connInfoOf } from './connlog';
 import { presenceSnapshot, uniqueNames } from './presence';
+import { progressOf } from './save';
 
 const WEBHOOK = process.env.DISCORD_WEBHOOK_URL;
 const INTERVAL_MIN = Math.max(1, Number(process.env.DISCORD_INTERVAL_MIN) || 30);
@@ -38,7 +39,7 @@ async function post(content: string): Promise<void> {
 }
 
 // レポート本文を組み立てる(動作確認用にexport)
-export function buildReport(onlineCount: number): string {
+export async function buildReport(onlineCount: number): Promise<string> {
   const rooms = presenceSnapshot();
   const names = uniqueNames();
   const now = new Date().toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' });
@@ -49,16 +50,23 @@ export function buildReport(onlineCount: number): string {
     `オンライン接続中: **${names.length}人**`,
   ];
 
-  // 誰がどこから繋いでいるか(最初の接続時に記録したIP・地域・回線)
+  // 誰がどこから繋いでいるか(最初の接続時に記録したIP・地域・回線)と、
+  // どこまで進んでいるか(クリア済みの最高ステージ)
   for (const name of names) {
+    const prog = await progressOf(name);
+    const reach = prog
+      ? ` 到達 **ステージ${prog.bestStage}**`
+        + `(魔法${prog.spells}本 / ${prog.discovered}系統)`
+      : ' 到達 —';
     const info = connInfoOf(name);
     if (!info) {
-      lines.push(`・**${name}** — 接続情報なし(サーバー再起動前の接続)`);
+      lines.push(`・**${name}** —${reach} / 接続情報なし(サーバー再起動前の接続)`);
       continue;
     }
     const at = new Date(info.at).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' });
     lines.push(
-      `・**${name}** — \`${info.ip}\` (${info.region} / ${info.isp}) 初回接続 ${at}`,
+      `・**${name}** —${reach} / \`${info.ip}\` (${info.region} / ${info.isp})`
+      + ` 初回接続 ${at}`,
     );
   }
 
@@ -85,13 +93,13 @@ export function startDiscordReports(getOnlineCount: () => number): void {
     const count = getOnlineCount();
     const names = uniqueNames();
     if (!SEND_EMPTY && count === 0 && names.length === 0) return; // 無人のときは送らない
-    void post(buildReport(count));
+    void buildReport(count).then(text => post(text));
   }, INTERVAL_MIN * 60 * 1000);
 }
 
 // 任意タイミングで1回送る(テスト用API から使用)
 export async function sendNow(onlineCount: number): Promise<boolean> {
   if (!WEBHOOK) return false;
-  await post(buildReport(onlineCount));
+  await post(await buildReport(onlineCount));
   return true;
 }
