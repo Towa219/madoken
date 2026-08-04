@@ -57,6 +57,8 @@ export class CoopView {
   // 3→2→1→開戦
   private countText!: Text;
   private prevCount = -99;
+  // 今どのステージを描いているか(切り替わりを見つけるため)
+  private prevStage = -1;
 
   private room: Room | null = null;
   private mySid = '';
@@ -127,6 +129,7 @@ export class CoopView {
     this.enemySig = '';
     this.warnT = 0;
     this.prevCount = -99;
+    this.prevStage = -1;
     this.anims = [];
     this.popups = [];
     this.fxs = [];
@@ -652,7 +655,17 @@ export class CoopView {
     const st: any = this.room.state;
     if (!st || !st.players) return;
 
-    const bossFight = Number(st.stage) % 5 === 0;
+    // ステージが切り替わったら、こちら側の再使用時間も戻す。
+    // サーバーは nextStage で0にしているが、画面側の残り時間はそのままだった。
+    // そのため次のステージが始まっても魔法ボタンが灰色のまま押せなかった。
+    const stage = Number(st.stage);
+    if (stage !== this.prevStage) {
+      this.prevStage = stage;
+      this.cds = this.cds.map(() => 0);
+      this.prevCastingIdx = -1;
+    }
+
+    const bossFight = stage % 5 === 0;
     this.stageText.text = `ステージ ${st.stage}${bossFight ? ' — ボス戦' : ''} (共闘)`;
     // ボス戦かどうかで曲を変える。
     // 部屋に入る時だけ選んでいたため、勝ち上がってボスのステージに来ても

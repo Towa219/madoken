@@ -117,6 +117,28 @@ async function main(): Promise<void> {
 
     check('その後ちゃんと戦闘に入る',
       await waitFor(() => phase() === 'fight', 15_000), phase());
+
+    // ---- 次のステージでは再使用時間が空になっている ----
+    // 前のステージで撃った直後に進むと、待ち時間が残ったままだと
+    // 新しいステージの開幕で何も撃てない。
+    const cd = () => {
+      const st: any = r.state;
+      const me = st?.players?.get(r.sessionId);
+      return me ? Number(me.mp) : -1;
+    };
+    check('次のステージではMPも満タンに戻っている', cd() > 0, `MP=${cd()}`);
+
+    // すぐ撃てるか(サーバーが受け付けるか)
+    let cast = false;
+    for (let i = 0; i < 12; i++) {
+      r.send('cast', { idx: 0 });
+      await sleep(250);
+      const st: any = r.state;
+      const me = st?.players?.get(r.sessionId);
+      if (me && me.castingIdx >= 0) { cast = true; break; }
+    }
+    check('★次のステージの開幕からすぐ撃てる', cast,
+      cast ? '' : '再使用待ちで撃てない');
   } finally {
     try { void room?.leave(); } catch { /* 切断済み */ }
     await sleep(800);
