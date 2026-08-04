@@ -5,10 +5,12 @@ import type { RecipeDef } from './data';
 import type { ElementCounts, ElementId, Rarity, SpellKind, SpellStats } from './types';
 
 // 属性ごとの命名用一文字
-const ATTR_CHAR: Record<ElementId, string> = {
-  fire: '炎', water: '水', wind: '風', earth: '地',
-  thunder: '雷', ice: '氷', light: '光', dark: '闇',
-};
+// 魔法名で使う属性の一文字。素材庫・相性・性能表示と必ず同じ字を使うこと。
+// 以前は火を「炎」、土を「地」と書き分けていたため、素材庫では「火」なのに
+// 魔法名の構成タグは〈炎2風2〉となり、同じものが二通りの字で出ていた。
+const ATTR_CHAR: Record<ElementId, string> = Object.fromEntries(
+  ELEMENT_ORDER.map(id => [id, ELEMENTS[id].name]),
+) as Record<ElementId, string>;
 
 export interface CraftResult {
   stats: SpellStats;
