@@ -145,13 +145,22 @@ button.tab.active { background: #5533aa; border-color: #7755cc; }
 }
 
 /* 調合台 */
-#slot-row { display: flex; gap: 8px; margin: 10px 0; justify-content: center; }
+#slot-row {
+  display: flex; gap: 8px; margin: 10px 0; justify-content: center;
+  /* スロットは最大5つまで増える。72px固定のままだと
+     5つ + 隙間で392pxになり、スマホ(横390px前後)からはみ出す。 */
+  width: 100%;
+}
 .slot {
-  width: 72px; height: 72px; border: 2px dashed #44446a; border-radius: 10px;
+  /* 基本は72px。入りきらない時だけ縮む(伸びはしない)。
+     min-width: 0 を付けないと、中身の文字幅より小さくならない。 */
+  flex: 0 1 72px; min-width: 0; max-width: 72px;
+  height: 72px; border: 2px dashed #44446a; border-radius: 10px;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   cursor: pointer; -webkit-user-select: none; user-select: none;
   font-size: 20px; font-weight: bold;
   background: #131325;
+  overflow: hidden;   /* 縮んだ時に文字がはみ出さないように */
 }
 .slot.filled { border-style: solid; background: #202040; }
 .slot .slabel { font-size: 10px; color: #777799; font-weight: normal; }
@@ -630,4 +639,9 @@ button.tab.active { background: #5533aa; border-color: #7755cc; }
   .enemy-card { min-width: 0; flex: 1 1 100%; }
   #stage-select button { padding: 6px 10px; }
   #nick-row { flex-wrap: wrap; }
+
+  /* 調合台: 狭い画面ではスロットを詰めて、5つでも1行に収める */
+  #slot-row { gap: 5px; }
+  .slot { height: 62px; font-size: 17px; }
+  .slot .slabel { font-size: 9px; }
 }
