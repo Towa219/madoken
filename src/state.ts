@@ -193,10 +193,24 @@ export function toggleEquip(id: string): void {
   }
 }
 
-// 装備中の魔法。並び順は魔導書での表示順に一致させる
-// (戦闘バーの1〜4が、研究室で見えている上からの順番になる)
+// 装備中の魔法。並びは「装備した順」。
+//
+// state.equipped は装備するたびに末尾へ足されるので、この配列の順番が
+// そのまま戦闘のキー1・2・3…になる。外して付け直すと最後尾に回る。
+// 魔導書の表示順(魔導値順など)とは切り離してある。並び替えるたびに
+// キーの割り当てが変わってしまうと、体が覚えた操作が毎回崩れるため。
 export function equippedSpells(): Spell[] {
-  return sortSpells(state.spells.filter(s => state.equipped.includes(s.id)));
+  const out: Spell[] = [];
+  for (const id of state.equipped) {
+    const sp = state.spells.find(s => s.id === id);
+    if (sp) out.push(sp);
+  }
+  return out;
+}
+
+// その魔法が戦闘の何番のキーか(装備していなければ0)
+export function equipSlotNo(id: string): number {
+  return state.equipped.indexOf(id) + 1;
 }
 
 // 魔導書の並び順にそろえる。研究室で見えている順が、そのまま戦闘のキー1〜6になる。

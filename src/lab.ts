@@ -13,7 +13,7 @@ import {
   spellMagicValue, spellNameFor, statsSummary,
 } from '../shared/spellcraft';
 import {
-  addElements, addSpell, deleteSpell, equipSlots, hasBossCleared, notify, save,
+  addElements, addSpell, deleteSpell, equipSlotNo, equipSlots, hasBossCleared, notify, save,
   sortSpells, spendElements, state, toggleEquip, totalInventory,
 } from './state';
 import type { ElementCounts, ElementId, Spell, SpellSort } from '../shared/types';
@@ -663,6 +663,12 @@ function cancelTransmute(): void {
   renderLab();
 }
 
+// 装備の番号を丸数字にする。7つ以上に増えた時は素の数字に落とす。
+const EQ_MARKS = ['①', '②', '③', '④', '⑤', '⑥', '⑦', '⑧', '⑨'];
+function eqMark(n: number): string {
+  return EQ_MARKS[n - 1] ?? String(n);
+}
+
 // ---- 魔導書 ----
 function renderSpellbook(): void {
   const sortBtn = $<HTMLButtonElement>('#btn-sort-spells');
@@ -678,7 +684,9 @@ function renderSpellbook(): void {
   $('#equip-cap').textContent = `(装備は${cap}つまで)`;
   const next = nextEquipUnlock(state.bossCleared);
   $('#equip-note').innerHTML =
-    `★を付けた魔法が、この並び順のまま戦闘のキー1〜${cap}になる。`
+    `①②③…の番号が、そのまま戦闘のキー1〜${cap}になる。`
+    + '<b>装備した順に番号が付く</b>ので、'
+    + '外して付け直すと最後尾に回る(並び替えでは変わらない)。'
     + (next
       ? ` <span class="chance-mid">ステージ${next.boss}のボスを倒すと`
         + `装備できる数が${next.count}つに増える。</span>`
@@ -700,7 +708,8 @@ function renderSpellbook(): void {
     const recipeStr = (Object.entries(sp.recipe) as [ElementId, number][])
       .map(([id, cnt]) => `${ELEMENTS[id].name}×${cnt}`).join(' ');
     card.innerHTML =
-      `<div class="sname">${equipped ? '<span class="star">★</span> ' : ''}` +
+      `<div class="sname">`
+      + (equipped ? `<span class="eqnum">${eqMark(equipSlotNo(sp.id))}</span> ` : '') +
       `<span style="color:${RARITIES[sp.rarity].cssColor}">${spellDisplayName(sp)}</span>` +
       ` <span class="mval">魔導値 ${spellMagicValue(sp.stats)}</span>` +
       ` <small style="color:#777799">(${recipeStr})</small></div>` +

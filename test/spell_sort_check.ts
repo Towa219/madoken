@@ -163,9 +163,10 @@ async function main(): Promise<void> {
       return name;
     };
 
+    // 装備中は先頭に①②③…が付くので取り除いてから名前を取る
     const names = () => cdp.evaluate<string[]>(
       '[...document.querySelectorAll("#spell-list .spell-card .sname")]'
-      + '.map(e => e.textContent.replace("★","").trim().split(" ")[0])');
+      + '.map(e => e.textContent.replace(/[①-⑨]/g, "").trim().split(" ")[0])');
     const sortBtn = () => cdp.evaluate<string>(
       'document.querySelector("#btn-sort-spells")?.textContent ?? ""');
     const saved = () => cdp.evaluate<any>(
@@ -246,7 +247,65 @@ async function main(): Promise<void> {
     const s4 = await saved();
     check('並び順が power になる', s4.sortMode === 'power', String(s4.sortMode));
 
-    // ---- 5. 戦闘バーの並びが魔導書と一致する ----
+    // ---- 5. 装備した順が、そのまま戦闘のキー番号になる ----
+    console.log('--- 装備順とキー番号 ---');
+    await load(false);
+    // いったん全部外す
+    await cdp.evaluate(
+      '(() => { const c = document.querySelectorAll("#spell-list .spell-card");'
+      + ' for (const card of c) { const b = card.querySelector(".sbtns button");'
+      + ' if (b && b.textContent.includes("解除")) b.click(); } })()');
+    await sleep(400);
+    const eqNow = () => cdp.evaluate<string[]>(
+      '(JSON.parse(localStorage.getItem("magic_web_game_save_v1") || "{}").equipped || [])');
+    // 「強い魔弾」→「闇の魔弾」→「弱い魔弾」の順に装備する
+    const equipByName = async (label: string) => {
+      await cdp.evaluate(
+        '(() => { const c = [...document.querySelectorAll("#spell-list .spell-card")];'
+        + ` const t = c.find(x => x.querySelector(".sname").textContent.includes(${JSON.stringify(label)}));`
+        + ' const b = t && t.querySelector(".sbtns button");'
+        + ' if (b && !b.disabled) b.click(); })()');
+      await sleep(300);
+    };
+    for (const n of ['強い魔弾', '闇の魔弾', '弱い魔弾']) await equipByName(n);
+
+    const marks = await cdp.evaluate<string[]>(
+      '[...document.querySelectorAll("#spell-list .spell-card")]'
+      + '.filter(c => c.querySelector(".eqnum"))'
+      + '.map(c => c.querySelector(".eqnum").textContent'
+      + ' + c.querySelector(".sname").textContent.replace(/[①-⑨]/g, "").trim().split(" ")[0])');
+    console.log(`     番号: ${marks.join('  ')}`);
+    check('装備した順に①②③が付く',
+      marks.includes('①強い魔弾') && marks.includes('②闇の魔弾') && marks.includes('③弱い魔弾'),
+      marks.join(' '));
+
+    // 外して付け直すと最後尾に回る
+    await equipByName('強い魔弾');   // 解除
+    await sleep(300);
+    await equipByName('強い魔弾');   // 付け直し
+    await sleep(300);
+    const marks2 = await cdp.evaluate<string[]>(
+      '[...document.querySelectorAll("#spell-list .spell-card")]'
+      + '.filter(c => c.querySelector(".eqnum"))'
+      + '.map(c => c.querySelector(".eqnum").textContent'
+      + ' + c.querySelector(".sname").textContent.replace(/[①-⑨]/g, "").trim().split(" ")[0])');
+    console.log(`     番号: ${marks2.join('  ')}`);
+    check('★外して付け直すと最後尾に回る', marks2.includes('③強い魔弾'), marks2.join(' '));
+    check('残りは繰り上がる',
+      marks2.includes('①闇の魔弾') && marks2.includes('②弱い魔弾'), marks2.join(' '));
+
+    // 並び替えても番号は変わらない
+    await cdp.click('#btn-sort-spells');
+    await sleep(400);
+    const marks3 = await cdp.evaluate<string[]>(
+      '[...document.querySelectorAll("#spell-list .spell-card")]'
+      + '.filter(c => c.querySelector(".eqnum"))'
+      + '.map(c => c.querySelector(".eqnum").textContent'
+      + ' + c.querySelector(".sname").textContent.replace(/[①-⑨]/g, "").trim().split(" ")[0])');
+    check('並び替えても番号は変わらない',
+      marks3.includes('③強い魔弾') && marks3.includes('①闇の魔弾'), marks3.join(' '));
+
+    // ---- 6. 戦闘バーの並びが装備順と一致する ----
     console.log('\n--- 戦闘バーとの一致 ---');
     await cdp.click('#tab-battle');
     await sleep(600);

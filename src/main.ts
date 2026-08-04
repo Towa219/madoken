@@ -2,6 +2,8 @@
 
 import { BattleManager } from './battle';
 import { ELEMENTS, EQUIP_MAX, isBossStage } from '../shared/data';
+// 装備の番号(戦闘のキー番号と同じ)
+const EQ_MARKS = ['①', '②', '③', '④', '⑤', '⑥', '⑦', '⑧', '⑨'];
 import { initLab, renderLab, showToast } from './lab';
 import { renderManual } from './manual';
 import {
@@ -109,12 +111,13 @@ function renderSetup(): void {
     summary.innerHTML +=
       '<div class="eq-row" style="color:#ff8877">装備中の魔法がない。研究室で調合・装備しよう。</div>';
   } else {
-    for (const sp of spells) {
+    spells.forEach((sp, i) => {
       summary.innerHTML +=
-        `<div class="eq-row">★ ${spellDisplayName(sp)} ` +
+        `<div class="eq-row"><span class="eqnum">${EQ_MARKS[i] ?? i + 1}</span> `
+        + `${spellDisplayName(sp)} ` +
         `<span class="mval">魔導値 ${spellMagicValue(sp.stats)}</span>` +
         ` <small>${statsSummary(sp.stats)}</small></div>`;
-    }
+    });
   }
 
   const sel = $('#stage-select');
