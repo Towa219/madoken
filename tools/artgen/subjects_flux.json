@@ -7,8 +7,8 @@
   "style_head": "cute anime video game character art, japanese anime style, clean cel shading, crisp bold outlines, vibrant saturated colors, big expressive sparkling eyes, soft rounded cheeks, appealing cute character design, slightly stylized proportions with a large head, full body from head to feet, whole body inside the frame, centered",
   "bg_white": "plain solid white background",
   "style_tail": "no text, no watermark, no border, no frame",
-  "player_view": "three-quarter view at a 45 degree angle, the character is turned 45 degrees to the side, both the body and the head are rotated the same amount, the shoulders are at 45 degrees to the camera, the face is seen in three-quarter view with the nose and cheek in partial profile, both eyes visible, definitely not a front facing pose and not a full side profile",
-  "enemy_view": "three-quarter view from the side, facing to the left",
+  "player_view": "three-quarter view at a 45 degree angle, the character is turned 45 degrees to the right side, both the body and the head are rotated by the same amount, the shoulders are at 45 degrees to the camera, the face is seen in three-quarter view with the nose and one cheek in partial profile, both eyes still visible, clearly turned but still partly toward the viewer, definitely not a straight front facing pose and definitely not a full side profile",
+  "enemy_view": "three-quarter view at a 45 degree angle, the character is turned 45 degrees to the left side, both the body and the head are rotated by the same amount, the shoulders are at 45 degrees to the camera, the face is seen in three-quarter view with the nose and one cheek in partial profile, both eyes still visible, clearly turned but still partly toward the viewer, definitely not a straight front facing pose and definitely not a full side profile",
   "_player_body": "5体で頭身と頭の大きさを揃えるための指定。何も言わないと FLUX は3頭身から5頭身まで好き勝手に描き、並べた時に別のゲームの絵が混ざったように見える。頭の割合を数で言い切るのが効く。",
   "player_body": "chibi super deformed, exactly three heads tall, the head is very large and takes up one third of the total height, small compact body, short arms and short legs, standing on the ground with both feet fully visible, entire body from the top of the head to the tips of the shoes inside the frame",
   "player_poses": {
@@ -23,7 +23,7 @@
     "release": "unleashing its attack, lunging forward with a bright burst of energy, mouth wide open roaring",
     "hurt": "struck by a spell and recoiling backward, flinching hard, eyes squeezed shut, small impact sparks around it"
   },
-  "_flip補足": "プレイヤーは出てきた絵を見て、左を向いていたものだけを反転する。FLUX は left / right の指示には従わない。",
+  "_flip補足": "FLUX は left / right の指示に従わないので、出てきた絵を1枚ずつ実寸で見て反転する。一覧の小さい絵では判別できない(何度も読み違えた)。",
   "_flip敵": "56枚を1枚ずつ実寸で見て、右(プレイヤーと逆)を向いていたものだけを挙げてある。丸い相手ほど間違えやすい(一覧の小さい絵では向きが分からない)。",
   "flip": [
     "player:1",
@@ -31,11 +31,9 @@
     "player:3",
     "player:4",
     "player:5",
-    "enemy:blob:idle",
-    "enemy:blob:hurt",
-    "enemy:bird:idle",
-    "enemy:bird:release",
-    "enemy:orb:release"
+    "enemy:blob",
+    "enemy:wisp",
+    "enemy:bird"
   ],
   "players": [
     {
@@ -144,5 +142,6 @@
       "prompt": "a cute anglerfish monster, deep blue scaled round fish body, huge jaws with soft jagged teeth, a glowing lure on a stalk above its head, big round eyes, small fins"
     }
   },
-  "_player_view": "向きの指定は文の先頭に置く。末尾だと FLUX は従わず、ほぼ正面で描いてしまう。顔と体を別々に書くのが肝心で、片方だけだと「体は横・顔は正面」のちぐはぐな絵になる。"
+  "_player_view": "向きの指定は文の先頭に置く。末尾だと FLUX は従わず、ほぼ正面で描いてしまう。顔と体を別々に書くのが肝心で、体だけ書くと「体は斜め・顔は正面」のちぐはぐな絵になる。左右は指示しても従わないので、出てきた絵を見て flip で直す。",
+  "_enemy_view": "プレイヤーと同じ考え方。完全な横向きではなく、少し正面に体を向けた45度にする。"
 }

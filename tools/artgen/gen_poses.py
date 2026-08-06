@@ -230,8 +230,8 @@ def gen_enemy(subj, key, pose, seed=None):
     # ウィスプは「前に魔法陣」と書くと、本体と離れた輪が別に描かれ、
     # 絵が片側に寄って頭上のHPバーが本体から外れる。その子だけ差し替える。
     text = (e.get('poses') or {}).get(pose, subj['enemy_poses'][pose])
-    p = (f"{e['prompt']}, {text}, "
-         f"{subj['enemy_view']}, {style_of(subj, luma)}")
+    # 向きの指定はプレイヤーと同じく文の先頭に置く(末尾だと従わない)
+    p = (f"{subj['enemy_view']}, {e['prompt']}, {text}, {style_of(subj, luma)}")
     img = generate(p, ENEMY_W, ENEMY_H, pose_seed(e, pose, seed))
     cut = luma_cutout(img) if luma else cutout(img)
     # 光り物でも点検する。背景の指定を間違えると白い板がそのまま残るが、
