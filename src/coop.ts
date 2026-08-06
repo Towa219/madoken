@@ -712,7 +712,14 @@ export class CoopView {
     // ボス戦かどうかで曲を変える。
     // 部屋に入る時だけ選んでいたため、勝ち上がってボスのステージに来ても
     // 通常戦闘の曲のままだった。毎回呼んでも、同じ曲なら playBgm 側で無視される。
-    playBgm(bossFight ? bossBgmFor(stage) : 'battle');
+    //
+    // ただしステージ番号が届く前は決めない。
+    // 未着だと stage が NaN になり「ボスではない」と判断して通常戦闘の曲を
+    // 一瞬鳴らしてしまう。鳴らし始めと差し替えが重なるとブラウザに再生を
+    // 中断され、そのまま無音で戦うことがある。1フレーム待てば正しく決まる。
+    if (Number.isFinite(stage) && stage >= 1) {
+      playBgm(bossFight ? bossBgmFor(stage) : 'battle');
+    }
 
     this.syncPlayers(st);
     this.syncEnemies(st);

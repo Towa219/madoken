@@ -369,7 +369,7 @@ async function createRoom(): Promise<void> {
       name: nick, spells, stage, maxStage: state.maxStage,
       nickToken: state.nickToken, charId: state.charId,
     });
-    enterCoop(room);
+    enterCoop(room, stage);
   } catch (err) {
     console.error(err);
     $('#lobby-msg').textContent = '部屋を作れなかった。';
@@ -396,7 +396,7 @@ async function joinRoom(roomId: string, roomStage: number): Promise<void> {
       name: nick, spells, maxStage: state.maxStage,
       nickToken: state.nickToken, charId: state.charId,
     });
-    enterCoop(room);
+    enterCoop(room, roomStage);
   } catch (err) {
     console.error(err);
     const msg = String((err as { message?: unknown })?.message ?? '');
@@ -575,11 +575,15 @@ async function joinDuel(): Promise<void> {
   }
 }
 
-function enterCoop(room: Room): void {
+// stage は入る前から分かっているものを渡す。
+//
+// room.state はまだ届いていないことがあり、そこから読むと
+// 「ステージ1=ボスではない」と判断して通常戦闘の曲を一瞬鳴らしてしまう。
+// すぐ共闘画面側が正しい曲に差し替えるが、鳴らし始めと差し替えが重なると
+// ブラウザに再生を中断され、無音のまま戦うことがある。
+function enterCoop(room: Room, stage: number): void {
   $('#lobby-msg').textContent = '';
-  const st = room.state as { stage?: number } | undefined;
-  const stage0 = Number(st?.stage ?? 1);
-  playBgm(isBossStage(stage0) ? bossBgmFor(stage0) : 'battle');
+  playBgm(isBossStage(stage) ? bossBgmFor(stage) : 'battle');
   $('#online-lobby').classList.add('hidden');
   $('#coop-view').classList.remove('hidden');
   void coop.start(room, () => {

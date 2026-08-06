@@ -135,7 +135,7 @@ async function boot(cdp: Cdp, rp: number): Promise<void> {
   await cdp.evaluate(
     'localStorage.setItem("magic_web_game_save_v1", '
     + JSON.stringify(JSON.stringify(save(rp))) + ');'
-    + 'localStorage.setItem("madoken_sound_v2",'
+    + 'localStorage.setItem("madoken_sound_v3",'
     + ' JSON.stringify({bgmVolume:0,sfxVolume:0,muted:true}));');
   await cdp.send('Page.reload');
   for (let i = 0; i < 60; i++) {

@@ -16,7 +16,7 @@
 const BASE = 'sound/';
 // 既定音量を変えたら末尾の番号を上げる。古い保存値を読まなくなり、
 // 既に遊んでいる端末にも新しい既定値が行き渡る。
-const PREF_KEY = 'madoken_sound_v2';
+const PREF_KEY = 'madoken_sound_v3';
 
 // ボス戦は深さで3曲に分かれる(bossBgmFor が選ぶ)
 export type BgmId = 'lobby' | 'battle' | 'boss1' | 'boss2' | 'boss3' | 'duel';
@@ -35,7 +35,8 @@ interface Prefs {
 let manifest: Manifest | null = null;
 // 初期値は控えめに。うるさいと感じた人が下げるより、
 // 物足りない人が上げる方が受け入れられやすい(設定でいつでも変えられる)。
-let prefs: Prefs = { bgmVolume: 0.05, sfxVolume: 0.20, muted: false };
+// ただし5%では小さすぎるという声があったので1.5倍に上げた。
+let prefs: Prefs = { bgmVolume: 0.08, sfxVolume: 0.20, muted: false };
 
 // ループの継ぎ目をなだらかにする秒数。
 // 生成した曲は「曲として終わる」ので、頭と尻が音楽的につながらない。
