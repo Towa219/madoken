@@ -325,6 +325,14 @@ export class CoopView {
       this.warnText.visible = true;
       this.warnG.visible = true;
     });
+    // 封印で全体攻撃を止めた。予告の赤い画面をその場で解く。
+    room.onMessage('eaoestop', (m: { name: string }) => {
+      playSfx('shield');
+      this.warnT = 0;
+      this.warnText.visible = false;
+      this.warnG.visible = false;
+      this.addPopup(W / 2, cy(150), `封印! ${m.name} の全体攻撃を止めた`, 0xbb77ee);
+    });
     room.onMessage('eaoehit', () => {
       playSfx('quake');
       this.shakeT = 0.7;

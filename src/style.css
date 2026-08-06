@@ -1,23 +1,22 @@
-* { box-sizing: border-box; margin: 0; padding: 0; }
+/* iPhoneのダブルタップ拡大を止める。
+   戦闘中は魔法ボタンを連打するので、2回目が「拡大」と解釈されて
+   画面が飛んでしまう(ついでに、タップしてから反応するまでの
+   約0.3秒の間も無くなる。ブラウザが2回目のタップを待たなくなるため)。
+   指2本のピンチ拡大は残るので、細かい字を読みたい時は今までどおり。
+
+   ★ touch-action は継承されない。body だけに書いても中の要素には効かず、
+     タップがボタンの外(余白や枠)に当たった時は今までどおり拡大する。
+     効くのは「指を置いた要素そのもの」の指定だけなので、全部に配る。 */
+* {
+  box-sizing: border-box; margin: 0; padding: 0;
+  touch-action: manipulation;
+}
 
 body {
   background: #0d0d1a;
   color: #ddddee;
   font-family: 'Meiryo', 'Yu Gothic UI', sans-serif;
   font-size: 14px;
-
-  /* iPhoneのダブルタップ拡大を止める。
-     戦闘中は魔法ボタンを連打するので、2回目が「拡大」と解釈されて
-     画面が飛んでしまう(ついでに、タップしてから反応するまでの
-     約0.3秒の間も無くなる。ブラウザが2回目のタップを待たなくなるため)。
-     指2本のピンチ拡大は残るので、細かい字を読みたい時は今までどおり。 */
-  touch-action: manipulation;
-}
-
-/* 押せるものは個別にも指定しておく。
-   canvas や後から作る要素は body の指定を継がないことがあるため。 */
-button, .spell-btn, canvas, .tab, select, input {
-  touch-action: manipulation;
 }
 
 .hidden { display: none !important; }

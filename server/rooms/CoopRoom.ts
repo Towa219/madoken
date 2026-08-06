@@ -880,6 +880,19 @@ export class CoopRoom extends Room<CoopState> {
           if (this.state.phase !== 'fight') return;
           // 予告中に倒されたら不発。避けきったご褒美になる。
           if (!this.state.enemies[idx]?.alive) return;
+          // 封印されていたら不発。
+          //
+          // 封印中のボスはそもそも殴ってこない(update の敵の処理で止まる)ので、
+          // 抜け道は予告から着弾までの間だけだった。ここを塞がないと
+          // 「予告を見てから封印しても全体攻撃だけは飛んでくる」ことになり、
+          // 封印を持ち込んだ意味が薄い。次の全体攻撃までは周期ぶん間が空く。
+          //
+          // 凍結は止めない。氷の攻撃魔法にもれなく付いてくるので、
+          // これで止まると封印を用意して臨む意味が無くなる。
+          if (this.eInternals[idx]?.sealedT > 0) {
+            this.broadcast('eaoestop', { i: idx, name: ei.def.name });
+            return;
+          }
           this.broadcast('eaoehit', { i: idx, attr: ei.def.attackAttr });
           this.state.players.forEach((p, sid) => {
             if (p.alive && !this.waiting.has(sid)) {
