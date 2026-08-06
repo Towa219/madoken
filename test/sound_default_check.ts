@@ -3,8 +3,8 @@
 // 既定値を変えても localStorage に古い保存値が残っていると反映されない。
 // そのため src/sound.ts では PREF_KEY の番号を上げて古い値を捨てている。
 // ここでは
-//   1. まっさらなプロフィールで開き、設定画面の表示が 8% / 20% か
-//   2. 実際に音に掛かる音量(GainNode)も 0.08 / 0.20 か
+//   1. まっさらなプロフィールで開き、設定画面の表示が 12% / 20% か
+//   2. 実際に音に掛かる音量(GainNode)も 0.12 / 0.20 か
 //   3. 古い鍵(v1)に別の値が残っていても引きずられないか
 // を見る。
 //
@@ -20,7 +20,7 @@ const CHROME = process.env.CHROME_PATH
   ?? 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe';
 const PORT = 9347;
 
-const WANT_BGM = 8;
+const WANT_BGM = 12;
 const WANT_SFX = 20;
 
 let failures = 0;
@@ -136,7 +136,7 @@ async function main(): Promise<void> {
 
     // 設定画面を開く前に、まず保存値そのものを見る
     const stored = await cdp.evaluate<string | null>(
-      'localStorage.getItem("madoken_sound_v3")');
+      'localStorage.getItem("madoken_sound_v4")');
     check('古い設定(v1)を引きずっていない', stored === null || !/0\.8|0\.9/.test(stored),
       String(stored));
 
@@ -164,6 +164,14 @@ async function main(): Promise<void> {
       type: 'mouseReleased', x: 500, y: 400, button: 'left', clickCount: 1,
     });
     await sleep(1200);
+
+    // 設定画面に「今どの曲が鳴っているか」が出ること。
+    // 端末の上で「思っている曲と違う」時に、本人が事実を見て言えるようにするため。
+    await cdp.evaluate('document.querySelector("#tab-settings")?.click()');
+    await sleep(1500);
+    const now = await cdp.evaluate<string>(
+      'document.querySelector("#bgm-now")?.textContent ?? ""');
+    check('★設定画面に今の曲が出る', now.includes('lobby'), now);
 
     const gains = await cdp.evaluate<number[]>(
       '(window.__gains || []).map(g => Math.round(g.gain.value * 1000) / 1000)');

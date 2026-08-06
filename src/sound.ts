@@ -16,7 +16,7 @@
 const BASE = 'sound/';
 // 既定音量を変えたら末尾の番号を上げる。古い保存値を読まなくなり、
 // 既に遊んでいる端末にも新しい既定値が行き渡る。
-const PREF_KEY = 'madoken_sound_v3';
+const PREF_KEY = 'madoken_sound_v4';
 
 // ボス戦は深さで3曲に分かれる(bossBgmFor が選ぶ)
 export type BgmId = 'lobby' | 'battle' | 'boss1' | 'boss2' | 'boss3' | 'duel';
@@ -35,8 +35,8 @@ interface Prefs {
 let manifest: Manifest | null = null;
 // 初期値は控えめに。うるさいと感じた人が下げるより、
 // 物足りない人が上げる方が受け入れられやすい(設定でいつでも変えられる)。
-// ただし5%では小さすぎるという声があったので1.5倍に上げた。
-let prefs: Prefs = { bgmVolume: 0.08, sfxVolume: 0.20, muted: false };
+// ただし控えめすぎたので、実際に聞いた感触を頼りに 5% → 8% → 12% と上げた。
+let prefs: Prefs = { bgmVolume: 0.12, sfxVolume: 0.20, muted: false };
 
 // ループの継ぎ目をなだらかにする秒数。
 // 生成した曲は「曲として終わる」ので、頭と尻が音楽的につながらない。
@@ -265,9 +265,26 @@ async function ensureCtx(): Promise<boolean> {
 //
 // BGMは長いので、丸ごと展開せずに <audio> で流す(メモリと通信量の節約)。
 
+// 今まさに鳴らし始めている曲。
+//
+// play() は「鳴り出せるだけ読み終わる」まで解決しない。数MBある曲だと
+// 回線によっては何秒もかかり、その間 bgmEl.paused は true のまま。
+// playBgm は共闘画面から毎フレーム呼ばれるので、この印が無いと
+// 「まだ鳴っていない」と判断して play() を秒間何十回も重ねてしまう。
+// ブラウザはそれを「新しい読み込みで中断された」と拒否するため、
+// 曲が永遠に鳴り始めない(前の曲が残る・無音になる)。
+let startingBgm: BgmId | null = null;
+
+// 読み込みに失敗した曲と、その回数。
+// 何度も読み直しに行かせない(通信が細い端末で悪化するため)。
+const bgmFails = new Map<BgmId, number>();
+const BGM_MAX_FAILS = 3;
+
 export function playBgm(id: BgmId): void {
   if (!manifest?.bgm?.[id]) return;   // その場面の曲が無ければ何もしない
-  if (currentBgm === id && bgmEl && !bgmEl.paused) return;
+  if ((bgmFails.get(id) ?? 0) >= BGM_MAX_FAILS) return;
+  // もう鳴っている、または今まさに鳴らし始めている最中なら触らない
+  if (currentBgm === id && (startingBgm === id || (bgmEl && !bgmEl.paused))) return;
   currentBgm = id;
   if (!ctx || ctx.state !== 'running') {
     pendingBgm = id;                  // まだ操作されていない
@@ -279,23 +296,54 @@ export function playBgm(id: BgmId): void {
 async function startBgmEl(id: BgmId): Promise<void> {
   const file = manifest?.bgm?.[id];
   if (!file) return;
-  if (!bgmEl) {
-    bgmEl = new Audio();
-    bgmEl.loop = true;
-    bgmEl.preload = 'auto';
-    bgmEl.crossOrigin = 'anonymous';
-  }
-  routeBgm();
-  const src = url(file);
-  if (!bgmEl.src.endsWith(src)) bgmEl.src = src;
-  applyVolumes();
+  // 別の曲を鳴らし始めている最中なら割り込まない。
+  // 読み終わったところで、その時に望まれている曲を鳴らし直す(下の後始末)。
+  if (startingBgm !== null) return;
+  startingBgm = id;
   try {
-    await bgmEl.play();
-    startFadeWatch();
-  } catch {
-    // 再生を拒否された(操作前など)。次の操作でまた試す
-    pendingBgm = id;
+    if (!bgmEl) {
+      bgmEl = new Audio();
+      bgmEl.loop = true;
+      bgmEl.preload = 'auto';
+      bgmEl.crossOrigin = 'anonymous';
+      // 読み込みに失敗したら覚えておく。
+      // 印を残さないと「もう鳴っている」と見なされ、二度と鳴らせなくなる。
+      bgmEl.addEventListener('error', () => {
+        const failed = currentBgm;
+        if (failed) bgmFails.set(failed, (bgmFails.get(failed) ?? 0) + 1);
+        currentBgm = null;
+      });
+    }
+    routeBgm();
+    const src = url(file);
+    if (!bgmEl.src.endsWith(src)) bgmEl.src = src;
+    applyVolumes();
+    try {
+      await bgmEl.play();
+      bgmFails.delete(id);
+      startFadeWatch();
+    } catch {
+      // 再生を拒否された(操作前など)。次の操作でまた試す
+      pendingBgm = id;
+    }
+  } finally {
+    startingBgm = null;
   }
+  // 読み込んでいる間に場面が変わっていたら、今の場面の曲を鳴らし直す
+  if (currentBgm && currentBgm !== id) void startBgmEl(currentBgm);
+}
+
+// 今どの曲を選んでいるか(設定画面に出す。何も無ければ空文字)。
+//
+// 止まっている場合も名前は返す。「選ばれてはいるが鳴っていない」のか
+// 「そもそも別の曲が選ばれている」のかは、原因がまったく違うため。
+export function currentBgmFile(): { name: string; playing: boolean } {
+  if (!bgmEl || !bgmEl.src) return { name: '', playing: false };
+  const m = /\/bgm\/(.+?)\.[a-z0-9]+(?:\?.*)?$/i.exec(bgmEl.src);
+  return {
+    name: m ? decodeURIComponent(m[1]) : '',
+    playing: !bgmEl.paused,
+  };
 }
 
 export function stopBgm(): void {
@@ -414,6 +462,34 @@ export function renderSoundUI(): void {
   const mute = $<HTMLButtonElement>('#btn-mute');
   mute.textContent = prefs.muted ? '🔇 ミュート中(押して解除)' : '🔈 ミュートする';
   mute.classList.toggle('muted', prefs.muted);
+
+  renderBgmNow();
+}
+
+// 今どの曲が鳴っているかを設定画面に出す。
+// 「思っている曲と違う」時に、どちらがおかしいのかを本人が見て言えるようにする。
+let bgmNowTimer: number | undefined;
+function bgmNowText(): string {
+  const { name, playing } = currentBgmFile();
+  if (!name) return '♪ 今は何も鳴っていない';
+  return playing ? `♪ 再生中: ${name}` : `♪ ${name}(止まっている)`;
+}
+
+function renderBgmNow(): void {
+  const el = document.querySelector('#bgm-now');
+  if (!el) return;
+  el.textContent = bgmNowText();
+  if (bgmNowTimer) window.clearInterval(bgmNowTimer);
+  // 設定画面を開いたままでも追従させる(曲は場面で変わるため)
+  bgmNowTimer = window.setInterval(() => {
+    const e = document.querySelector('#bgm-now');
+    if (!e || !e.isConnected || (e as HTMLElement).offsetParent === null) {
+      window.clearInterval(bgmNowTimer);
+      bgmNowTimer = undefined;
+      return;
+    }
+    e.textContent = bgmNowText();
+  }, 1000);
 }
 
 export function initSoundUI(): void {

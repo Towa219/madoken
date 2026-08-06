@@ -43,7 +43,7 @@ const ck=(l:string,ok:boolean,d='')=>{console.log(`  ${ok?'OK ':'NG '} ${l}${d?'
       try{const l=await fetch(`http://127.0.0.1:${PORT}/json/list`).then(r=>r.json() as any);u=l.find((t:any)=>t.type==='page')?.webSocketDebuggerUrl??'';}catch{}}
     await c.connect(u); await c.send('Page.enable'); await c.send('Runtime.enable');
     await c.send('Emulation.setDeviceMetricsOverride',{width:1280,height:900,deviceScaleFactor:1,mobile:false});
-    await c.send('Page.addScriptToEvaluateOnNewDocument',{source:`try{localStorage.setItem('magic_web_game_save_v1',${JSON.stringify(JSON.stringify(save))});localStorage.setItem('madoken_sound_v3',JSON.stringify({bgmVolume:0,sfxVolume:0,muted:true}))}catch{}`});
+    await c.send('Page.addScriptToEvaluateOnNewDocument',{source:`try{localStorage.setItem('magic_web_game_save_v1',${JSON.stringify(JSON.stringify(save))});localStorage.setItem('madoken_sound_v4',JSON.stringify({bgmVolume:0,sfxVolume:0,muted:true}))}catch{}`});
     await c.send('Page.navigate',{url:HTTP});
     for(let i=0;i<60;i++){if(await c.ev<boolean>('document.readyState==="complete"'))break;await sleep(250);} await sleep(3000);
     await c.click('#tab-online'); await sleep(2500);

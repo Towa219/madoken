@@ -146,7 +146,7 @@ async function main(): Promise<void> {
     await cdp.send('Page.addScriptToEvaluateOnNewDocument', {
       source: `try {
         localStorage.setItem('magic_web_game_save_v1', ${JSON.stringify(JSON.stringify(seedSave()))});
-        localStorage.setItem('madoken_sound_v3',
+        localStorage.setItem('madoken_sound_v4',
           JSON.stringify({ bgmVolume: 0.02, sfxVolume: 0, muted: false }));
       } catch {}`,
     });
