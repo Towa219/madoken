@@ -27,7 +27,9 @@
   "_flip敵": "56枚を1枚ずつ実寸で見て、右(プレイヤーと逆)を向いていたものだけを挙げてある。丸い相手ほど間違えやすい(一覧の小さい絵では向きが分からない)。",
   "flip": [
     "player:6",
-    "player:4"
+    "player:4",
+    "player:2",
+    "player:3"
   ],
   "players": [
     {
@@ -52,9 +54,9 @@
       "out": "player/3.png",
       "name": "紅蓮の戦導士",
       "height": 400,
-      "seed": 77301,
-      "prompt": "a cute anime battle mage girl, long crimson red coat that reaches below the knees with dark leather armor pieces on the shoulders, a red cape, long bright red hair in a high ponytail, green eyes, holding a golden staff tipped with a small flame",
-      "_seed": "顔が正面すぎない(45度に向いた)種を選んだ。この種は最初から右を向くので反転しない。",
+      "seed": 78304,
+      "prompt": "a cute anime battle mage girl, a long crimson red robe coat that reaches all the way down to her ankles and completely covers her legs, dark leather armor pieces on the shoulders, a red cape, long bright red hair in a high ponytail, green eyes, holding a golden staff tipped with a small flame",
+      "_seed": "足首まである丈の衣装で脚が隠れ、顔が45度に向き、両目の幅も平均に近い種を選んだ。",
       "_prompt": "他の5人は長いローブやコートで脚が隠れている。この子だけ短いスカートとブーツで脚が出ていたため、同じ頭身の指定でも1人だけ脚長に見えていた。衣装を丈の長いコートに変えて輪郭を揃える。"
     },
     {
