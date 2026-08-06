@@ -142,6 +142,9 @@ export function inBattleView(): boolean {
 // 部屋一覧が伸びて、どこを見ればいいのか分からなくなる。
 export function syncLobbyVisibility(): void {
   const fighting = inBattleView();
+  // 出撃準備も一緒に隠す。共闘や決闘を始めても残っていて、戦闘画面の上に
+  // 「ソロで出撃」「共闘部屋を作る」が並んだままになっていた。
+  $('#battle-setup').classList.toggle('hidden', fighting);
   $('#online-login').classList.toggle('hidden', fighting || !!lobbyRoom);
   $('#online-lobby').classList.toggle('hidden', fighting || !lobbyRoom);
 }

@@ -1,24 +1,35 @@
-// キャラクター選択画面を撮る(目視確認用。合否は出さない)。
+// 決闘の画面を撮る(目視確認用。合否は出さない)。
 //
-// 5人を横に並べて見比べる唯一の画面なので、頭の大きさや向きの食い違いは
-// ここで一番目につく。戦闘画面と同じ表示倍率が効いているかもここで分かる。
+// 右側(slot1)のキャラがちゃんと左を向いて向かい合っているかを確かめる。
+// 絵は全員右向きに描いてあるので、右側だけは入れ物ごと左右反転させている
+// (src/duel.ts の sprite.scale.x = -1)。ポーズで絵を差し替えても
+// 反転が外れないことも、ここで一緒に見える。
 //
-//   npx tsx test/char_picker_shot.ts
+// ブラウザが1人、対戦相手は通信だけの相手(colyseus)で埋める。
+//
+//   npx tsx test/duel_shot.ts
 
 import { spawn } from 'node:child_process';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { Client } from 'colyseus.js';
+import type { Room } from 'colyseus.js';
 
 const BASE = process.env.MADOKEN_ENDPOINT ?? 'http://127.0.0.1:2567';
 const HTTP = BASE.replace(/^ws/, 'http');
+const WS = BASE.replace(/^http/, 'ws');
 const CHROME = process.env.CHROME_PATH
   ?? 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe';
-const PORT = 9475;
+const PORT = 9477;
 const OUT = join(process.cwd(), 'tools', 'shots');
 
-const NAME = `cp${Math.random().toString(36).slice(2, 6)}`;
+const RUN = Math.random().toString(36).slice(2, 6);
+const ME = `dm${RUN}`;
+const FOE = `df${RUN}`;
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
+
+const KIT = [{ name: '魔弾', recipe: { fire: 2 }, level: 0, rarity: 'normal' }];
 
 class Cdp {
   private ws!: WebSocket;
@@ -67,24 +78,29 @@ class Cdp {
 
 function seedSave() {
   return {
-    // 名前を空にすると初回の画面(ようこそ)が出る
-    version: 1, nickname: process.env.SHOT === 'welcome' ? '' : NAME, nickToken: `tok_${NAME}`, charId: 0, researchP: 100,
-    inventory: {}, spells: [], equipped: [],
-    discovered: [], slots: 2, maxStage: 1, bestStage: 0,
+    version: 1, nickname: ME, nickToken: `tok_${ME}`, charId: 2, researchP: 100,
+    inventory: {},
+    spells: [{
+      id: 's1', name: '', recipe: { fire: 2 }, discoveries: [],
+      level: 0, rarity: 'normal', stats: {}, equipCount: 1,
+    }],
+    equipped: ['s1'],
+    discovered: [], slots: 2, maxStage: 3, bestStage: 2,
     bossRewarded: [], sortMode: 'order', codexRewarded: false, legendRewarded: false,
   };
 }
 
 async function main(): Promise<void> {
-  console.log('=== キャラクター選択画面を撮る ===');
-  const profile = mkdtempSync(join(tmpdir(), 'madoken-cp-'));
+  console.log('=== 決闘の画面を撮る(右側が左を向いているか) ===');
+  const profile = mkdtempSync(join(tmpdir(), 'madoken-ds-'));
   const chrome = spawn(CHROME, [
     '--headless=new', `--remote-debugging-port=${PORT}`,
     `--user-data-dir=${profile}`, '--no-first-run', '--no-default-browser-check',
-    '--hide-scrollbars', '--window-size=1280,900', 'about:blank',
+    '--hide-scrollbars', '--window-size=1100,820', 'about:blank',
   ], { stdio: 'ignore' });
 
   const cdp = new Cdp();
+  let foe: Room | null = null;
   try {
     let wsUrl = '';
     for (let i = 0; i < 40 && !wsUrl; i++) {
@@ -113,35 +129,58 @@ async function main(): Promise<void> {
     }
     await sleep(4500);
 
-    if (process.env.SHOT === 'welcome') {
-      const c = await cdp.evaluate<unknown>("(() => { const e = document.querySelector('.welcome-box'); if (!e) return null; const r = e.getBoundingClientRect(); return { x: r.x - 8, y: r.y - 8, width: r.width + 16, height: r.height + 16, scale: 2 }; })()");
-      await cdp.shot('welcome_intro', c ?? undefined);
-      return;
+    await cdp.evaluate("document.querySelector('#tab-battle').click()");
+    await sleep(2000);
+    await cdp.evaluate("document.querySelector('#btn-duel').click()");
+    await sleep(2500);
+
+    // 相手を1人入れる(通信だけの相手。キャラは別のものにして見分ける)
+    foe = await new Client(WS).joinOrCreate('duel', {
+      name: FOE, spells: KIT, nickToken: `tok${FOE}`, charId: 4,
+    });
+    for (const t of ['dproj', 'dhit', 'dresult', 'dwait', 'dback', 'dseal',
+      'dshieldhit', 'dshieldup', 'dheal', 'dward', 'ddot', 'joined']) {
+      foe.onMessage(t, () => { /* 表示用 */ });
     }
-    await cdp.evaluate("document.querySelector('#tab-settings').click()");
-    await sleep(1200);
+    await sleep(1500);
+    foe.send('ready');
+    await cdp.evaluate(
+      "document.querySelector('#btn-duel-ready')?.click()");
+    await sleep(6000);   // カウントダウンを越える
+
+    // 先に画面へ入れてから測る(測ってから動かすとずれた所を撮ってしまう)
+    await cdp.evaluate("document.querySelector('#duel-canvas canvas')?.scrollIntoView({block:'center'})");
+    await sleep(600);
     const clip = await cdp.evaluate<unknown>(`
       (() => {
-        const e = document.querySelector('#char-picker');
-        if (!e) return null;
-        e.scrollIntoView({ block: 'center' });
-        const r = e.getBoundingClientRect();
-        return { x: r.x - 8, y: r.y - 8, width: r.width + 16, height: r.height + 16, scale: 2 };
+        const host = document.querySelector('#duel-canvas');
+        const cv = host && host.querySelector('canvas');
+        if (!cv) return null;
+        // 下半分が画面の外に出ていると、そこだけ黒く撮れる
+        const r = cv.getBoundingClientRect();
+        return { x: r.x, y: r.y, width: r.width, height: r.height, scale: 1 };
       })()
     `);
     await sleep(500);
-    await cdp.shot('char_picker', clip ?? undefined);
+    await cdp.shot('duel_facing', clip ?? undefined);
   } finally {
+    try { void foe?.leave(); } catch { /* 切断済み */ }
     cdp.close();
     chrome.kill();
     await sleep(400);
     try { rmSync(profile, { recursive: true, force: true }); } catch { /* 残っても害は無い */ }
-    try {
-      await fetch(`${HTTP}/api/name/release`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: NAME, token: `tok_${NAME}` }),
-      });
-    } catch { /* 消せなくても問題ない */ }
+    for (const n of [ME, FOE]) {
+      try {
+        await fetch(`${HTTP}/api/name/release`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: n, token: `tok_${n}` }),
+        });
+        await fetch(`${HTTP}/api/name/release`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: n, token: `tok${n}` }),
+        });
+      } catch { /* 消せなくても問題ない */ }
+    }
   }
   console.log('=== 撮影おわり ===');
   process.exit(0);

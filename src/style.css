@@ -341,6 +341,20 @@ button.tab:disabled { opacity: 0.4; cursor: not-allowed; }
 #welcome-new.hidden, #welcome-transfer.hidden { display: none; }
 
 /* 「はじめて遊ぶ」と「データを引き継ぐ」の切り替え */
+/* 初回の「この世界でやること」。長いと読まれないので詰めて出す */
+#welcome-intro {
+  background: #10101f; border: 1px solid #2a2a45; border-radius: 8px;
+  padding: 10px 12px; margin-top: 12px;
+}
+#welcome-intro h3 { font-size: 13px; color: #bb99ff; margin-bottom: 6px; }
+#welcome-intro p { font-size: 12px; line-height: 1.6; color: #ccccdd; }
+.intro-steps { margin: 8px 0 0; padding: 0; list-style: none; }
+.intro-steps li {
+  display: flex; gap: 8px; align-items: baseline;
+  font-size: 12px; line-height: 1.7; color: #ccccdd;
+}
+.intro-icon { flex: 0 0 auto; width: 1.4em; text-align: center; }
+
 #welcome-tabs { display: flex; gap: 8px; margin: 12px 0 14px; }
 #welcome-tabs button {
   flex: 1; background: #1c1c34; border: 1px solid #3a3060; color: #9999bb;

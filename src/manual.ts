@@ -16,6 +16,7 @@ import {
 } from '../shared/data';
 import { ENHANCE_MAX } from '../shared/spellcraft';
 import { NICK_MAX_FULL, NICK_MAX_WIDTH } from '../shared/nickname';
+import { INTRO_LEAD } from './intro';
 import type { Rarity } from '../shared/types';
 
 const $ = <T extends HTMLElement = HTMLElement>(sel: string) =>
@@ -49,9 +50,7 @@ export function renderManual(): void {
   $('#manual-body').innerHTML = `
 <section class="man-sec">
   <h3>この世界でやること</h3>
-  <p>あなたは魔法研究者です。<b>エレメントを調合して自分だけの魔法を作り</b>、
-  それを装備して戦い、素材を集めてさらに強い魔法を研究します。
-  用意された魔法を覚えるのではなく、<b>魔法そのものを発明していく</b>のがこのゲームの中心です。</p>
+  <p>${INTRO_LEAD}</p>
   <ol>
     <li><b>研究室</b>で採取・調合して魔法を作る</li>
     <li><b>魔導書</b>で装備する(①②③…の番号がそのまま戦闘のキーになる)。

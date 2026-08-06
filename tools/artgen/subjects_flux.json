@@ -28,7 +28,8 @@
   "flip": [
     "enemy:blob",
     "enemy:wisp",
-    "enemy:bird"
+    "enemy:bird",
+    "enemy:golem"
   ],
   "players": [
     {
@@ -44,30 +45,32 @@
       "name": "白銀の学士",
       "height": 400,
       "seed": 71002,
-      "prompt": "a cute anime boy scholar mage, white and silver robe with a blue sash, round glasses, neat short silver hair, blue eyes, a floating parchment scroll and a white quill beside him"
+      "prompt": "a cute anime boy scholar mage, white and silver robe with a blue sash, round glasses, neat short silver hair, blue eyes, a floating parchment scroll and a white quill beside him",
+      "_body": "他より頭が大きく出るので、この子だけ頭身を上げる(倍率で縮めると背が低くなってしまう)。",
+      "body": "chibi super deformed, three and a half heads tall, the head is large but the body is a little taller and slimmer than a typical chibi, short arms and short legs, standing upright with a straight back, not leaning forward and not hunched over, standing on the ground with both feet fully visible, entire body from the top of the head to the tips of the shoes inside the frame"
     },
     {
       "out": "player/3.png",
       "name": "紅蓮の戦導士",
       "height": 400,
-      "seed": 71302,
+      "seed": 72304,
       "prompt": "a cute anime battle mage girl, crimson red leather armor with a short skirt, red cape, long bright red hair in a high ponytail, green eyes, red boots, holding a golden staff tipped with a small flame",
-      "_seed": "反転せずにそのまま右を向く種を探して固定した(反転すると前に出る足が入れ替わる)。"
+      "_seed": "全4ポーズが反転なしで右を向く種を tools/artgen/facing.py で測って選んだ。"
     },
     {
       "out": "player/4.png",
       "name": "翠緑の薬導士",
       "height": 400,
-      "seed": 71402,
+      "seed": 72404,
       "prompt": "a cute anime herbalist alchemist girl, green hooded cloak, leather satchel full of small potion bottles, braided brown hair, warm brown eyes, holding a round flask glowing with green light",
-      "_seed": "反転せずにそのまま右を向く種を探して固定した(反転すると前に出る足が入れ替わる)。"
+      "_seed": "全4ポーズが反転なしで右を向く種を tools/artgen/facing.py で測って選んだ。"
     },
     {
       "out": "player/5.png",
       "name": "紫紺の導師",
       "height": 400,
-      "_seed": "反転せずにそのまま右を向く種を探して固定した(反転すると前に出る足が入れ替わる)。",
-      "seed": 71502,
+      "_seed": "全4ポーズが反転なしで右を向く種を tools/artgen/facing.py で測って選んだ。",
+      "seed": 72504,
       "prompt": "a cute anime old archmage grandpa, short and round, deep purple robe with silver rune embroidery, long fluffy white beard, wide brimmed pointed purple hat, kind wrinkled smiling face, holding a tall gnarled wooden staff topped with a small glowing blue orb"
     }
   ],

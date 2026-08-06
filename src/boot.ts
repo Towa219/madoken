@@ -7,6 +7,7 @@ import {
   NICK_MAX_FULL, NICK_MAX_WIDTH, normalizeNickname, validateNickname,
 } from '../shared/nickname';
 import { VERSION } from '../shared/version';
+import { introHtml } from './intro';
 import { parseTransferCode, pullCloudSave } from './cloudsave';
 import { notify, state } from './state';
 
@@ -171,6 +172,10 @@ export function initWelcome(onDone: () => void): void {
     return;
   }
   welcomeWired = true;
+
+  // 何をするゲームなのかを最初に見せる。
+  // 名前を決める画面は必ず通るので、ここに置けば取りこぼしがない。
+  $('#welcome-intro').innerHTML = introHtml();
 
   $('#welcome-rule').textContent =
     `全角${NICK_MAX_FULL}文字(半角${NICK_MAX_WIDTH}文字)まで。`
