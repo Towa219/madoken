@@ -27,9 +27,7 @@
   "_flip敵": "56枚を1枚ずつ実寸で見て、右(プレイヤーと逆)を向いていたものだけを挙げてある。丸い相手ほど間違えやすい(一覧の小さい絵では向きが分からない)。",
   "flip": [
     "player:6",
-    "player:4",
-    "player:2",
-    "player:3"
+    "player:4"
   ],
   "players": [
     {
@@ -44,19 +42,19 @@
       "out": "player/2.png",
       "name": "白銀の学士",
       "height": 400,
-      "seed": 75204,
+      "seed": 76203,
       "prompt": "a cute anime boy scholar mage, white and silver robe with a blue sash, round glasses, neat short silver hair, blue eyes, a floating parchment scroll and a white quill beside him",
-      "_body": "他より頭が大きく出る(測定 50.7% / 平均 45.4%)。倍率で縮めると背が低くなるので、絵の方の頭身を上げる。",
-      "body": "chibi super deformed, three and a half heads tall, the head including the hair is a bit smaller than a typical chibi, the body is a little taller and slimmer, short arms and short legs, standing upright with a straight back, not leaning forward, standing on the ground with both feet fully visible, entire body from the top of the head to the tips of the shoes inside the frame",
-      "_seed": "頭の割合が他と揃う種を測って選んだ(53%〜40%まで振れるので、測らずに選べない)。"
+      "_seed": "首の指定を入れたうえで、顔(肌)の幅がいちばん小さい種を選んだ。前髪が無く眼鏡も大きいので、測ると小さくても顔が大きく見える。",
+      "_body": "1人だけ首が長く出るので、この子にだけ「首を出さない」を足す。共通の指定は他の子に影響するので触らない。",
+      "body": "chibi super deformed, exactly three heads tall, the head including the hair is about one third of the total height, no visible neck with the head resting directly on the shoulders, small compact body, short arms and short legs, standing upright with a straight back, not leaning forward and not hunched over, standing on the ground with both feet fully visible, entire body from the top of the head to the tips of the shoes inside the frame"
     },
     {
       "out": "player/3.png",
       "name": "紅蓮の戦導士",
       "height": 400,
-      "seed": 75301,
+      "seed": 77301,
       "prompt": "a cute anime battle mage girl, long crimson red coat that reaches below the knees with dark leather armor pieces on the shoulders, a red cape, long bright red hair in a high ponytail, green eyes, holding a golden staff tipped with a small flame",
-      "_seed": "衣装を長いコートに変えたうえで、頭の割合が平均に近い種を測って選んだ。",
+      "_seed": "顔が正面すぎない(45度に向いた)種を選んだ。この種は最初から右を向くので反転しない。",
       "_prompt": "他の5人は長いローブやコートで脚が隠れている。この子だけ短いスカートとブーツで脚が出ていたため、同じ頭身の指定でも1人だけ脚長に見えていた。衣装を丈の長いコートに変えて輪郭を揃える。"
     },
     {

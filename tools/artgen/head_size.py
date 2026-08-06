@@ -12,6 +12,9 @@
 # 出た倍率をそのまま入れず、指摘のあった子だけ半分ほど寄せるのが安全。
 #
 #   python head_size.py
+#
+# ※ 必ず --shrink(減色)の前に測ること。減色すると肌の色がわずかに動き、
+#   肌の判定から外れて数値が変わる(実際に 127px → 181px と食い違った)。
 
 import os
 import sys
@@ -29,6 +32,44 @@ from PIL import Image  # noqa: E402
 NAMES = ['黒金の魔女', '白銀の学士', '紅蓮の戦導士', '翠緑の薬導士', '紫紺の導師',
          '蒼氷の術士']
 TOP = 0.40  # 顔を探す範囲(上から何割まで)
+
+
+def eye_span(path):
+    """両目の外端から外端までの幅を返す(全身の高さに対する割合も)。
+
+    顔の大きさは目で測るのがいちばん当てになる。
+    肌の幅は前髪・帽子・髭でいくらでも隠れ、髪込みの頭の幅は髪型の量で変わる。
+    目の大きさと両目の間隔は絵柄が同じなら顔の大きさにそのまま比例する。
+
+    探し方: 顔(肌)の枠の中で「肌でも白でもない暗い画素」がいちばん多い行を
+    目の高さとみなし、その行の左端から右端までを測る。
+    """
+    im = Image.open(path).convert('RGBA')
+    a = np.asarray(im).astype(int)[:int(im.height * TOP)]
+    r, g, b, al = a[..., 0], a[..., 1], a[..., 2], a[..., 3]
+    body = al > 128
+    skin = (body & (r > 205) & (g > 160) & (g < 235)
+            & (b > 140) & (b < 220) & (r > b + 20) & (r >= g))
+    ys, xs = np.where(skin)
+    if len(xs) == 0:
+        return None, im.height
+    x0, x1 = int(xs.min()), int(xs.max())
+    y0, y1 = int(ys.min()), int(ys.max())
+
+    box = np.zeros_like(body)
+    box[y0:y1 + 1, x0:x1 + 1] = True
+    lum = (r + g + b) / 3
+    dark = box & body & ~skin & (lum < 120)
+    counts = dark.sum(axis=1)
+    if counts.max() < 6:
+        return None, im.height
+    row = int(counts.argmax())
+    # 目の高さの前後数行をまとめて見る(片目だけ拾うのを防ぐ)
+    lo, hi = max(0, row - 4), min(dark.shape[0], row + 5)
+    cols = np.where(dark[lo:hi].any(axis=0))[0]
+    if len(cols) == 0:
+        return None, im.height
+    return int(cols[-1] - cols[0] + 1), im.height
 
 
 def face_width(path):
@@ -67,7 +108,7 @@ def face_width(path):
 
 
 def main():
-    print('キャラ         顔(肌)   頭(髪込み)  全身に対する頭の割合')
+    print('キャラ         顔(肌)  頭(髪込み)  両目の幅  全身に対する両目の幅')
     ratios = []
     for i, name in enumerate(NAMES, start=1):
         path = os.path.join(IMG_DIR, 'player', f'{i}.png')
@@ -80,8 +121,13 @@ def main():
             print(f'{name:12} 顔が見つからない')
             ratios.append(None)
             continue
-        ratios.append(hw / h)
-        print(f'{name:12} {fw:4}px    {hw:4}px     {hw / h:.1%}')
+        ew, _ = eye_span(path)
+        if ew is None:
+            ratios.append(hw / h)
+            print(f'{name:12} {fw:4}px   {hw:4}px    目が拾えない')
+            continue
+        ratios.append(ew / h)
+        print(f'{name:12} {fw:4}px   {hw:4}px    {ew:4}px   {ew / h:.1%}')
 
     got = [r for r in ratios if r]
     if not got:
