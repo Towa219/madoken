@@ -16,7 +16,7 @@ import {
 } from './battle';
 import { clampCharId } from '../shared/characters';
 import { spellCooldown, spellDisplayName } from '../shared/spellcraft';
-import { grantLegendReward, markGained, showToast } from './lab';
+import { grantBossReward, markGained, showToast } from './lab';
 import { addElements, equippedSpells, markBossCleared, notify, state } from './state';
 import type { ElementId, Spell } from '../shared/types';
 import { playBgm, playSfx, startSfxLoop, stopAllSfxLoops, stopSfxLoop } from './sound';
@@ -493,7 +493,7 @@ export class CoopView {
       if (m.boss) {
         markBossCleared(m.stage);
         // 最深部のボスは初回だけレジェンドを授ける
-        if (m.stage === LEGEND_BOSS_STAGE) grantLegendReward();
+        grantBossReward(m.stage); // 深いボスなら討伐報酬(初回だけ)
       }
       notify();
       const dropStr = m.drops.length > 0

@@ -31,7 +31,8 @@
     "hurt": "struck by a spell and recoiling backward, flinching hard, eyes squeezed shut, small impact sparks around it"
   },
 
-  "flip": ["enemy:blob:idle"],
+  "_flip補足": "3・4・5は4枚とも左を向いていた(髪の流れ・杖を持つ側で分かる)。FLUX は向きの指示に従わないので、出てきた絵を見て反転で直す。",
+  "flip": ["player:3", "player:4", "player:5", "enemy:blob:idle"],
 
   "players": [
     {

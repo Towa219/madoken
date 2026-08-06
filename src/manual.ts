@@ -8,7 +8,7 @@ import {
   DISASSEMBLE_RATE, DISCOVERY_BONUS_RP, ELEMENTS, ELEMENT_ORDER, ENEMIES,
   ENEMY_HP_MUL, BOSSES, DUEL_MAX_HP, GATHER_COST, GATHER_COUNT,
   SLOT6_BOSS_STAGE, SLOT6_COST,
-  LEGEND_BOSS_STAGE, LIBRARY_BONUS_FULL_KINDS, LIBRARY_BONUS_MAX, LIBRARY_BONUS_PER_KIND,
+  BOSS_REWARDS, LIBRARY_BONUS_FULL_KINDS, LIBRARY_BONUS_MAX, LIBRARY_BONUS_PER_KIND,
   LIBRARY_BONUS_START, libraryBonus,
   PLAYER_MAX_HP, PLAYER_MAX_MP, RARITIES, RECIPES,
   SLOT3_COST, SLOT4_BOSS_STAGE, SLOT4_COST, SLOT5_BOSS_STAGE, SLOT5_COST,
@@ -130,9 +130,11 @@ export function renderManual(): void {
     <li><b>ボス戦(5の倍数)はオンラインの共闘部屋から</b>挑みます。<b>1人でも挑戦できます</b>が、仲間がいるほど楽になります</li>
     <li>ボスは何回かに一度、<b>狙いを定めず全員を巻き込む一撃</b>を放ちます。
     予告が出てから着弾するので、その間に回復・護盾・護符で備えてください</li>
-    <li>👑 <b>ステージ${LEGEND_BOSS_STAGE}のボスを初めて倒すと、
-    【${RARITIES.legend.name}】品質の魔法(性能×${RARITIES.legend.mul})が1つ贈られます。</b>
-    通常の調合では滅多に出ない品質です</li>
+    <li>👑 <b>最深部の報酬</b> — 深いボスを初めて倒すと、その品質の魔法が1つ贈られます。
+    ${BOSS_REWARDS.map(r =>
+      `<b>ステージ${r.stage}</b>で【${RARITIES[r.rarity].name}】(性能×${RARITIES[r.rarity].mul})`,
+    ).join(' / ')}。
+    どれも通常の調合では滅多に出ない品質です</li>
     <li><b>決闘</b>は1対1。HP${DUEL_MAX_HP}で、挑発は「構え」(被弾-20%)として働きます。
     <b>封印は対人では短く効き、掛けるたびに相手に耐性が付きます</b>
     (2回目は半分、3回目はレジスト)。しばらく間を空ければ耐性は抜けます</li>

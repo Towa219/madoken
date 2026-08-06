@@ -87,7 +87,12 @@ export interface GameState {
   loadouts: Loadout[];     // お気に入りの装備セット(LOADOUT_COUNT個で固定)
   sortByPower?: boolean;   // 旧版の並び順(魔導値順かどうか)。読み込み時の変換にだけ使う
   codexRewarded: boolean;  // 発見図鑑コンプリート報酬(エピック)を受け取ったか
-  legendRewarded: boolean; // ステージ50のボス討伐報酬(レジェンド)を受け取ったか  // 発見図鑑コンプリート報酬(エピック魔法)を受け取ったか
+  // 最深部の報酬を受け取ったボスステージ(BOSS_REWARDS を参照)
+  bossRewarded: number[];
+  // 旧い形式。ステージ50の報酬だけを持っていた。
+  // 読み込み時に bossRewarded へ移すが、古い端末と行き来しても
+  // 二重取得にならないよう書き込みも続ける。
+  legendRewarded: boolean;
 }
 
 export interface BattleResult {

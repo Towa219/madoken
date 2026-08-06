@@ -691,9 +691,22 @@ export const SLOT3_COST = 40;        // 第3スロットは研究Pのみで解�
 export const SLOT4_COST = 120;
 export const SLOT5_COST = 400;
 export const SLOT6_COST = 1000;
-// ここのボスを初めて倒すと、レジェンド品質の魔法を1つだけ授かる。
-// 節目を動かしたい時はこの数字だけ変えればよい。
+// ===== 最深部の報酬 =====
+//
+// 深いボスを初めて倒すと、その品質の魔法を1つだけ授かる。
+// 上位品質は調合では滅多に出ないので、深く潜った証として確実に渡す。
+// 節目や品質を変えたい時は、この表だけを直せばよい。
 export const LEGEND_BOSS_STAGE = 50;
+
+export const BOSS_REWARDS: { stage: number; rarity: Rarity }[] = [
+  { stage: 30, rarity: 'rare' },
+  { stage: 40, rarity: 'epic' },
+  { stage: LEGEND_BOSS_STAGE, rarity: 'legend' },
+];
+
+export function bossRewardFor(stage: number): { stage: number; rarity: Rarity } | undefined {
+  return BOSS_REWARDS.find(r => r.stage === stage);
+}
 
 export const SLOT4_BOSS_STAGE = 10;  // 第4スロットに必要なボス撃破ステージ
 export const SLOT5_BOSS_STAGE = 20;

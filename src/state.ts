@@ -1,6 +1,7 @@
 import { finalStats, spellMagicValue, spellNameFor } from '../shared/spellcraft';
 import {
-  ELEMENT_ORDER, equipLimit, LOADOUT_COUNT, LOADOUT_NAME_MAX, START_SLOTS,
+  ELEMENT_ORDER, equipLimit, LEGEND_BOSS_STAGE, LOADOUT_COUNT, LOADOUT_NAME_MAX,
+  START_SLOTS,
 } from '../shared/data';
 import { clampCharId } from '../shared/characters';
 import type { ElementId, GameState, Loadout, Spell } from '../shared/types';
@@ -40,6 +41,7 @@ function initialState(): GameState {
     sortMode: 'use',
     loadouts: emptyLoadouts(),
     legendRewarded: false,
+    bossRewarded: [],
     codexRewarded: false,
   };
 }
@@ -120,6 +122,14 @@ function migrate(parsed: Partial<GameState>): GameState {
     }
     if (typeof merged.codexRewarded !== 'boolean') merged.codexRewarded = false;
     if (typeof merged.legendRewarded !== 'boolean') merged.legendRewarded = false;
+    // 最深部の報酬。以前はステージ50の1件だけを真偽値で持っていた。
+    // 受け取り済みの人が、作り直した仕組みでもう一度受け取れないよう引き継ぐ。
+    if (!Array.isArray(merged.bossRewarded)) merged.bossRewarded = [];
+    merged.bossRewarded = merged.bossRewarded
+      .map(Number).filter((n: number) => Number.isFinite(n));
+    if (merged.legendRewarded && !merged.bossRewarded.includes(LEGEND_BOSS_STAGE)) {
+      merged.bossRewarded.push(LEGEND_BOSS_STAGE);
+    }
     // 素材庫の欠損も0で補う
     for (const id of ELEMENT_ORDER) {
       if (typeof merged.inventory[id] !== 'number' || !Number.isFinite(merged.inventory[id])) {
