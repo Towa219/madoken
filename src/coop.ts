@@ -3,7 +3,7 @@
 import { Application, Container, Graphics, Sprite, Text } from 'pixi.js';
 import type { Room } from 'colyseus.js';
 import {
-  affinitySymbol, ALL_ENEMIES, ELEMENTS, ELEMENT_ORDER, enemyTopY, SPRITE_SCALE,
+  affinitySymbol, ALL_ENEMIES, bossBgmFor, ELEMENTS, ELEMENT_ORDER, enemyTopY, SPRITE_SCALE,
 } from '../shared/data';
 import type { AffinityGrade, EnemyDef } from '../shared/data';
 import {
@@ -712,7 +712,7 @@ export class CoopView {
     // ボス戦かどうかで曲を変える。
     // 部屋に入る時だけ選んでいたため、勝ち上がってボスのステージに来ても
     // 通常戦闘の曲のままだった。毎回呼んでも、同じ曲なら playBgm 側で無視される。
-    playBgm(bossFight ? 'boss' : 'battle');
+    playBgm(bossFight ? bossBgmFor(stage) : 'battle');
 
     this.syncPlayers(st);
     this.syncEnemies(st);

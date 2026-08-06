@@ -8,7 +8,7 @@ import { spellDisplayName } from '../shared/spellcraft';
 import {
   NICK_MAX_FULL, NICK_MAX_WIDTH, normalizeNickname, validateNickname,
 } from '../shared/nickname';
-import { isBossStage } from '../shared/data';
+import { bossBgmFor, isBossStage } from '../shared/data';
 import { showToast } from './lab';
 import { CODE_REPLACED } from '../shared/netcodes';
 import { equippedSpells, notify, state } from './state';
@@ -578,7 +578,8 @@ async function joinDuel(): Promise<void> {
 function enterCoop(room: Room): void {
   $('#lobby-msg').textContent = '';
   const st = room.state as { stage?: number } | undefined;
-  playBgm(isBossStage(Number(st?.stage ?? 1)) ? 'boss' : 'battle');
+  const stage0 = Number(st?.stage ?? 1);
+  playBgm(isBossStage(stage0) ? bossBgmFor(stage0) : 'battle');
   $('#online-lobby').classList.add('hidden');
   $('#coop-view').classList.remove('hidden');
   void coop.start(room, () => {

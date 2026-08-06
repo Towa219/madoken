@@ -35,6 +35,9 @@ function toSlim(s: GameState): Record<string, unknown> {
       discoveries: sp.discoveries, level: sp.level, rarity: sp.rarity,
     })),
     equipped: s.equipped,
+    // お気に入りの装備セットも一緒に運ぶ。
+    // スマホとPCで同じセットを呼び出せないと、端末ごとに組み直すことになる。
+    loadouts: s.loadouts,
     discovered: s.discovered,
     slots: s.slots,
     maxStage: s.maxStage,

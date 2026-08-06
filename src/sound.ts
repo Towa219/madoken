@@ -18,7 +18,8 @@ const BASE = 'sound/';
 // 既に遊んでいる端末にも新しい既定値が行き渡る。
 const PREF_KEY = 'madoken_sound_v2';
 
-export type BgmId = 'lobby' | 'battle' | 'boss' | 'duel';
+// ボス戦は深さで3曲に分かれる(bossBgmFor が選ぶ)
+export type BgmId = 'lobby' | 'battle' | 'boss1' | 'boss2' | 'boss3' | 'duel';
 
 interface Manifest {
   bgm?: Partial<Record<BgmId, string>>;

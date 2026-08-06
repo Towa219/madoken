@@ -1,7 +1,9 @@
 import { finalStats, spellMagicValue, spellNameFor } from '../shared/spellcraft';
-import { ELEMENT_ORDER, equipLimit, START_SLOTS } from '../shared/data';
+import {
+  ELEMENT_ORDER, equipLimit, LOADOUT_COUNT, LOADOUT_NAME_MAX, START_SLOTS,
+} from '../shared/data';
 import { clampCharId } from '../shared/characters';
-import type { ElementId, GameState, Spell } from '../shared/types';
+import type { ElementId, GameState, Loadout, Spell } from '../shared/types';
 
 const SAVE_KEY = 'magic_web_game_save_v1';
 
@@ -9,6 +11,12 @@ const SAVE_KEY = 'magic_web_game_save_v1';
 // これを持っている端末だけがその名前を使え、初期化すると名前は解放される。
 function newNickToken(): string {
   return `nt_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 12)}`;
+}
+
+function emptyLoadouts(): Loadout[] {
+  return Array.from({ length: LOADOUT_COUNT }, (_, i) => ({
+    name: `セット${i + 1}`, ids: [],
+  }));
 }
 
 function initialState(): GameState {
@@ -30,6 +38,7 @@ function initialState(): GameState {
     bestStage: 0,
     bossCleared: [],
     sortMode: 'use',
+    loadouts: emptyLoadouts(),
     legendRewarded: false,
     codexRewarded: false,
   };
@@ -93,6 +102,21 @@ function migrate(parsed: Partial<GameState>): GameState {
       if (typeof sp.equipCount !== 'number' || !Number.isFinite(sp.equipCount)) {
         sp.equipCount = (merged.equipped ?? []).includes(sp.id) ? 1 : 0;
       }
+    }
+    // 装備セット: 数が足りない古いセーブは空きで埋め、余りは切る。
+    // 中身も名前も外から来た値なので、形だけは必ずそろえておく。
+    {
+      const base = emptyLoadouts();
+      const got = Array.isArray(merged.loadouts) ? merged.loadouts : [];
+      merged.loadouts = base.map((slot, i) => {
+        const g = got[i] as Partial<Loadout> | undefined;
+        if (!g) return slot;
+        return {
+          name: typeof g.name === 'string' && g.name.trim()
+            ? g.name.slice(0, LOADOUT_NAME_MAX) : slot.name,
+          ids: Array.isArray(g.ids) ? g.ids.filter(x => typeof x === 'string') : [],
+        };
+      });
     }
     if (typeof merged.codexRewarded !== 'boolean') merged.codexRewarded = false;
     if (typeof merged.legendRewarded !== 'boolean') merged.legendRewarded = false;
@@ -185,6 +209,62 @@ export function markBossCleared(stage: number): void {
 export function deleteSpell(id: string): void {
   state.spells = state.spells.filter(s => s.id !== id);
   state.equipped = state.equipped.filter(e => e !== id);
+  // 分解した魔法は二度と戻らないので、覚えてある装備セットからも外す。
+  // 残しておくと、呼び出すたびに黙って1本少ないセットが組まれることになる。
+  for (const lo of state.loadouts) lo.ids = lo.ids.filter(e => e !== id);
+}
+
+// ---- お気に入りの装備セット ----
+
+// 今の装備をそのまま覚える(並び=キーの順番も含めて)
+export function saveLoadout(slot: number): void {
+  const lo = state.loadouts[slot];
+  if (!lo) return;
+  lo.ids = [...state.equipped];
+}
+
+export function renameLoadout(slot: number, name: string): void {
+  const lo = state.loadouts[slot];
+  if (!lo) return;
+  const trimmed = name.trim().slice(0, LOADOUT_NAME_MAX);
+  lo.name = trimmed || `セット${slot + 1}`;
+}
+
+// 覚えたセットを装備し直す。
+// 戻り値は呼び出した結果の内訳(画面で「1本は分解済みだった」と伝えるため)。
+export function applyLoadout(slot: number): {
+  equipped: number; missing: number; overflow: number;
+} {
+  const lo = state.loadouts[slot];
+  if (!lo) return { equipped: 0, missing: 0, overflow: 0 };
+
+  // 分解された魔法は飛ばす
+  const alive = lo.ids.filter(id => state.spells.some(s => s.id === id));
+  const missing = lo.ids.length - alive.length;
+
+  // 装備できる数はボスを倒すと増える。逆に、増える前に作ったセットを
+  // 引き継いだ場合は入りきらないので、先頭から入るだけ入れる。
+  const cap = equipSlots();
+  const ids = alive.slice(0, cap);
+  const overflow = alive.length - ids.length;
+
+  // 装備し直しの回数も数える(魔導書の「装備頻度順」に効く)。
+  // 既に着けているものは数えない。同じセットを繰り返し呼んでも増えない。
+  for (const id of ids) {
+    if (state.equipped.includes(id)) continue;
+    const sp = state.spells.find(s => s.id === id);
+    if (sp) sp.equipCount = (sp.equipCount ?? 0) + 1;
+  }
+  state.equipped = ids;
+  return { equipped: ids.length, missing, overflow };
+}
+
+// 今の装備とぴったり同じセットか(並びまで一致した時だけ)
+export function loadoutIsCurrent(slot: number): boolean {
+  const lo = state.loadouts[slot];
+  if (!lo || lo.ids.length === 0) return false;
+  if (lo.ids.length !== state.equipped.length) return false;
+  return lo.ids.every((id, i) => state.equipped[i] === id);
 }
 
 export function toggleEquip(id: string): void {

@@ -205,6 +205,32 @@ button.tab.active { background: #5533aa; border-color: #7755cc; }
 .chance-mid { color: #ffcc66; }
 .chance-low { color: #ff8877; }
 
+/* お気に入りの装備セット。
+   横に3つ並べ、幅が足りなければ折り返して縦に積む(スマホ向け)。 */
+#loadouts {
+  display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px;
+}
+.loadout {
+  flex: 1 1 200px; min-width: 0;      /* min-width:0 が無いと中身に押されてはみ出す */
+  border: 1px solid #333355; border-radius: 6px; padding: 6px 8px; background: #191930;
+}
+.loadout.current { border-color: #ffdd66; background: #221f2e; }
+.loadout .lo-name {
+  width: 100%; font-size: 12px; font-weight: bold;
+  background: #12121f; color: #ddddee;
+  border: 1px solid #333355; border-radius: 4px; padding: 3px 6px;
+}
+.loadout.current .lo-name { color: #ffdd66; }
+.loadout .lo-items {
+  font-size: 11px; line-height: 1.5; margin: 4px 0;
+  min-height: 2.2em;                  /* 中身の本数で高さが変わって並びがガタつかないように */
+}
+.loadout .lo-item { display: inline-block; margin-right: 6px; white-space: nowrap; }
+.loadout .lo-gone { color: #665577; text-decoration: line-through; }
+.loadout .lo-empty { color: #666688; }
+.loadout .lo-btns { display: flex; gap: 5px; }
+.loadout .lo-btns button { flex: 1; font-size: 11px; padding: 4px 4px; }
+
 /* 魔導書 */
 #spell-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
 .spell-card {

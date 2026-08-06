@@ -52,7 +52,8 @@ class Cdp {
       // どの曲を読みに行ったかを通信から拾う
       if (m.method === 'Network.requestWillBeSent') {
         const u = String(m.params?.request?.url ?? '');
-        const hit = /\/sound\/bgm\/(\w+)\./.exec(u);
+        // ファイル名にはハイフンも入る(5-10_Battle01.mp3 など)
+        const hit = /\/sound\/bgm\/([\w.-]+?)\.mp3/.exec(u);
         if (hit && this.bgm[this.bgm.length - 1] !== hit[1]) this.bgm.push(hit[1]);
       }
     };
@@ -204,7 +205,8 @@ async function main(): Promise<void> {
     await sleep(4000);
 
     console.log(`     読んだ曲: ${cdp.bgm.join(' → ')}`);
-    check('★ボスのステージで曲が変わった', cdp.bgm.slice(beforeBoss).includes('boss'),
+    check('★ボスのステージで曲が変わった',
+      cdp.bgm.slice(beforeBoss).some(b => b.startsWith('5-10_')),
       cdp.bgm.join(' → '));
   } finally {
     cdp.close();

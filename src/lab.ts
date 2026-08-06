@@ -4,7 +4,7 @@ import {
   DISASSEMBLE_RATE, DISCOVERY_BONUS_RP, ELEMENT_POOL, ELEMENTS, ELEMENT_ORDER,
   GATHER_COST, GATHER_COUNT, LEGEND_BOSS_STAGE, LIBRARY_BONUS_MAX, LIBRARY_BONUS_START,
   libraryBonus, RARITIES, rarityMultiplier, RECIPES, rollRarity,
-  nextEquipUnlock,
+  LOADOUT_NAME_MAX, nextEquipUnlock,
   SLOT3_COST, SLOT4_BOSS_STAGE, SLOT4_COST, SLOT5_BOSS_STAGE, SLOT5_COST,
   TRANSMUTE_COST, transmuteResult,
 } from '../shared/data';
@@ -13,7 +13,8 @@ import {
   spellMagicValue, spellNameFor, statsSummary,
 } from '../shared/spellcraft';
 import {
-  addElements, addSpell, deleteSpell, equipSlotNo, equipSlots, hasBossCleared, notify, save,
+  addElements, addSpell, applyLoadout, deleteSpell, equipSlotNo, equipSlots,
+  hasBossCleared, loadoutIsCurrent, notify, renameLoadout, save, saveLoadout,
   sortSpells, spendElements, state, toggleEquip, totalInventory,
 } from './state';
 import type { ElementCounts, ElementId, Spell, SpellSort } from '../shared/types';
@@ -669,6 +670,84 @@ function eqMark(n: number): string {
   return EQ_MARKS[n - 1] ?? String(n);
 }
 
+// ---- お気に入りの装備セット ----
+//
+// 装備の並び=戦闘のキーの順番なので、順番ごと覚えて丸ごと戻せるようにする。
+// ボス用・雑魚用と組み替えるたびに1本ずつ着け直すのは手間がかかるうえ、
+// 着けた順でキーが決まるので「並びまで元どおり」にするのが自力では難しい。
+function renderLoadouts(): void {
+  const box = $('#loadouts');
+
+  // 名前を打っている最中は作り直さない(打った字が消えてしまうため)
+  const focused = document.activeElement;
+  if (focused instanceof HTMLInputElement && box.contains(focused)) return;
+
+  box.innerHTML = '';
+  state.loadouts.forEach((lo, i) => {
+    const card = document.createElement('div');
+    card.className = 'loadout' + (loadoutIsCurrent(i) ? ' current' : '');
+
+    const name = document.createElement('input');
+    name.className = 'lo-name';
+    name.value = lo.name;
+    name.maxLength = LOADOUT_NAME_MAX;
+    name.placeholder = `セット${i + 1}`;
+    name.title = '名前を付けられる(ボス用・削り用など)';
+    // 打ち終わってから覚える。1文字ごとに作り直すと入力が飛ぶ。
+    name.addEventListener('change', () => { renameLoadout(i, name.value); notify(); });
+    card.appendChild(name);
+
+    const items = document.createElement('div');
+    items.className = 'lo-items';
+    if (lo.ids.length === 0) {
+      items.innerHTML = '<span class="lo-empty">空き — 今の装備を保存できる</span>';
+    } else {
+      items.innerHTML = lo.ids.map((id, k) => {
+        const sp = state.spells.find(s => s.id === id);
+        const mark = eqMark(k + 1);
+        // ここは品質や強化値まで出さない(色で分かるし、縦に伸びると
+        // 魔法の一覧が画面の下へ追いやられる)。見たいのは並びと顔ぶれ。
+        return sp
+          ? `<span class="lo-item" style="color:${RARITIES[sp.rarity].cssColor}">`
+            + `${mark}${sp.name}</span>`
+          : `<span class="lo-item lo-gone">${mark}分解済み</span>`;
+      }).join('');
+    }
+    card.appendChild(items);
+
+    const btns = document.createElement('div');
+    btns.className = 'lo-btns';
+
+    const call = document.createElement('button');
+    call.textContent = '呼び出す';
+    call.disabled = lo.ids.length === 0;
+    call.addEventListener('click', () => {
+      const r = applyLoadout(i);
+      playSfx('equip');
+      const extra = [
+        r.missing > 0 ? `${r.missing}本は分解済みで外した` : '',
+        r.overflow > 0 ? `装備できる数を超えた${r.overflow}本は入らなかった` : '',
+      ].filter(Boolean).join(' / ');
+      showToast(`「${lo.name}」を装備した(${r.equipped}本)${extra ? ` — ${extra}` : ''}`);
+      notify();
+    });
+    btns.appendChild(call);
+
+    const store = document.createElement('button');
+    store.textContent = '今の装備を保存';
+    store.disabled = state.equipped.length === 0;
+    store.addEventListener('click', () => {
+      saveLoadout(i);
+      showToast(`今の装備を「${lo.name}」に覚えた(${state.equipped.length}本)`);
+      notify();
+    });
+    btns.appendChild(store);
+
+    card.appendChild(btns);
+    box.appendChild(card);
+  });
+}
+
 // ---- 魔導書 ----
 function renderSpellbook(): void {
   const sortBtn = $<HTMLButtonElement>('#btn-sort-spells');
@@ -691,6 +770,8 @@ function renderSpellbook(): void {
       ? ` <span class="chance-mid">ステージ${next.boss}のボスを倒すと`
         + `装備できる数が${next.count}つに増える。</span>`
       : ' <span class="chance-high">装備数は最大まで解放済み。</span>');
+
+  renderLoadouts();
 
   const list = $('#spell-list');
   list.innerHTML = '';

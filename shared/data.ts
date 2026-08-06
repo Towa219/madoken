@@ -694,6 +694,21 @@ export function equipLimit(bossCleared: readonly number[]): number {
   return n;
 }
 
+// ボス戦の曲は深さで変える。同じ曲が50ステージ続くと、
+// せっかくのボス戦がただの作業に聞こえてくるため。
+// 返す名前は public/sound/manifest.json の bgm の見出しと合わせること。
+export function bossBgmFor(stage: number): 'boss1' | 'boss2' | 'boss3' {
+  if (stage <= 10) return 'boss1';    // ステージ5・10
+  if (stage <= 20) return 'boss2';    // ステージ15・20
+  return 'boss3';                     // ステージ25以降
+}
+
+// お気に入りの装備セットをいくつ登録できるか。
+// 3つあれば「削る用・耐える用・ボス用」くらいは分けられる。
+// 増やすとスマホで縦に伸びるだけなので、ここを動かす時は画面も見ること。
+export const LOADOUT_COUNT = 3;
+export const LOADOUT_NAME_MAX = 12;
+
 // 装備できる数の上限(サーバーが受け取る魔法の数の上限にも使う)
 export const EQUIP_MAX =
   EQUIP_UNLOCKS.reduce((m, u) => Math.max(m, u.count), EQUIP_BASE);

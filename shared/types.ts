@@ -62,6 +62,13 @@ export interface Spell {
   equipCount: number;      // 装備した回数。魔導書の「装備頻度順」に使う
 }
 
+// お気に入りの装備セット。
+// ids の並びがそのまま装備の順=戦闘のキー1〜6になるので、順番も含めて覚える。
+export interface Loadout {
+  name: string;
+  ids: string[];
+}
+
 export interface GameState {
   version: number;
   nickname: string;        // 一度決めたら初期化まで変更不可
@@ -77,6 +84,7 @@ export interface GameState {
   bestStage: number;       // 最高クリアステージ
   bossCleared: number[];   // 撃破したボスステージ(共闘でのみ撃破可能)
   sortMode: SpellSort;     // 魔導書の並び順
+  loadouts: Loadout[];     // お気に入りの装備セット(LOADOUT_COUNT個で固定)
   sortByPower?: boolean;   // 旧版の並び順(魔導値順かどうか)。読み込み時の変換にだけ使う
   codexRewarded: boolean;  // 発見図鑑コンプリート報酬(エピック)を受け取ったか
   legendRewarded: boolean; // ステージ50のボス討伐報酬(レジェンド)を受け取ったか  // 発見図鑑コンプリート報酬(エピック魔法)を受け取ったか
