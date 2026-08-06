@@ -668,12 +668,19 @@ export const START_SLOTS = 2;        // 最初は2スロット(調合は2素材�
 export const SLOT3_COST = 40;        // 第3スロットは研究Pのみで解放
 export const SLOT4_COST = 120;
 export const SLOT5_COST = 400;
+export const SLOT6_COST = 1000;
 // ここのボスを初めて倒すと、レジェンド品質の魔法を1つだけ授かる。
 // 節目を動かしたい時はこの数字だけ変えればよい。
 export const LEGEND_BOSS_STAGE = 50;
 
 export const SLOT4_BOSS_STAGE = 10;  // 第4スロットに必要なボス撃破ステージ
 export const SLOT5_BOSS_STAGE = 20;
+export const SLOT6_BOSS_STAGE = 35;
+
+// 調合台に置ける素材の上限。
+// サーバーがレシピを受け取る時の上限にも使う(手を加えた大きなレシピで
+// 途方もない魔法を作られないように)。増やす時はスマホの画面幅も見ること。
+export const MAX_SLOTS = 6;
 
 // ===== 装備できる魔法の数 =====
 //

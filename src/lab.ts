@@ -6,6 +6,7 @@ import {
   libraryBonus, RARITIES, rarityMultiplier, RECIPES, rollRarity,
   LOADOUT_NAME_MAX, nextEquipUnlock,
   SLOT3_COST, SLOT4_BOSS_STAGE, SLOT4_COST, SLOT5_BOSS_STAGE, SLOT5_COST,
+  SLOT6_BOSS_STAGE, SLOT6_COST,
   TRANSMUTE_COST, transmuteResult,
 } from '../shared/data';
 import {
@@ -164,6 +165,11 @@ function renderInventory(): void {
 function renderSlots(): void {
   const row = $('#slot-row');
   row.innerHTML = '';
+  // 枠が増えるほど1枠が細くなる(6つでスマホだと50px前後)。
+  // 説明の文字は短いものに切り替える。長いままだと枠から溢れて読めない。
+  const tight = state.slots >= 5;
+  const emptyLabel = tight ? '空き' : '空きスロット';
+  const backLabel = tight ? '戻す' : 'クリックで戻す';
   for (let i = 0; i < state.slots; i++) {
     const id = slotSel[i];
     const slot = document.createElement('div');
@@ -173,7 +179,7 @@ function renderSlots(): void {
       slot.innerHTML =
         `<span style="color:${def.cssColor}">`
         + `<span class="eemoji">${def.emoji}</span>${def.name}</span>` +
-        `<span class="slabel">クリックで戻す</span>`;
+        `<span class="slabel">${backLabel}</span>`;
       slot.style.borderColor = def.cssColor;
       slot.addEventListener('click', () => {
         slotSel[i] = null;
@@ -181,7 +187,7 @@ function renderSlots(): void {
         renderLab();
       });
     } else {
-      slot.innerHTML = `<span class="slabel">空きスロット</span>`;
+      slot.innerHTML = `<span class="slabel">${emptyLabel}</span>`;
     }
     row.appendChild(slot);
   }
@@ -189,13 +195,14 @@ function renderSlots(): void {
   const unlock = $('#slot-unlock');
   unlock.innerHTML = '';
   // boss=0 は研究Pだけで解放できる(第3スロット)
-  const spec = state.slots === 2
-    ? { next: 3, cost: SLOT3_COST, boss: 0 }
-    : state.slots === 3
-      ? { next: 4, cost: SLOT4_COST, boss: SLOT4_BOSS_STAGE }
-      : state.slots === 4
-        ? { next: 5, cost: SLOT5_COST, boss: SLOT5_BOSS_STAGE }
-        : null;
+  // 増やす時はここに1行足す。上限は MAX_SLOTS。
+  const SLOT_STEPS: { need: number; next: number; cost: number; boss: number }[] = [
+    { need: 2, next: 3, cost: SLOT3_COST, boss: 0 },
+    { need: 3, next: 4, cost: SLOT4_COST, boss: SLOT4_BOSS_STAGE },
+    { need: 4, next: 5, cost: SLOT5_COST, boss: SLOT5_BOSS_STAGE },
+    { need: 5, next: 6, cost: SLOT6_COST, boss: SLOT6_BOSS_STAGE },
+  ];
+  const spec = SLOT_STEPS.find(s => s.need === state.slots) ?? null;
   if (spec) {
     const bossOk = spec.boss === 0 || hasBossCleared(spec.boss);
     const b = document.createElement('button');

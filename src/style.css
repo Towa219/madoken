@@ -159,8 +159,8 @@ button.tab.active { background: #5533aa; border-color: #7755cc; }
 /* 調合台 */
 #slot-row {
   display: flex; gap: 8px; margin: 10px 0; justify-content: center;
-  /* スロットは最大5つまで増える。72px固定のままだと
-     5つ + 隙間で392pxになり、スマホ(横390px前後)からはみ出す。 */
+  /* スロットは最大6つまで増える。72px固定のままだと
+     スマホ(横390px前後)からはみ出す。入りきらない時は縮ませる。 */
   width: 100%;
 }
 .slot {
@@ -175,6 +175,9 @@ button.tab.active { background: #5533aa; border-color: #7755cc; }
   overflow: hidden;   /* 縮んだ時に文字がはみ出さないように */
 }
 .slot.filled { border-style: solid; background: #202040; }
+/* 6つに増えると1枠が50px前後まで縮む。文字がそのままだと枠の外へ
+   はみ出して読めなくなるので、枠の幅で切って中に収める。 */
+.slot > * { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .slot .slabel { font-size: 10px; color: #777799; font-weight: normal; }
 #slot-unlock { text-align: center; margin-bottom: 10px; }
 #slot-unlock button { font-size: 12px; }

@@ -79,7 +79,7 @@ export interface GameState {
   spells: Spell[];
   equipped: string[];      // 装備中の魔法ID(最大4)
   discovered: string[];    // 発見済みレシピID
-  slots: number;           // 調合スロット数(3〜5)
+  slots: number;           // 調合スロット数(2〜MAX_SLOTS)
   maxStage: number;        // 挑戦可能ステージ
   bestStage: number;       // 最高クリアステージ
   bossCleared: number[];   // 撃破したボスステージ(共闘でのみ撃破可能)

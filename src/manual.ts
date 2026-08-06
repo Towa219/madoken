@@ -7,6 +7,7 @@ import {
   battleRP, DEFEAT_RP_RATE,
   DISASSEMBLE_RATE, DISCOVERY_BONUS_RP, ELEMENTS, ELEMENT_ORDER, ENEMIES,
   ENEMY_HP_MUL, BOSSES, DUEL_MAX_HP, GATHER_COST, GATHER_COUNT,
+  SLOT6_BOSS_STAGE, SLOT6_COST,
   LEGEND_BOSS_STAGE, LIBRARY_BONUS_FULL_KINDS, LIBRARY_BONUS_MAX, LIBRARY_BONUS_PER_KIND,
   LIBRARY_BONUS_START, libraryBonus,
   PLAYER_MAX_HP, PLAYER_MAX_MP, RARITIES, RECIPES,
@@ -171,6 +172,7 @@ export function renderManual(): void {
     <li>第3スロット: <b>研究P${SLOT3_COST}</b>のみ(最初の目標)</li>
     <li>第4スロット: <b>ステージ${SLOT4_BOSS_STAGE}のボス撃破</b> + 研究P${SLOT4_COST}</li>
     <li>第5スロット: <b>ステージ${SLOT5_BOSS_STAGE}のボス撃破</b> + 研究P${SLOT5_COST}</li>
+    <li>第6スロット: <b>ステージ${SLOT6_BOSS_STAGE}のボス撃破</b> + 研究P${SLOT6_COST}(上限)</li>
   </ul>
   <p class="man-note">スロットが増えるほど複雑な系統に手が届きますが、成功率は下がります。</p>
 </section>
