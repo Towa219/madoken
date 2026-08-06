@@ -96,8 +96,19 @@ def generate(prompt, width, height, seed):
 
 
 def maybe_flip(img, subj, ident):
+    """向きが逆に描かれたものを左右反転する。
+
+    プレイヤーは右向き・敵は左向きが正しい(向かい合わせになる)。
+    FLUX は「facing to the right」と書いても従わず、ポーズごとに向きが変わる。
+    そのため丸ごとではなく1枚ずつ指定できるようにしてある:
+
+        "player:4"        … そのキャラの4枚すべて
+        "player:3:cast"   … そのポーズだけ
+    """
     from PIL import Image
-    if ident in subj.get('flip', []):
+    flips = subj.get('flip', [])
+    char = ident.rsplit(':', 1)[0]      # player:3:cast → player:3
+    if ident in flips or char in flips:
         print(f'  左右反転: {ident}')
         return img.transpose(Image.FLIP_LEFT_RIGHT)
     return img
@@ -127,7 +138,7 @@ def check_bright(img, ident, floor=80):
     return True
 
 
-def check_framing(img, base, ident, tol=0.35):
+def check_framing(img, base, ident, tol=0.25):
     """待機の絵と縦横比が大きくずれていないか調べる。
 
     ポーズによっては胸から上だけの構図で描かれることがある。
@@ -187,12 +198,13 @@ def gen_player(subj, num, pose, seed=None):
     ident = f'player:{num}:{pose}'
     print(f"プレイヤー{num}「{s.get('name', '')}」{pose} を生成中…")
     p = (f"{s['prompt']}, {subj['player_poses'][pose]}, "
+         f"{subj['player_body']}, "
          f"{subj['player_view']}, {style_of(subj, False)}")
     img = generate(p, PLAYER_W, PLAYER_H, pose_seed(s, pose, seed))
     cut = cutout(img)
     check_cutout(cut, ident)
     out = maybe_flip(fit_height(recenter(trim(cut)), s.get('height', 400)),
-                     subj, f'player:{num}')
+                     subj, ident)
     check_centered(out, ident)
     check_bright(out, ident)
     if pose != 'idle':
@@ -225,7 +237,7 @@ def gen_enemy(subj, key, pose, seed=None):
     # 本体が枠のごく一部になり、表示すると豆粒になる。濃い所だけで測る。
     out = maybe_flip(
         fit_height(recenter(trim(cut, LUMA_TRIM if luma else 16)), ENEMY_HEIGHT),
-        subj, f'enemy:{key}')
+        subj, ident)
     check_centered(out, ident)
     check_bright(out, ident, floor=60 if luma else 80)
     if pose != 'idle':

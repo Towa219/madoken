@@ -3,7 +3,8 @@
 
   "_ポーズ": "1体につき idle / cast / release / hurt の4枚を作る。姿かたちの説明は完全に同じ文を使い、末尾のポーズ文だけを差し替える。seed も4枚で同じにする。こうしないと同じキャラに見えない。",
 
-  "_向き": "プレイヤーは右向き・敵は左向きが正しい。逆に描かれたものは flip に書けば左右反転する。",
+  "_向き": "プレイヤーは右向き・敵は左向きが正しい。逆に描かれたものは flip に書けば左右反転する。ポーズごとに指定できる('player:3' で4枚とも / 'player:3:cast' でその1枚だけ)。",
+  "_向き補足": "被弾のポーズだけは相手に背を向けて正しい。攻撃を受けてのけぞる=相手から顔をそむける動きなので、向かい合わせに直すと『殴られて相手に突っ込む』絵になる。",
 
   "_style": "背景の指定は style に混ぜず、style_head と style_tail の間に差し込む。光り物は黒背景で描かせる必要があり、白背景の指定が残っていると『白い四角』が切り抜かれずに残る(実際にウィスプで起きた)。",
   "style_head": "cute anime video game character art, japanese anime style, clean cel shading, crisp bold outlines, vibrant saturated colors, big expressive sparkling eyes, soft rounded cheeks, appealing cute character design, slightly stylized proportions with a large head, full body from head to feet, whole body inside the frame, centered",
@@ -12,6 +13,9 @@
 
   "player_view": "three-quarter view from the side, facing to the right",
   "enemy_view": "three-quarter view from the side, facing to the left",
+
+  "_player_body": "5体で等身がバラバラだったので、頭身をここで固定する。何も言わないと FLUX は3頭身から5頭身まで好き勝手に描き、並べた時に別のゲームの絵が混ざったように見える。全身が入ること・足先まで描くことも一緒に強く指定する(被弾のポーズだけ胸から上の構図になりやすいため)。",
+  "player_body": "chibi super deformed proportions, about three heads tall, big round oversized head, small compact body, short arms and short legs, standing on the ground with both feet fully visible, entire body from the top of the head to the tips of the shoes inside the frame",
 
   "player_poses": {
     "idle": "standing calmly in a relaxed ready stance, gentle friendly expression",
@@ -27,7 +31,7 @@
     "hurt": "struck by a spell and recoiling backward, flinching hard, eyes squeezed shut, small impact sparks around it"
   },
 
-  "flip": [],
+  "flip": ["enemy:blob:idle"],
 
   "players": [
     {
@@ -56,8 +60,6 @@
       "name": "翠緑の薬導士",
       "height": 400,
       "seed": 71004,
-      "_seeds": "被弾だけ胸から上の構図になったので、そのポーズだけ引き直した種を固定する。",
-      "seeds": { "hurt": 71204 },
       "prompt": "a cute anime herbalist alchemist girl, green hooded cloak, leather satchel full of small potion bottles, braided brown hair, warm brown eyes, holding a round flask glowing with green light"
     },
     {
@@ -65,8 +67,6 @@
       "name": "紫紺の導師",
       "height": 400,
       "seed": 71005,
-      "_seeds": "発射だけ顔が崩れたので、そのポーズだけ引き直した種を固定する。",
-      "seeds": { "release": 71205 },
       "prompt": "a cute anime old archmage grandpa, short and round, deep purple robe with silver rune embroidery, long fluffy white beard, wide brimmed pointed purple hat, kind wrinkled smiling face, holding a tall gnarled wooden staff topped with a small glowing blue orb"
     }
   ],

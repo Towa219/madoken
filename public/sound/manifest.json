@@ -7,6 +7,15 @@
     "boss3": "bgm/25_Battle03_2loop.mp3",
     "duel": "bgm/duel.mp3"
   },
+  "_bgmGain": "曲ごとの音量差を埋める倍率。test/bgm_loudness.ts の実測に合わせる。ボスの3曲だけ他より約4dB小さく録音されていて、音量つまみを上げても差はそのまま残るため。",
+  "bgmGain": {
+    "lobby": 1.11,
+    "battle": 1.0,
+    "boss1": 1.56,
+    "boss2": 1.56,
+    "boss3": 1.63,
+    "duel": 1.1
+  },
   "sfx": {
     "buff": "sfx/buff.wav",
     "cast": "sfx/cast.wav",

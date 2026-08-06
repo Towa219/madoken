@@ -23,6 +23,8 @@ export type BgmId = 'lobby' | 'battle' | 'boss1' | 'boss2' | 'boss3' | 'duel';
 
 interface Manifest {
   bgm?: Partial<Record<BgmId, string>>;
+  // 曲ごとの補正倍率(録音レベルの差を埋める。省略した曲は 1 倍)
+  bgmGain?: Partial<Record<BgmId, number>>;
   sfx?: Record<string, string>;
 }
 
@@ -140,9 +142,24 @@ function applyVolumes(): void {
   }
 }
 
+// 曲ごとの補正倍率。
+//
+// 音量つまみは全曲に同じ倍率をかけるので、曲そのものの録音レベルが違うと、
+// つまみをいくら上げても曲ごとの大小差はそのまま残る。
+// 実測(test/bgm_loudness.ts)でボスの3曲だけ他より約4dB小さかった
+// (平均 -17.7〜-18.1dB に対し、通常戦闘は -13.8dB)。
+// 「ボス戦のBGMだけ小さい」の正体はこれ。manifest.json の bgmGain で揃える。
+function gainOf(id: BgmId | null): number {
+  const g = Number(manifest?.bgmGain?.[id ?? 'lobby']);
+  return Number.isFinite(g) && g > 0 ? g : 1;
+}
+
 // 今この瞬間のBGM音量。ループの前後だけ絞る。
 function bgmVolumeNow(): number {
-  const base = prefs.muted ? 0 : prefs.bgmVolume;
+  // 補正で 1 を超えると音が割れるので頭を押さえる
+  const base = prefs.muted
+    ? 0
+    : Math.min(1, prefs.bgmVolume * gainOf(currentBgm));
   if (!bgmEl || !Number.isFinite(bgmEl.duration) || bgmEl.duration <= 0) return base;
   const t = bgmEl.currentTime;
   const left = bgmEl.duration - t;
