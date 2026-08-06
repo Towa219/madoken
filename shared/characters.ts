@@ -1,30 +1,54 @@
 // プレイヤーが選べるキャラクター。
 //
-// 見た目だけの選択で、性能には一切影響しない(どれを選んでも強さは同じ)。
+// それぞれ得意なエレメントを1つ持ち、そのエレメントを使った魔法だけ威力が上がる。
 // 並び順は public/img/manifest.json の players と対応している。
 
+import type { ElementId } from './types';
+
 export interface CharacterDef {
-  id: number;      // 0始まり。セーブにはこの番号を保存する
+  id: number;         // 0始まり。セーブにはこの番号を保存する
   name: string;
-  note: string;    // 選択画面に出す一言
-  scale: number;   // 表示倍率(下の説明を参照)
+  note: string;       // 選択画面に出す一言
+  element: ElementId; // 得意なエレメント
+  scale: number;      // 表示倍率(下の説明を参照)
 }
+
+// 得意エレメントを1個でも含む魔法の威力にかかる倍率。
+//
+// 「1個でも含めば効く」にしてあるのは、得意属性だけで固めた構成しか
+// 選べなくなるのを避けるため。多く使うほど強くする形にすると、
+// 相性や系統より属性合わせが優先されてしまい、調合の幅が狭くなる。
+export const CHAR_POWER_BONUS = 0.10;
+
+// キャラを変えるのにかかる研究P。
+// 無料だと魔法ごとに着せ替えるだけの操作になり、選ぶ意味が無くなる。
+// 最初の1体を決めるときは無料。
+export const CHAR_CHANGE_COST = 200;
 
 // scale について:
 //   絵はどれも同じ高さに縮小されるので、頭身が違うと頭の大きさが揃わない。
-//   以前は5体の頭身がばらばら(3〜5頭身)で、装飾が縦を食う割合も違ったため、
-//   キャラごとに倍率で辻褄を合わせていた。
-//   今は5体とも同じ指定(約3頭身)で描き直してあるので、倍率も揃えている。
-//   1体だけ大きく/小さく見える時はここを動かす(性能には一切影響しない)。
-//   顔の大きさは tools/artgen/head_size.py で測れる。出た倍率をそのまま
-//   入れてはいけない(帽子・前髪・髭で顔が隠れる子は小さめに出る)。
-//   気になると言われた子だけ、測定値の半分ほど寄せるのが安全。
+//   ここで1体ごとに拡大・縮小して、頭の大きさを揃える(性能には影響しない)。
+//
+//   大きさは tools/artgen/head_size.py で測る。測るのは「目の高さでの絵の横幅」で、
+//   髪まで含めた頭の幅になる。肌の幅だけで測ると、長髪や帽子の子ほど
+//   頭が小さいと誤って出る(見て感じる頭の大きさは髪込みのため)。
+//
+//   測定値を揃える倍率をそのまま入れてはいけない。倍率は全身にかかるので、
+//   寄せすぎると背丈が不自然に変わる。±15%までに抑える。
+// 測定値(頭の幅 / 全身の高さ): 47.8% / 49.5% / 39.8% / 47.2% / 33.5% / 46.8%(平均 44.1%)
 export const CHARACTERS: CharacterDef[] = [
-  { id: 0, name: '黒金の魔女', note: '魔導書を手に、真理を読み解く', scale: 1.00 },
-  { id: 1, name: '白銀の学士', note: '記録と観測を重んじる研究者', scale: 1.00 },
-  { id: 2, name: '紅蓮の戦導士', note: '前へ出て杖を振るう実戦派', scale: 1.00 },
-  { id: 3, name: '翠緑の薬導士', note: '調合と薬に通じた癒し手', scale: 1.00 },
-  { id: 4, name: '紫紺の導師', note: '古き術を修めた大魔導士', scale: 1.00 },
+  { id: 0, name: '黒金の魔女', note: '雷を操り、魔導書に真理を読む',
+    element: 'thunder', scale: 0.92 },
+  { id: 1, name: '白銀の学士', note: '風を読み、記録と観測を重んじる',
+    element: 'wind', scale: 0.89 },
+  { id: 2, name: '紅蓮の戦導士', note: '炎を纏い、前へ出て杖を振るう',
+    element: 'fire', scale: 1.11 },
+  { id: 3, name: '翠緑の薬導士', note: '水を扱い、調合と薬に通じた癒し手',
+    element: 'water', scale: 0.93 },
+  { id: 4, name: '紫紺の導師', note: '大地を鎮める、古き術の大魔導士',
+    element: 'earth', scale: 1.15 },
+  { id: 5, name: '蒼氷の術士', note: '氷を結び、静けさの中で術を編む',
+    element: 'ice', scale: 0.94 },
 ];
 
 // 表示倍率(範囲外なら等倍)
@@ -43,4 +67,8 @@ export function clampCharId(raw: unknown): number {
 
 export function characterName(raw: unknown): string {
   return CHARACTERS[clampCharId(raw)].name;
+}
+
+export function characterElement(raw: unknown): ElementId {
+  return CHARACTERS[clampCharId(raw)].element;
 }

@@ -26,24 +26,48 @@ if os.path.isdir(TOOLS_DIR):
 import numpy as np  # noqa: E402
 from PIL import Image  # noqa: E402
 
-NAMES = ['黒金の魔女', '白銀の学士', '紅蓮の戦導士', '翠緑の薬導士', '紫紺の導師']
+NAMES = ['黒金の魔女', '白銀の学士', '紅蓮の戦導士', '翠緑の薬導士', '紫紺の導師',
+         '蒼氷の術士']
 TOP = 0.40  # 顔を探す範囲(上から何割まで)
 
 
 def face_width(path):
+    """(顔(肌)の幅, 頭(髪込み)の幅, 全身の高さ) を返す。
+
+    見て感じる「頭の大きさ」は髪まで含めた頭全体なので、肌だけでは足りない。
+    短髪の子は肌≒頭になり、長髪や帽子の子は肌がずっと小さく出るため、
+    肌だけで比べると長髪の子ほど「頭が小さい」と誤って出る。
+
+    頭の幅は「目の高さでの絵の横幅」で測る。
+    その高さなら髪は入り、帽子のつばは上にあるので入らない。
+    """
     im = Image.open(path).convert('RGBA')
     a = np.asarray(im).astype(int)[:int(im.height * TOP)]
     r, g, b, al = a[..., 0], a[..., 1], a[..., 2], a[..., 3]
-    skin = ((al > 128) & (r > 205) & (g > 160) & (g < 235)
+    body = al > 128
+    skin = (body & (r > 205) & (g > 160) & (g < 235)
             & (b > 140) & (b < 220) & (r > b + 20) & (r >= g))
-    xs = np.where(skin.any(axis=0))[0]
+    ys, xs = np.where(skin)
     if len(xs) == 0:
-        return None, im.height
-    return int(xs[-1] - xs[0] + 1), im.height
+        return None, None, im.height
+    face_w = int(xs.max() - xs.min() + 1)
+
+    # 顔の縦の真ん中あたり(=目のあたり)の数行で、絵の横幅を測る
+    y0, y1 = int(ys.min()), int(ys.max())
+    mid = (y0 + y1) // 2
+    lo = max(0, mid - 3)
+    hi = min(body.shape[0], mid + 4)
+    widths = []
+    for y in range(lo, hi):
+        cols = np.where(body[y])[0]
+        if len(cols):
+            widths.append(int(cols[-1] - cols[0] + 1))
+    head_w = int(np.median(widths)) if widths else face_w
+    return face_w, head_w, im.height
 
 
 def main():
-    print('キャラ         顔の幅   全身の高さに対する割合')
+    print('キャラ         顔(肌)   頭(髪込み)  全身に対する頭の割合')
     ratios = []
     for i, name in enumerate(NAMES, start=1):
         path = os.path.join(IMG_DIR, 'player', f'{i}.png')
@@ -51,13 +75,13 @@ def main():
             print(f'{name:12} 絵が無い')
             ratios.append(None)
             continue
-        w, h = face_width(path)
-        if w is None:
+        fw, hw, h = face_width(path)
+        if fw is None:
             print(f'{name:12} 顔が見つからない')
             ratios.append(None)
             continue
-        ratios.append(w / h)
-        print(f'{name:12} {w:4}px   {w / h:.1%}')
+        ratios.append(hw / h)
+        print(f'{name:12} {fw:4}px    {hw:4}px     {hw / h:.1%}')
 
     got = [r for r in ratios if r]
     if not got:

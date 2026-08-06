@@ -1105,7 +1105,7 @@ export function makeProjectileGfx(attr: ElementId, power: number): Container {
 
 // ===== プレースホルダー描画(将来ここを画像Spriteに差し替える) =====
 
-// charId = 選んだキャラクター(見た目だけ)。共闘/決闘では相手の番号を渡す。
+// charId = 選んだキャラクター。共闘/決闘では相手の番号を渡す。
 export function makePlayerSprite(charId = 0): Container {
   const c = new Container();
   // 画像素材があればそれを使う(無ければ従来の図形)

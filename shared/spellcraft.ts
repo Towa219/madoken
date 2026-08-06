@@ -2,6 +2,7 @@ import {
   ELEMENTS, ELEMENT_ORDER, PLAYER_MAX_HP, PLAYER_MP_REGEN, RARITIES, RECIPES,
 } from './data';
 import type { RecipeDef } from './data';
+import { CHAR_POWER_BONUS, characterElement } from './characters';
 import type { ElementCounts, ElementId, Rarity, SpellKind, SpellStats } from './types';
 
 // 属性ごとの命名用一文字
@@ -225,15 +226,28 @@ export function bestCompositionFor(
 export const ENHANCE_MAX = 9;
 
 // 強化(1段階ごとに威力+8%・詠唱-2%)と品質倍率をまとめて適用する
+// 得意エレメントによる威力の上乗せ。
+//
+// charId を渡さなければ何も掛からない(素の性能)。魔法そのものの強さを
+// 比べたい場面 ― 調合の見積もりや図鑑 ― では渡さない。
+export function charPowerMul(counts: ElementCounts, charId: unknown): number {
+  if (charId === null || charId === undefined) return 1;
+  const el = characterElement(charId);
+  return (counts[el] ?? 0) > 0 ? 1 + CHAR_POWER_BONUS : 1;
+}
+
 export function finalStats(
   counts: ElementCounts, level: number, rarity: Rarity = 'normal',
+  charId: unknown = null,
 ): SpellStats {
   const base = computeSpell(counts).stats;
   const L = Math.max(0, Math.min(ENHANCE_MAX, Math.floor(level || 0)));
   const rDef = RARITIES[rarity] ?? RARITIES.normal;
   const s: SpellStats = { ...base };
 
-  const mul = (1 + 0.08 * L) * rDef.mul;
+  // 得意エレメントを含む魔法は威力が上がる。
+  // ここに掛けると、護盾の耐久や回復量といった威力から出る値も一緒に上がる。
+  const mul = (1 + 0.08 * L) * rDef.mul * charPowerMul(counts, charId);
   s.power = Math.max(1, Math.round(base.power * mul));
   s.castTime = Math.max(0.35, Math.round(base.castTime * (1 - 0.02 * L) * 100) / 100);
   s.critRate = Math.min(80, Math.round(base.critRate + (rDef.mul - 1) * 20));

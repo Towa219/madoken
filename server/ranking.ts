@@ -156,7 +156,7 @@ export async function topRanking(n: number): Promise<RankEntry[]> {
 // クライアントが魔導値を偽って送っても効かない。
 // 合計する本数だけは撃破したボスの申告に依るが、これは魔法そのものと同じ扱い。
 export function magicRankScore(
-  raw: unknown, bossCleared: unknown,
+  raw: unknown, bossCleared: unknown, charId?: unknown,
 ): { total: number; names: string[] } {
   // 合計する本数はその人が装備できる数。ボスを倒していなければ4本のまま。
   const cleared = Array.isArray(bossCleared)
@@ -170,7 +170,9 @@ export function magicRankScore(
     const rarity = RARITY_VALUES.includes(o?.rarity as Rarity)
       ? (o.rarity as Rarity)
       : 'normal';
-    const stats = finalStats((o?.recipe ?? {}) as ElementCounts, level, rarity);
+    // 選んでいるキャラの得意エレメントぶんも込みで計算する。
+    // 実際に戦う時の強さと、順位に出る魔導値をずらさないため。
+    const stats = finalStats((o?.recipe ?? {}) as ElementCounts, level, rarity, charId);
     return { name: String(o?.name ?? '魔弾').slice(0, 24), value: spellMagicValue(stats) };
   });
   scored.sort((a, b) => b.value - a.value);

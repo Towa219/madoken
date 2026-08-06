@@ -130,6 +130,7 @@ export async function submitMagicRanking(): Promise<void> {
         name: state.nickname,
         nickToken: state.nickToken,
         bossCleared: state.bossCleared,
+        charId: state.charId,
         spells: state.spells.map(sp => ({
           name: spellDisplayName(sp),
           recipe: sp.recipe,

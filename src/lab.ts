@@ -17,7 +17,7 @@ import {
 import {
   addElements, addSpell, applyLoadout, deleteSpell, equipSlotNo, equipSlots,
   hasBossCleared, loadoutIsCurrent, notify, renameLoadout, save, saveLoadout,
-  sortSpells, spendElements, state, toggleEquip, totalInventory,
+  sortSpells, spendElements, state, toggleEquip, totalInventory, withCharBonus,
 } from './state';
 import type { ElementCounts, ElementId, Spell, SpellSort } from '../shared/types';
 import { playSfx, startSfxLoop, stopSfxLoop } from './sound';
@@ -788,7 +788,9 @@ function renderSpellbook(): void {
     return;
   }
 
-  const shown = sortSpells(state.spells);
+  // 得意エレメントの上乗せを効かせて出す。
+  // ここだけ素の値にすると、上の戦闘力や実際の戦闘と数字が食い違う。
+  const shown = sortSpells(state.spells).map(withCharBonus);
 
   for (const sp of shown) {
     const equipped = state.equipped.includes(sp.id);

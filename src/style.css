@@ -388,6 +388,9 @@ button.tab:disabled { opacity: 0.4; cursor: not-allowed; }
   color: #55558a; font-size: 32px;
 }
 .char-name { font-size: 12px; color: #ddccff; }
+/* 得意エレメント。ここが選ぶ理由になるので名前の次に目立たせる */
+.char-elem { font-size: 11px; font-weight: bold; }
+.char-picker-note { flex: 1 0 100%; margin-top: 6px; }
 .char-card.selected .char-name { color: #ffdd66; }
 .char-note { font-size: 10px; color: #8888aa; line-height: 1.4; text-align: center; }
 
@@ -397,6 +400,7 @@ button.tab:disabled { opacity: 0.4; cursor: not-allowed; }
 .char-picker.compact .char-art { height: 56px; }
 .char-picker.compact .char-name { font-size: 10px; }
 .char-picker.compact .char-note { display: none; }
+.char-picker.compact .char-elem { font-size: 10px; }
 
 /* サウンド設定 */
 .sound-row {

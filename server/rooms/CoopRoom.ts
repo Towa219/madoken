@@ -47,7 +47,7 @@ class PlayerS extends Schema {
   declare alive: boolean;
   declare ready: boolean;
   declare slot: number;
-  declare charId: number;     // 選んだキャラクター(見た目だけ)
+  declare charId: number;     // 選んだキャラクター(得意エレメントで威力が変わる)
   declare castingIdx: number; // -1=非詠唱
   declare castName: string;   // 詠唱中の魔法名(全員に見える)
   declare wardPct: number;    // 属性耐性(%)。0=なし
@@ -246,7 +246,7 @@ export class CoopRoom extends Room<CoopState> {
     }
 
     // 魔法: レシピからサーバー側で再計算
-    const spells = parseSpells(options?.spells);
+    const spells = parseSpells(options?.spells, options?.charId);
     this.internals.set(client.sessionId, {
       spells, cooldowns: [0, 0, 0, 0], shieldT: 0, hate: 0,
       wardAttr: null, wardPct: 0, wardT: 0,

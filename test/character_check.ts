@@ -6,7 +6,10 @@
 
 import { Client } from 'colyseus.js';
 import type { Room } from 'colyseus.js';
-import { CHARACTERS, CHARACTER_COUNT, clampCharId } from '../shared/characters';
+import {
+  CHARACTERS, CHARACTER_COUNT, CHAR_POWER_BONUS, clampCharId,
+} from '../shared/characters';
+import { finalStats } from '../shared/spellcraft';
 
 const ENDPOINT = process.env.MADOKEN_ENDPOINT ?? 'ws://localhost:2567';
 const HTTP_BASE = ENDPOINT.replace(/^ws/, 'http');
@@ -28,7 +31,29 @@ async function main(): Promise<void> {
   console.log('=== キャラクター選択の検証 ===');
 
   // 1. 定義
-  check('キャラクターは5種類', CHARACTER_COUNT === 5, `${CHARACTER_COUNT}種類`);
+  check('キャラクターは6種類', CHARACTER_COUNT === 6, `${CHARACTER_COUNT}種類`);
+
+  // 6体で 火・水・風・土・雷・氷 をひと通り担当する。
+  // 同じ属性が2人いたり抜けがあると、選ぶ意味が薄れる。
+  const want = ['fire', 'water', 'wind', 'earth', 'thunder', 'ice'];
+  const elems = CHARACTERS.map(c => c.element);
+  check('★得意エレメントが6種そろっている',
+    want.every(e => elems.filter(g => g === e).length === 1),
+    elems.join(' / '));
+
+  // 得意エレメントを含む魔法だけ威力が上がる
+  const fireGirl = CHARACTERS.findIndex(c => c.element === 'fire');
+  const base = finalStats({ fire: 2 }, 0, 'normal');
+  const boosted = finalStats({ fire: 2 }, 0, 'normal', fireGirl);
+  const other = finalStats({ water: 2 }, 0, 'normal', fireGirl);
+  const otherBase = finalStats({ water: 2 }, 0, 'normal');
+  check('★得意エレメントの魔法は威力が上がる', boosted.power > base.power,
+    `素 ${base.power} → ${boosted.power}`);
+  check(`上がり幅は+${Math.round(CHAR_POWER_BONUS * 100)}%`,
+    Math.abs(boosted.power / base.power - (1 + CHAR_POWER_BONUS)) < 0.03,
+    `${((boosted.power / base.power - 1) * 100).toFixed(0)}%`);
+  check('★得意でないエレメントの魔法は変わらない', other.power === otherBase.power,
+    `${otherBase.power} → ${other.power}`);
   check('番号が0から連番', CHARACTERS.every((c, i) => c.id === i));
   check('名前が全て埋まっている', CHARACTERS.every(c => c.name.length > 0));
 

@@ -37,7 +37,9 @@ export interface ServerSpell {
   stats: SpellStats;
 }
 
-export function parseSpells(raw: unknown): ServerSpell[] {
+// charId を渡すと、そのキャラの得意エレメントを含む魔法の威力が上がる。
+// 渡さなければ素の性能(ランキングの計算など、キャラを問わない場面で使う)。
+export function parseSpells(raw: unknown, charId?: unknown): ServerSpell[] {
   const list = Array.isArray(raw) ? (raw as unknown[]).slice(0, EQUIP_MAX) : [];
   return list.map(s => {
     const obj = s as { name?: unknown; recipe?: unknown; level?: unknown; rarity?: unknown };
@@ -47,7 +49,7 @@ export function parseSpells(raw: unknown): ServerSpell[] {
       : 'normal';
     return {
       name: String(obj?.name ?? '魔弾').slice(0, 30),
-      stats: finalStats(clampRecipe(obj?.recipe), level, rarity),
+      stats: finalStats(clampRecipe(obj?.recipe), level, rarity, charId),
     };
   });
 }

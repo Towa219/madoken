@@ -4,7 +4,8 @@
     "player/2.png",
     "player/3.png",
     "player/4.png",
-    "player/5.png"
+    "player/5.png",
+    "player/6.png"
   ],
   "background": "bg/field.jpg",
   "enemies": {
@@ -39,21 +40,24 @@
       "player/2_cast.png",
       "player/3_cast.png",
       "player/4_cast.png",
-      "player/5_cast.png"
+      "player/5_cast.png",
+      "player/6_cast.png"
     ],
     "release": [
       "player/1_release.png",
       "player/2_release.png",
       "player/3_release.png",
       "player/4_release.png",
-      "player/5_release.png"
+      "player/5_release.png",
+      "player/6_release.png"
     ],
     "hurt": [
       "player/1_hurt.png",
       "player/2_hurt.png",
       "player/3_hurt.png",
       "player/4_hurt.png",
-      "player/5_hurt.png"
+      "player/5_hurt.png",
+      "player/6_hurt.png"
     ]
   },
   "enemyPoses": {

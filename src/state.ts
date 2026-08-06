@@ -295,11 +295,20 @@ export function toggleEquip(id: string): void {
 // そのまま戦闘のキー1・2・3…になる。外して付け直すと最後尾に回る。
 // 魔導書の表示順(魔導値順など)とは切り離してある。並び替えるたびに
 // キーの割り当てが変わってしまうと、体が覚えた操作が毎回崩れるため。
+// 得意エレメントの上乗せを効かせた性能にする。
+//
+// 魔法に保存してある stats は素の性能(キャラの分は入っていない)。
+// ここで掛け直すことで、キャラを変えたら手持ちの魔法の強さも一緒に変わる。
+// 保存時に焼き込んでしまうと、乗り換えても古い魔法だけ前のキャラのままになる。
+export function withCharBonus(sp: Spell): Spell {
+  return { ...sp, stats: finalStats(sp.recipe, sp.level, sp.rarity, state.charId) };
+}
+
 export function equippedSpells(): Spell[] {
   const out: Spell[] = [];
   for (const id of state.equipped) {
     const sp = state.spells.find(s => s.id === id);
-    if (sp) out.push(sp);
+    if (sp) out.push(withCharBonus(sp));
   }
   return out;
 }

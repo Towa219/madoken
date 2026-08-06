@@ -73,7 +73,7 @@ export interface GameState {
   version: number;
   nickname: string;        // 一度決めたら初期化まで変更不可
   nickToken: string;       // ニックネームの所有者を示す秘密ID(初期化で解放に使う)
-  charId: number;          // 選んだキャラクター(見た目だけ・性能に影響しない)
+  charId: number;          // 選んだキャラクター(得意エレメントの魔法が強くなる)
   researchP: number;
   inventory: Record<ElementId, number>;
   spells: Spell[];

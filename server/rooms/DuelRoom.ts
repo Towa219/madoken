@@ -40,7 +40,7 @@ class DuelPlayer extends Schema {
   declare alive: boolean;
   declare ready: boolean;
   declare slot: number;
-  declare charId: number;     // 選んだキャラクター(見た目だけ)
+  declare charId: number;     // 選んだキャラクター(得意エレメントで威力が変わる)
   declare castingIdx: number;
   declare castName: string;   // 詠唱中の魔法名(相手にも見える)
   declare wardPct: number;    // 属性耐性(%)。0=なし
@@ -198,7 +198,7 @@ export class DuelRoom extends Room<DuelState> {
       announce(`⚔ 決闘成立: ${names.join(' vs ')}`);
     }
     this.internals.set(client.sessionId, {
-      spells: parseSpells(options?.spells),
+      spells: parseSpells(options?.spells, options?.charId),
       cooldowns: [0, 0, 0, 0],
       shieldT: 0, guardT: 0,
       wardAttr: null, wardPct: 0, wardT: 0,

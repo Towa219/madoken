@@ -9,8 +9,8 @@
   "style_tail": "no text, no watermark, no border, no frame",
   "player_view": "three-quarter view at a 45 degree angle, the character is turned 45 degrees to the right side, both the body and the head are rotated by the same amount, the shoulders are at 45 degrees to the camera, the face is seen in three-quarter view with the nose and one cheek in partial profile, both eyes still visible, clearly turned but still partly toward the viewer, definitely not a straight front facing pose and definitely not a full side profile",
   "enemy_view": "three-quarter view at a 45 degree angle, the character is turned 45 degrees to the left side, both the body and the head are rotated by the same amount, the shoulders are at 45 degrees to the camera, the face is seen in three-quarter view with the nose and one cheek in partial profile, both eyes still visible, clearly turned but still partly toward the viewer, definitely not a straight front facing pose and definitely not a full side profile",
-  "_player_body": "5体で頭身と頭の大きさを揃えるための指定。何も言わないと FLUX は3頭身から5頭身まで好き勝手に描き、並べた時に別のゲームの絵が混ざったように見える。頭の割合を数で言い切るのが効く。",
-  "player_body": "chibi super deformed, exactly three heads tall, the head is very large and takes up one third of the total height, small compact body, short arms and short legs, standing upright with a straight back, not leaning forward and not hunched over, standing on the ground with both feet fully visible, entire body from the top of the head to the tips of the shoes inside the frame",
+  "_player_body": "5体で頭身がばらばらだったので数で言い切る。見て感じる頭の大きさは髪込みなので、髪まで含めて全身の3分の1と書く。前傾になりやすいので背筋も指定する。",
+  "player_body": "chibi super deformed, exactly three heads tall, the head including the hair is about one third of the total height, small compact body, short arms and short legs, standing upright with a straight back, not leaning forward and not hunched over, standing on the ground with both feet fully visible, entire body from the top of the head to the tips of the shoes inside the frame",
   "player_poses": {
     "idle": "standing calmly in a relaxed ready stance, gentle friendly expression",
     "cast": "chanting a spell, both hands raised together in front of the chest, a glowing magic circle forming in the air beside the hands, eyes narrowed in concentration, hair and clothes lifted by magical wind",
@@ -23,13 +23,10 @@
     "release": "unleashing its attack, lunging forward with a bright burst of energy, mouth wide open roaring",
     "hurt": "struck by a spell and recoiling backward, flinching hard, eyes squeezed shut, small impact sparks around it"
   },
-  "_flip補足": "左右反転は最後の手段。鏡写しにすると前に出る足や物を持つ手が入れ替わり、「こちらを向いているのに右足が前」といった不自然さが出る。まず種を引き直して、そのまま正しい向きで出るものを探すこと。",
+  "_flip補足": "FLUX は left / right の指示に従わず、種ごとに向きが変わる。作り直すと向き・頭身・姿勢が全部引き直されて別の所が崩れるので、絵は固定して反転だけで直すこと。",
   "_flip敵": "56枚を1枚ずつ実寸で見て、右(プレイヤーと逆)を向いていたものだけを挙げてある。丸い相手ほど間違えやすい(一覧の小さい絵では向きが分からない)。",
   "flip": [
-    "enemy:blob",
-    "enemy:wisp",
-    "enemy:bird",
-    "enemy:golem"
+    "player:6"
   ],
   "players": [
     {
@@ -72,6 +69,13 @@
       "_seed": "全4ポーズが反転なしで右を向く種を tools/artgen/facing.py で測って選んだ。",
       "seed": 72504,
       "prompt": "a cute anime old archmage grandpa, short and round, deep purple robe with silver rune embroidery, long fluffy white beard, wide brimmed pointed purple hat, kind wrinkled smiling face, holding a tall gnarled wooden staff topped with a small glowing blue orb"
+    },
+    {
+      "out": "player/6.png",
+      "name": "蒼氷の術士",
+      "height": 400,
+      "seed": 71006,
+      "prompt": "a cute anime ice mage girl, pale blue and white long coat with a fur trimmed collar, long silver blue hair, pale blue eyes, a snowflake shaped hair ornament, holding a glowing ice crystal in one hand, small frost crystals floating around her"
     }
   ],
   "enemies": {
@@ -81,9 +85,7 @@
     },
     "imp": {
       "seed": 72002,
-      "prompt": "a cute little demon imp monster, purple and blue skin, small bat wings, long pointed ears, two small horns, huge round yellow eyes, tiny fangs, chubby rounded body, a thin pointed tail",
-      "_view": "共通の指定だと真横を向いてしまうので、この子だけ浅い角度にする。",
-      "view": "turned only slightly to the side, about 30 degrees, the face is mostly toward the viewer but angled a little, both eyes clearly visible with both cheeks showing, absolutely not a side profile, we are looking at it from the front at a slight angle"
+      "prompt": "a cute little demon imp monster, purple and blue skin, small bat wings, long pointed ears, two small horns, huge round yellow eyes, tiny fangs, chubby rounded body, a thin pointed tail"
     },
     "golem": {
       "seed": 72003,
