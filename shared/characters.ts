@@ -41,15 +41,16 @@ export const CHAR_CHANGE_COST = 200;
 //   帽子や髭のある子は測定値そのものが当てにならない(紫紺は測ると1.37倍
 //   必要と出るが、そのとおりにすると1人だけ見上げるほど大きくなる)。
 // 測定値(両目の幅 / 全身の高さ): 35.5% / 43.2% / 26.5% / 39.8% / 27.5% / 43.5%(平均 36.0%)
+// 黒金と翠緑は測定値より大きめ(指定で1.2倍)。並べた時の見栄えを優先している。
 export const CHARACTERS: CharacterDef[] = [
   { id: 0, name: '黒金の魔女', note: '雷を操り、魔導書に真理を読む',
-    element: 'thunder', scale: 1.00 },
+    element: 'thunder', scale: 1.20 },
   { id: 1, name: '白銀の学士', note: '風を読み、記録と観測を重んじる',
     element: 'wind', scale: 0.90 },
   { id: 2, name: '紅蓮の戦導士', note: '炎を纏い、前へ出て杖を振るう',
     element: 'fire', scale: 1.10 },
   { id: 3, name: '翠緑の薬導士', note: '水を扱い、調合と薬に通じた癒し手',
-    element: 'water', scale: 0.94 },
+    element: 'water', scale: 1.13 },
   { id: 4, name: '紫紺の導師', note: '大地を鎮める、古き術の大魔導士',
     element: 'earth', scale: 1.10 },
   { id: 5, name: '蒼氷の術士', note: '氷を結び、静けさの中で術を編む',
