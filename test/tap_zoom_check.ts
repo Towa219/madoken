@@ -161,7 +161,7 @@ async function main(): Promise<void> {
     const tabs: [string, string][] = [
       ['#tab-lab', '研究室'],
       ["#tab-book", "発見図鑑"],
-      ['#tab-online', 'オンライン'],
+      ['#tab-battle', '戦闘'],
       ['#tab-manual', '説明書'],
     ];
     for (const [sel, name] of tabs) {

@@ -193,6 +193,9 @@ async function main(): Promise<void> {
         (bs.find(x => x.textContent.trim() === '1') ?? bs[0]).click();
       })()
     `);
+    await sleep(400);
+    // 選ぶだけでは始まらないので「ソロで出撃」を押す
+    await cdp.evaluate(`document.querySelector('#btn-solo-go').click()`);
     await sleep(4000);   // 開戦カウントが終わるまで
 
     const clip = await cdp.evaluate<unknown>(RECT);

@@ -172,13 +172,13 @@ async function main(): Promise<void> {
     }
     await sleep(3000);
 
-    await cdp.click('#tab-online');
+    await cdp.click('#tab-battle');
     await sleep(2500);
     await cdp.evaluate(`
       (() => {
-        const s = document.querySelector('#coop-stage');
-        s.value = '${FROM}';
-        s.dispatchEvent(new Event('change', { bubbles: true }));
+        const bs = [...document.querySelectorAll('#stage-select button')];
+        const b = bs.find(x => parseInt(x.textContent, 10) === ${FROM});
+        if (b) b.click();
       })()
     `);
     await sleep(600);

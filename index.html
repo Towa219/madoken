@@ -39,7 +39,8 @@
         <button id="tab-lab" class="tab active">研究室</button>
         <button id="tab-book" class="tab">発見図鑑</button>
         <button id="tab-battle" class="tab">戦闘</button>
-        <button id="tab-online" class="tab">オンライン</button>
+        <!-- 未実装。押せない状態で場所だけ確保しておく -->
+        <button id="tab-shop" class="tab" disabled title="準備中">ショップ</button>
         <button id="tab-manual" class="tab">説明書</button>
         <button id="tab-settings" class="tab" title="引き継ぎ・初期化">⚙ 設定</button>
       </nav>
@@ -207,11 +208,15 @@
 
     <!-- ===== 戦闘 ===== -->
     <main id="battle-screen" class="hidden">
-      <div id="battle-setup">
+      <!-- ステージを1か所で選び、ソロと共闘のどちらで挑むかを選ぶ -->
+      <div id="battle-setup" class="panel">
         <h2>出撃準備</h2>
-        <div id="equip-summary"></div>
-        <h3>挑戦ステージ (5の倍数はボス)</h3>
+        <h3>挑戦ステージ <small>(5の倍数はボス。ボスは共闘部屋からのみ)</small></h3>
         <div id="stage-select"></div>
+        <div id="stage-actions">
+          <button id="btn-solo-go">ソロで出撃</button>
+          <button id="btn-create-room">共闘部屋を作る</button>
+        </div>
         <div id="setup-msg"></div>
       </div>
       <div id="battle-view" class="hidden">
@@ -220,10 +225,8 @@
         <div id="spell-bar"></div>
       </div>
       <div id="battle-overlay" class="hidden"></div>
-    </main>
 
-    <!-- ===== オンライン(ロビー/共闘) ===== -->
-    <main id="online-screen" class="hidden">
+      <!-- ===== オンライン(ロビー/共闘/決闘) ===== -->
       <div id="online-login" class="panel">
         <h2>オンラインロビー</h2>
         <p class="note">ニックネームを決めて接続。ロビーで仲間と合流し、共闘部屋でボスに挑もう。</p>
@@ -249,9 +252,8 @@
         </section>
         <section class="panel" id="lobby-rooms-panel">
           <h2>共闘部屋 <small>(最大3人)</small></h2>
-          <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap">
-            <label>ステージ <select id="coop-stage"></select></label>
-            <button id="btn-create-room">部屋を作る</button>
+          <p class="note">部屋を作るときのステージは、上の「挑戦ステージ」で選びます。</p>
+          <div class="room-tools">
             <button id="btn-refresh-rooms">一覧更新</button>
           </div>
           <div id="room-list"></div>

@@ -2,14 +2,13 @@
 
 import { BattleManager } from './battle';
 import { ELEMENTS, EQUIP_MAX, isBossStage } from '../shared/data';
-// 装備の番号(戦闘のキー番号と同じ)
-const EQ_MARKS = ['①', '②', '③', '④', '⑤', '⑥', '⑦', '⑧', '⑨'];
 import { initLab, renderLab, showToast } from './lab';
 import { renderManual } from './manual';
 import {
   initOnline, coopTryCast, duelTryCast, inBattleView, releaseNickname,
-  renderNickField,
+  renderNickField, syncLobbyVisibility,
 } from './lobby';
+import { selectedStage, setSelectedStage } from './stage';
 import {
   deleteCloudSave, initCloudUI, renderCloudStatus, scheduleCloudSave,
 } from './cloudsave';
@@ -19,9 +18,7 @@ import { initShare } from './share';
 import { loadArtwork } from './artwork';
 import { initCharPicker, renderCharPickers } from './character';
 import { initSound, initSoundUI, playBgm, playSfx, renderSoundUI } from './sound';
-import {
-  combatPower, spellDisplayName, spellMagicValue, statsSummary,
-} from '../shared/spellcraft';
+import { combatPower } from '../shared/spellcraft';
 import { BUILD_DATE, COPYRIGHT, VERSION } from '../shared/version';
 import {
   addElements, equippedSpells, notify, onChange, resetSave, state,
@@ -36,7 +33,7 @@ let lastStage = 1;
 
 // ===== タブ切替 =====
 
-type Tab = 'lab' | 'book' | 'battle' | 'online' | 'manual' | 'settings';
+type Tab = 'lab' | 'book' | 'battle' | 'manual' | 'settings';
 
 // 戦闘中(ソロ・共闘・決闘)はタブを移動させない。
 // 移動できると、進行中の戦闘が見えないまま進んでしまう。
@@ -44,9 +41,10 @@ function battleInProgress(): boolean {
   return battle.isActive() || inBattleView();
 }
 
+// ショップ(#tab-shop)はまだ実装していないので、ここには入れない。
+// 入れると戦闘が終わった時に押せるようになってしまう。
 const TAB_BUTTONS = [
-  '#tab-lab', '#tab-book', '#tab-battle',
-  '#tab-online', '#tab-manual', '#tab-settings',
+  '#tab-lab', '#tab-book', '#tab-battle', '#tab-manual', '#tab-settings',
 ];
 
 // 戦闘中は、今表示しているタブ以外を押せなくする
@@ -70,13 +68,11 @@ function switchTab(tab: Tab): void {
   $('#lab-screen').classList.toggle('hidden', tab !== 'lab');
   $('#book-screen').classList.toggle('hidden', tab !== 'book');
   $('#battle-screen').classList.toggle('hidden', tab !== 'battle');
-  $('#online-screen').classList.toggle('hidden', tab !== 'online');
   $('#manual-screen').classList.toggle('hidden', tab !== 'manual');
   $('#settings-screen').classList.toggle('hidden', tab !== 'settings');
   $('#tab-lab').classList.toggle('active', tab === 'lab');
   $('#tab-book').classList.toggle('active', tab === 'book');
   $('#tab-battle').classList.toggle('active', tab === 'battle');
-  $('#tab-online').classList.toggle('active', tab === 'online');
   $('#tab-manual').classList.toggle('active', tab === 'manual');
   $('#tab-settings').classList.toggle('active', tab === 'settings');
   if (tab === 'manual') renderManual();
@@ -94,50 +90,57 @@ function switchTab(tab: Tab): void {
 // ===== 出撃準備(ソロ) =====
 
 function showSetup(): void {
-  // 共闘/決闘は別画面で進行中のことがある。その最中に戦闘タブを覗いただけで
-  // ロビー曲に変わってしまわないよう、戦っていない時だけ戻す。
-  if (!inBattleView()) playBgm('lobby');
-  $('#battle-setup').classList.remove('hidden');
+  // 隠すのを先にする。inBattleView() は戦闘画面が出ているかで判断するので、
+  // 順番を逆にすると「まだ戦闘中」と見なされてロビー曲に戻らない。
   $('#battle-view').classList.add('hidden');
   $('#battle-overlay').classList.add('hidden');
+  $('#battle-setup').classList.remove('hidden');
+  // 共闘/決闘は同じ画面で進行中のことがある。その最中に戻ってきただけで
+  // ロビー曲に変わってしまわないよう、戦っていない時だけ戻す。
+  if (!inBattleView()) playBgm('lobby');
+  syncLobbyVisibility();
   renderSetup();
 }
 
+// 出撃準備。ステージはソロと共闘で共通のものを選ぶ。
+//
+// 以前は「戦闘」タブのボタン列(ソロ用)と、オンラインの選択欄(共闘用)で
+// 同じことを2か所選ばせていた。押した瞬間にソロが始まる作りだったので、
+// 共闘用にステージだけ選ぶことができなかった。
+// ここでは「選ぶ」と「挑む」を分け、挑み方をあとから選べるようにしている。
 function renderSetup(): void {
+  const stage = selectedStage(state.maxStage);
+  const boss = isBossStage(stage);
   const spells = equippedSpells();
-  const summary = $('#equip-summary');
-  summary.innerHTML = '<h3>装備中の魔法</h3>';
-  if (spells.length === 0) {
-    summary.innerHTML +=
-      '<div class="eq-row" style="color:#ff8877">装備中の魔法がない。研究室で調合・装備しよう。</div>';
-  } else {
-    spells.forEach((sp, i) => {
-      summary.innerHTML +=
-        `<div class="eq-row"><span class="eqnum">${EQ_MARKS[i] ?? i + 1}</span> `
-        + `${spellDisplayName(sp)} ` +
-        `<span class="mval">魔導値 ${spellMagicValue(sp.stats)}</span>` +
-        ` <small>${statsSummary(sp.stats)}</small></div>`;
-    });
-  }
 
   const sel = $('#stage-select');
   sel.innerHTML = '';
   for (let i = 1; i <= state.maxStage; i++) {
     const b = document.createElement('button');
-    const boss = isBossStage(i);
-    b.textContent = boss ? `${i} 👑` : `${i}`;
-    if (boss) {
-      b.className = 'boss';
-      b.disabled = true;
-      b.title = 'ボス戦はオンラインの共闘部屋から(1人でも可)';
-    }
-    b.addEventListener('click', () => startBattle(i));
+    const isBoss = isBossStage(i);
+    b.textContent = isBoss ? `${i} 👑` : `${i}`;
+    b.className = (isBoss ? 'boss' : '') + (i === stage ? ' selected' : '');
+    b.addEventListener('click', () => {
+      setSelectedStage(i);
+      playSfx('select');
+      renderSetup();
+    });
     sel.appendChild(b);
   }
-  const nextIsBoss = isBossStage(state.maxStage);
-  $('#setup-msg').textContent = nextIsBoss
-    ? `👑 ステージ${state.maxStage}はボス戦。オンラインで共闘部屋を作れば1人でも挑戦できる。`
-    : '';
+
+  // ボスはサーバー側で判定する必要があるので共闘部屋からのみ。
+  // 撃破の記録(スロット解放・討伐報酬)が、ここを通らないと残らない。
+  const soloBtn = $<HTMLButtonElement>('#btn-solo-go');
+  soloBtn.textContent = `ステージ${stage}へ ソロで出撃`;
+  soloBtn.disabled = boss || spells.length === 0;
+  $<HTMLButtonElement>('#btn-create-room').textContent =
+    `ステージ${stage}の共闘部屋を作る`;
+
+  $('#setup-msg').textContent = spells.length === 0
+    ? '魔法を1つ以上装備しないと出撃できない。研究室で調合・装備しよう。'
+    : boss
+      ? `👑 ステージ${stage}はボス戦。共闘部屋から挑む(1人でも可)。`
+      : '';
 }
 
 async function startBattle(stage: number): Promise<void> {
@@ -148,14 +151,16 @@ async function startBattle(stage: number): Promise<void> {
   }
   if (isBossStage(stage)) {
     $('#setup-msg').textContent =
-      'ボス戦はこの画面からは挑めない。オンラインで共闘部屋を作ろう(1人でも可)。';
+      'ボス戦はソロでは挑めない。共闘部屋を作ろう(1人でも可)。';
     return;
   }
   playBgm('battle'); // ボス戦はこの手前で弾いている(共闘部屋のみ)
   lastStage = stage;
+  setSelectedStage(stage);
   $('#battle-setup').classList.add('hidden');
   $('#battle-view').classList.remove('hidden');
   $('#battle-overlay').classList.add('hidden');
+  syncLobbyVisibility(); // 戦闘中はロビーも隠す(同じ画面に並んでいるため)
   await battle.start($('#game-canvas'), stage, spells, onBattleEnd);
 }
 
@@ -191,7 +196,7 @@ function onBattleEnd(r: BattleResult): void {
     (r.win && r.stage + 1 <= state.maxStage && !isBossStage(r.stage + 1)
       ? `<button id="btn-next">次のステージへ</button>` : '') +
     (r.win && isBossStage(r.stage + 1)
-      ? `<div class="note" style="margin-top:8px">次はボス戦。オンラインで共闘部屋を作って挑もう。</div>` : '') +
+      ? `<div class="note" style="margin-top:8px">次はボス戦。「共闘部屋を作る」から挑もう(1人でも可)。</div>` : '') +
     `<button id="btn-back">準備画面へ</button>` +
     `</div></div>`;
   overlay.classList.remove('hidden');
@@ -250,8 +255,11 @@ function main(): void {
   $('#tab-book').addEventListener('click', () => switchTab('book'));
   $('#tab-manual').addEventListener('click', () => switchTab('manual'));
   $('#tab-battle').addEventListener('click', () => switchTab('battle'));
-  $('#tab-online').addEventListener('click', () => switchTab('online'));
   $('#tab-settings').addEventListener('click', () => switchTab('settings'));
+
+  $('#btn-solo-go').addEventListener('click', () => {
+    void startBattle(selectedStage(state.maxStage));
+  });
 
   const resetBtn = $('#btn-reset');
   resetBtn.addEventListener('click', () => {

@@ -164,16 +164,19 @@ async function main(): Promise<void> {
       { type: 'mouseReleased', x: 600, y: 400, button: 'left', clickCount: 1 });
     await sleep(1500);
 
-    await cdp.click('#tab-online');
+    await cdp.click('#tab-battle');
     await sleep(2500);
     // ステージ4(通常)で部屋を作る
     const sel = await cdp.evaluate<boolean>(`
       (() => {
-        const s = document.querySelector('#coop-stage');
-        if (!s) return false;
-        s.value = '4';
-        s.dispatchEvent(new Event('change', { bubbles: true }));
-        return s.value === '4';
+        // 押すとボタン列は作り直される。押した要素をそのまま見ると、
+        // 捨てられた古い要素を見ることになるので引き直して確かめる。
+        const find = () => [...document.querySelectorAll('#stage-select button')]
+          .find(x => parseInt(x.textContent, 10) === 4);
+        const b = find();
+        if (!b) return false;
+        b.click();
+        return !!find()?.classList.contains('selected');
       })()
     `);
     check('ステージ4を選べた', sel);

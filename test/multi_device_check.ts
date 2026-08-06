@@ -164,7 +164,7 @@ async function main(): Promise<void> {
       await bannerText(pc.cdp));
     await sleep(2000);
     // 研究Pを増やして保存させる(採取で減るので直接書き換えて保存を促す)
-    await pc.cdp.click('#tab-online');
+    await pc.cdp.click('#tab-battle');
     await sleep(2500);
     check('PC: 研究P1000で始まった', (await rpOf(pc.cdp)) === 1000, String(await rpOf(pc.cdp)));
 
@@ -182,7 +182,7 @@ async function main(): Promise<void> {
 
     // ---- スマホ側を開く。まだ何も同期していないので帯が出るはず ----
     await boot(sp.cdp, 30);   // スマホ側は古い(研究P30)
-    await sp.cdp.click('#tab-online');
+    await sp.cdp.click('#tab-battle');
     await sleep(3500);
     const t1 = await bannerText(sp.cdp);
     check('★スマホ: 別の端末に新しい記録があると知らせる',
@@ -210,7 +210,7 @@ async function main(): Promise<void> {
       await sleep(250);
     }
     await sleep(3500);
-    await sp.cdp.click('#tab-online');
+    await sp.cdp.click('#tab-battle');
     await sleep(3000);
     check('取り込み後は知らせが出ない', (await bannerText(sp.cdp)) === '',
       (await bannerText(sp.cdp)).slice(0, 40));

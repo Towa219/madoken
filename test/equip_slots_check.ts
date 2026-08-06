@@ -172,6 +172,7 @@ async function browserCase(
   await cdp.click('#tab-battle');
   await sleep(600);
   await cdp.click('#stage-select button:not(.boss)');
+  await cdp.click('#btn-solo-go');
   await sleep(4500); // カウントダウン
   const btns = await cdp.evaluate<number>(
     'document.querySelectorAll("#spell-bar .spell-btn").length');

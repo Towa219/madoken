@@ -189,7 +189,7 @@ async function main(): Promise<void> {
     }
     await sleep(3000);
 
-    await cdp.click('#tab-online');
+    await cdp.click('#tab-battle');
     await sleep(2500);
     check('部屋を作れた', await cdp.click('#btn-create-room'));
     await sleep(2500);

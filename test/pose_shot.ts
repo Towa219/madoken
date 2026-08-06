@@ -142,6 +142,9 @@ async function main(): Promise<void> {
         b.click();
       })()
     `);
+    await sleep(400);
+    // 選ぶだけでは始まらないので「ソロで出撃」を押す
+    await cdp.evaluate(`document.querySelector('#btn-solo-go').click()`);
     await sleep(2500);
     await cdp.shot('pose_1_待機');
 

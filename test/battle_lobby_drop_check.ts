@@ -124,7 +124,7 @@ async function main(): Promise<void> {
     if (!online) return;
 
     // 共闘部屋を作って戦闘画面へ
-    await cdp.evaluate("document.querySelector('#tab-online').click()");
+    await cdp.evaluate("document.querySelector('#tab-battle').click()");
     await sleep(400);
     await cdp.evaluate("document.querySelector('#btn-create-room').click()");
     const inCoop = await until(cdp, visible('#coop-view'), 30000);

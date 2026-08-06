@@ -12,6 +12,7 @@ import { bossBgmFor, isBossStage } from '../shared/data';
 import { showToast } from './lab';
 import { CODE_REPLACED } from '../shared/netcodes';
 import { equippedSpells, notify, state } from './state';
+import { selectedStage } from './stage';
 import {
   cloudNewerThanHere, pullMine, pushCloudSave, submitMagicRanking,
 } from './cloudsave';
@@ -130,7 +131,19 @@ export function initOnline(): void {
 // BGMの切り替え判断にも使う(共闘中にロビー曲を流し始めないため)。
 export function inBattleView(): boolean {
   return !$('#coop-view').classList.contains('hidden')
-    || !$('#duel-view').classList.contains('hidden');
+    || !$('#duel-view').classList.contains('hidden')
+    || !$('#battle-view').classList.contains('hidden');
+}
+
+// ロビー側(接続欄・ロビー)の表示を今の状態に合わせる。
+//
+// 「戦闘」と「オンライン」を1つの画面にまとめたので、戦っている間は
+// ロビーも隠す必要がある。並んだままだと、戦闘画面の下にチャットと
+// 部屋一覧が伸びて、どこを見ればいいのか分からなくなる。
+export function syncLobbyVisibility(): void {
+  const fighting = inBattleView();
+  $('#online-login').classList.toggle('hidden', fighting || !!lobbyRoom);
+  $('#online-lobby').classList.toggle('hidden', fighting || !lobbyRoom);
 }
 
 // 自動接続で入った場合は、切断されたら黙って繋ぎ直す
@@ -208,13 +221,9 @@ async function connect(): Promise<void> {
     autoConnect = true; // 以後は切断されても自動で繋ぎ直す
     // 戦闘中に繋ぎ直した場合、ロビーを出すと戦闘画面が隠れてしまう。
     // 戦闘が終わったときに enterCoop/joinDuel の後始末がロビーを出す。
-    if (!inBattleView()) {
-      $('#online-login').classList.add('hidden');
-      $('#online-lobby').classList.remove('hidden');
-    }
+    syncLobbyVisibility();
     $('#online-msg').textContent = '';
 
-    renderStageOptions();
     void refreshRooms();
     void refreshRanking();
     // 別の端末で先に進めていないかを見る。
@@ -257,10 +266,7 @@ function wireLobby(room: Room): void {
     // ロビーと戦闘部屋は別々の接続。ロビーが切れても戦闘は続いているので、
     // 戦闘中は画面を切り替えない(切り替えると戦闘画面が消えて
     // 「部屋が落ちた」ように見える)。
-    if (!inBattleView()) {
-      $('#online-lobby').classList.add('hidden');
-      $('#online-login').classList.remove('hidden');
-    }
+    syncLobbyVisibility();
     // 同じ名前で別の場所から入り直された場合は、繋ぎ直すと取り合いになる
     if (replaced || code === CODE_REPLACED) {
       autoConnect = false;
@@ -301,18 +307,6 @@ function renderMembers(): void {
   count.className = 'member-count';
   count.textContent = `${names.length}人`;
   box.appendChild(count);
-}
-
-function renderStageOptions(): void {
-  const sel = $<HTMLSelectElement>('#coop-stage');
-  sel.innerHTML = '';
-  for (let i = 1; i <= state.maxStage; i++) {
-    const o = document.createElement('option');
-    o.value = String(i);
-    o.textContent = i % 5 === 0 ? `${i} (ボス)` : String(i);
-    sel.appendChild(o);
-  }
-  sel.value = String(state.maxStage);
 }
 
 // ---- チャット ----
@@ -360,7 +354,8 @@ async function createRoom(): Promise<void> {
     $('#lobby-msg').textContent = '先に研究室で魔法を調合・装備してから。';
     return;
   }
-  const stage = Number($<HTMLSelectElement>('#coop-stage').value) || 1;
+  // ステージは出撃準備で選んだものを使う(ソロと共通)
+  const stage = selectedStage(state.maxStage);
   const btn = $<HTMLButtonElement>('#btn-create-room');
   creatingRoom = true;
   btn.disabled = true;
@@ -552,18 +547,14 @@ async function joinDuel(): Promise<void> {
       name: nick, spells, nickToken: state.nickToken, charId: state.charId,
     });
     $('#lobby-msg').textContent = '';
-    $('#online-lobby').classList.add('hidden');
     $('#duel-view').classList.remove('hidden');
+    syncLobbyVisibility();
     playBgm('duel');
     void duel.start(room, () => {
       $('#duel-view').classList.add('hidden');
+      syncLobbyVisibility();
       playBgm('lobby');
-      if (lobbyRoom) {
-        $('#online-lobby').classList.remove('hidden');
-        void refreshRanking();
-      } else {
-        $('#online-login').classList.remove('hidden');
-      }
+      if (lobbyRoom) void refreshRanking();
     }, async token => {
       // 通信が切れた時の復帰。サーバーは30秒だけ席を空けて待っている。
       if (!client) return null;
@@ -584,18 +575,15 @@ async function joinDuel(): Promise<void> {
 function enterCoop(room: Room, stage: number): void {
   $('#lobby-msg').textContent = '';
   playBgm(isBossStage(stage) ? bossBgmFor(stage) : 'battle');
-  $('#online-lobby').classList.add('hidden');
   $('#coop-view').classList.remove('hidden');
+  syncLobbyVisibility();
   void coop.start(room, () => {
     $('#coop-view').classList.add('hidden');
+    syncLobbyVisibility();
     playBgm('lobby');
     if (lobbyRoom) {
-      $('#online-lobby').classList.remove('hidden');
-      renderStageOptions();
       void refreshRooms();
       void refreshRanking();
-    } else {
-      $('#online-login').classList.remove('hidden');
     }
   }, async token => {
     // 通信が切れた時の復帰。サーバーは30秒だけ席を空けて待っている。

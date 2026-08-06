@@ -68,6 +68,8 @@ button {
 button:hover:not(:disabled) { background: #3a3a5f; }
 button:disabled { opacity: 0.4; cursor: default; }
 button.tab.active { background: #5533aa; border-color: #7755cc; }
+/* 未実装のタブ(ショップ)。押せないことがひと目で分かるようにする */
+button.tab:disabled { opacity: 0.4; cursor: not-allowed; }
 #btn-reset { font-size: 11px; opacity: 0.6; }
 
 /* ===== 研究室 3カラム ===== */
@@ -451,12 +453,19 @@ button.tab.active { background: #5533aa; border-color: #7755cc; }
 #battle-screen { position: relative; }
 #battle-setup { background: #16162a; border: 1px solid #2a2a45; border-radius: 8px; padding: 16px; }
 #battle-setup h3 { font-size: 14px; color: #aaaacc; margin: 14px 0 8px; }
-#equip-summary { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; }
-#equip-summary .eq-row { font-size: 13px; }
-#equip-summary .eq-row small { color: #9999bb; }
 #stage-select { display: flex; flex-wrap: wrap; gap: 6px; }
 #stage-select button.boss { border-color: #cc5588; color: #ff99bb; }
+/* 選んでいるステージ。押した瞬間には出撃しないので、どれを選んだか分かる印が要る */
+#stage-select button.selected {
+  background: #4a3a7a; border-color: #ffdd66; color: #ffeeaa; font-weight: bold;
+}
+/* 挑み方(ソロ / 共闘)。ステージを選んでから、どちらで挑むかを選ぶ */
+#stage-actions {
+  display: flex; gap: 10px; flex-wrap: wrap; margin-top: 14px;
+}
+#stage-actions button { padding: 10px 16px; font-size: 14px; }
 #setup-msg { margin-top: 10px; color: #ff8877; font-size: 13px; min-height: 18px; }
+.room-tools { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 
 #game-canvas { display: flex; justify-content: center; }
 #game-canvas canvas { border-radius: 8px; max-width: 100%; }

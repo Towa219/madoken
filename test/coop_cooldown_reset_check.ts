@@ -46,7 +46,7 @@ const ck=(l:string,ok:boolean,d='')=>{console.log(`  ${ok?'OK ':'NG '} ${l}${d?'
     await c.send('Page.addScriptToEvaluateOnNewDocument',{source:`try{localStorage.setItem('magic_web_game_save_v1',${JSON.stringify(JSON.stringify(save))});localStorage.setItem('madoken_sound_v4',JSON.stringify({bgmVolume:0,sfxVolume:0,muted:true}))}catch{}`});
     await c.send('Page.navigate',{url:HTTP});
     for(let i=0;i<60;i++){if(await c.ev<boolean>('document.readyState==="complete"'))break;await sleep(250);} await sleep(3000);
-    await c.click('#tab-online'); await sleep(2500);
+    await c.click('#tab-battle'); await sleep(2500);
     await c.click('#btn-create-room'); await sleep(2500);
     await c.click('#btn-coop-ready');
     for(let i=0;i<60;i++){ if(await c.ev<boolean>('document.querySelector("#coop-waiting")?.classList.contains("hidden")===true'))break; await sleep(500);}

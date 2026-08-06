@@ -321,6 +321,7 @@ async function main(): Promise<void> {
     await cdp.click('#tab-battle');
     await sleep(600);
     await cdp.click('#stage-select button:not(.boss)');
+  await cdp.click('#btn-solo-go');
     await sleep(4500);
     const barNames = await cdp.evaluate<string[]>(
       '[...document.querySelectorAll("#spell-bar .spell-btn")]'
