@@ -15,6 +15,7 @@
 
 import { Client } from 'colyseus.js';
 import type { Room } from 'colyseus.js';
+import { DUEL_MAX_HP, PLAYER_MAX_HP } from '../shared/data';
 
 const ENDPOINT = process.env.MADOKEN_ENDPOINT ?? 'ws://localhost:2567';
 const HTTP_BASE = ENDPOINT.replace(/^ws/, 'http');
@@ -38,17 +39,27 @@ async function waitFor(cond: () => boolean, ms = 20_000): Promise<boolean> {
 }
 
 // 9種類の魔法をひと通り。これで全ての resolveCast の枝を通す。
+//
+// 決闘のHPは厚い(DUEL_MAX_HP)。補助魔法ばかりだといつまでも決着しないので、
+// 決め手になる攻撃魔法を1本ずつ持たせてある。ここで見たいのは
+// 「全部の枝を通しても部屋が落ちないか」であって、勝負の長さではない。
+const HEAVY = {
+  name: '強い魔弾', recipe: { fire: 1, water: 1, light: 2, dark: 2 },
+  level: 9, rarity: 'legend',
+};
 const KIT = [
   { name: '炎の魔弾', recipe: { fire: 2, wind: 1 } },       // 攻撃
   { name: '闇の封印', recipe: { dark: 3 } },                 // 封印
   { name: '万象護符', recipe: { water: 2, wind: 1, earth: 1, ice: 2 } }, // 護符
   { name: '活力', recipe: { fire: 2, earth: 2, light: 1 } }, // 活力
+  HEAVY,                                                     // 決め手
 ];
 const KIT2 = [
   { name: '雷の魔弾', recipe: { thunder: 1, wind: 2 } },     // 攻撃
   { name: '瞑想', recipe: { ice: 2, light: 1 } },            // 瞑想
   { name: '全体護盾', recipe: { earth: 2, ice: 1, light: 2 } }, // 護盾
   { name: '闘気', recipe: { fire: 2, thunder: 1, ice: 1 } }, // 闘気
+  HEAVY,                                                     // 決め手
 ];
 
 interface Watch {
@@ -110,21 +121,37 @@ async function main(): Promise<void> {
     check('カウントダウンを経て開戦',
       await waitFor(() => (ra.state as any)?.phase === 'fight', 20_000));
 
-    // 4つの魔法を順に回す。どれか1つでも部屋を落とすなら、ここで切れる。
+    // 決闘のHPは共闘・ソロとは別枠(相手は回復も護盾も使ってくるので厚くしてある)
+    const hpOf = (r: Room, sid: string) =>
+      Number((r.state as any)?.players?.get(sid)?.maxHp ?? 0);
+    check('★決闘のHPは決闘用の値になっている',
+      hpOf(ra, ra.sessionId) === DUEL_MAX_HP && hpOf(ra, rb.sessionId) === DUEL_MAX_HP,
+      `${hpOf(ra, ra.sessionId)} / ${hpOf(ra, rb.sessionId)}`);
+    check('両者とも同じHPで始まる',
+      hpOf(ra, ra.sessionId) === hpOf(rb, rb.sessionId),
+      `${hpOf(ra, ra.sessionId)} vs ${hpOf(rb, rb.sessionId)}`);
+    check('共闘・ソロのHPには影響していない', PLAYER_MAX_HP !== DUEL_MAX_HP,
+      `ソロ/共闘=${PLAYER_MAX_HP} / 決闘=${DUEL_MAX_HP}`);
+
+    // 5つの魔法を順に回す。どれか1つでも部屋を落とすなら、ここで切れる。
     let i = 0;
     const caster = setInterval(() => {
       for (const room of [ra, rb]) {
         const st: any = room.state;
         const me = st?.players?.get(room.sessionId);
         if (st?.phase === 'fight' && me?.alive && me.castingIdx === -1) {
-          room.send('cast', { idx: i % 4 });
+          room.send('cast', { idx: i % 5 });
         }
       }
       i++;
     }, 350);
 
-    const done = await waitFor(() => wa.end !== null || wb.end !== null, 120_000);
+    // HPを厚くしたぶん決着まで長くかかる。待ち時間はそれに合わせてある。
+    const t0 = Date.now();
+    const done = await waitFor(() => wa.end !== null || wb.end !== null, 300_000);
     clearInterval(caster);
+    console.log(`     決着までの時間: ${((Date.now() - t0) / 1000).toFixed(0)}秒`
+      + `(HP${DUEL_MAX_HP})`);
 
     check('決着まで到達した', done,
       done ? (wa.end?.reason ?? '決着') : '時間切れ(落ちた可能性)');

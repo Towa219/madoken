@@ -90,10 +90,24 @@ interface DInternal {
   mpRegenBonus: number; // MP自然回復の上乗せ(毎秒)
   mpRegenT: number;
   sealedT: number;   // 封印されている残り秒(詠唱不可)
+  sealCount: number; // 立て続けに封印された回数(耐性の段階)
+  sealResistT: number; // 耐性が残っている秒。0になると回数が振り出しに戻る
   dotDps: number;
   dotT: number;
   dotTick: number;
 }
+
+// 決闘の封印。
+//
+// 相手は敵と違って人なので、止まっている間は本当に何もできない。
+// 立て続けに掛けられると、一度も動けないまま終わる。
+// 「封印を弱くする」のではなく、二段構えで“嵌め”だけを潰す:
+//   ・1回の長さそのものを短くする(以前の3分の1)
+//   ・掛かるたびに耐性が付き、3回目は完全にレジストする
+//     間が空けば耐性は抜けるので、封印は最後まで使える魔法のままにする
+const DUEL_SEAL_MUL = 0.2;                  // 素の封印時間に対する倍率(旧0.6)
+const DUEL_SEAL_DIMINISH = [1, 0.5, 0];     // 1回目・2回目・3回目以降
+const DUEL_SEAL_RESET_SEC = 25;             // これだけ封印されずに済めば振り出しに戻る
 
 export class DuelRoom extends Room<DuelState> {
   maxClients = 2;
@@ -181,7 +195,7 @@ export class DuelRoom extends Room<DuelState> {
       wardAttr: null, wardPct: 0, wardT: 0,
       atkBoost: 0, atkBoostT: 0, vigorBonus: 0, vigorT: 0,
       mpRegenBonus: 0, mpRegenT: 0,
-      sealedT: 0, dotDps: 0, dotT: 0, dotTick: 0,
+      sealedT: 0, sealCount: 0, sealResistT: 0, dotDps: 0, dotT: 0, dotTick: 0,
     });
   }
 
@@ -326,6 +340,9 @@ export class DuelRoom extends Room<DuelState> {
         internal.sealedT -= dt;
         if (internal.sealedT > 0) { p.castingIdx = -1; p.castName = ''; }
       }
+      // 封印の耐性は時間で抜ける。
+      // 抜けないと1戦のうちに封印が死に魔法になってしまう。
+      if (internal.sealResistT > 0) internal.sealResistT -= dt;
       // かかっている効果を相手にも見せる
       p.wardPct = internal.wardT > 0 ? Math.round(internal.wardPct) : 0;
       p.atkBoost = internal.atkBoostT > 0 ? Math.round(internal.atkBoost) : 0;
@@ -398,14 +415,28 @@ export class DuelRoom extends Room<DuelState> {
           // 全属性の護符(wardAttr=null)はどの封印にも効く。
           const covered = fi.wardT > 0
             && (fi.wardAttr === null || fi.wardAttr === st.attr);
-          const mul = covered ? sealWardMul(fi.wardPct) : 1;
-          const sec = st.sealTime * 0.6 * mul;   // 対人では元から短め
+          const wardMul = covered ? sealWardMul(fi.wardPct) : 1;
+
+          // 立て続けに封印されたぶんだけ耐性が付く。
+          // 間が空けば耐性は抜けるので、封印そのものは使い続けられる。
+          if (fi.sealResistT <= 0) fi.sealCount = 0;
+          const step = Math.min(fi.sealCount, DUEL_SEAL_DIMINISH.length - 1);
+          const repeatMul = DUEL_SEAL_DIMINISH[step];
+          fi.sealCount++;
+          fi.sealResistT = DUEL_SEAL_RESET_SEC;
+
+          const sec = st.sealTime * DUEL_SEAL_MUL * wardMul * repeatMul;
           if (sec > 0) {
             fi.sealedT = Math.max(fi.sealedT, sec);
             foe0.p.castingIdx = -1;
             foe0.p.castName = '';
           }
-          this.broadcast('dseal', { sid: foe0.sid, sec, resisted: sec <= 0 });
+          this.broadcast('dseal', {
+            sid: foe0.sid, sec, resisted: sec <= 0,
+            // なぜ効かなかったのかを画面で出し分けるため
+            reason: sec > 0 ? '' : (repeatMul <= 0 ? 'repeat' : 'ward'),
+            step: fi.sealCount,
+          });
         }
       }
       return;

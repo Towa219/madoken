@@ -609,7 +609,15 @@ export const PLAYER_MAX_HP = 260;
 // 数発撃つと枯れて回復待ちになっていた。最大値だけ上げても先延ばしにしかならない。
 export const PLAYER_MAX_MP = 150;
 export const PLAYER_MP_REGEN = 6;   // 毎秒。src/battle.ts と CoopRoom.ts の両方で使う
-export const DUEL_MAX_HP = 300;   // 決闘は読み合いのぶんさらに長め
+// 決闘は読み合いのぶんさらに長め。
+//
+// 相手は敵と違って回復も護盾も耐性も使ってくるので、一撃の重さで決まると
+// 読み合いにならない。300では出会い頭の数発で終わっていたため5倍にした。
+//
+// 注意: 回復・護盾・活力の効き目は固定値なので、HPを厚くするとその分だけ
+// 相対的に弱くなる(HPに対する割合が1/5になる)。決闘だけ回復役が
+// 弱く感じるようなら、ここではなく決闘側の回復量に手を入れること。
+export const DUEL_MAX_HP = 1500;
 export const DUEL_MAX_MP = 140;
 export const ENEMY_HP_MUL = 3.5;  // 敵HPの全体倍率
 

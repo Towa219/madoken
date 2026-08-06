@@ -327,15 +327,26 @@ export class DuelView {
       const p = st?.players?.get(m.sid);
       if (p) this.addPopup(XS[p.slot] ?? 140, cy(132), `耐性 -${m.amount}`, 0x88ffcc);
     });
-    room.onMessage('dseal', (m: { sid: string; sec: number; resisted?: boolean }) => {
+    room.onMessage('dseal', (m: {
+      sid: string; sec: number; resisted?: boolean; reason?: string; step?: number;
+    }) => {
       const st: any = room.state;
       const p = st?.players?.get(m.sid);
       if (!p) return;
-      // 護符を張っていれば封印は弾かれる
+      const x = XS[p.slot] ?? 140;
       if (m.resisted || m.sec <= 0) {
-        this.addPopup(XS[p.slot] ?? 140, cy(145), 'レジスト!', 0xff9977);
+        // なぜ効かなかったのかを出し分ける。
+        // 「護符で防いだ」のか「連発しすぎて耐性が付いた」のかで、
+        // 次に取るべき手がまったく違う。
+        this.addPopup(x, cy(145),
+          m.reason === 'repeat' ? 'レジスト! (封印に慣れた)' : 'レジスト! (護符)',
+          0xff9977);
       } else {
-        this.addPopup(XS[p.slot] ?? 140, cy(145), `封印! ${m.sec.toFixed(1)}秒`, 0xbb77ee);
+        this.addPopup(x, cy(145), `封印! ${m.sec.toFixed(1)}秒`, 0xbb77ee);
+        // 2回目以降は短くなっていることを、その場で分かるようにする
+        if ((m.step ?? 1) >= 2) {
+          this.addPopup(x, cy(170), '耐性が付いて短い', 0xffaa66);
+        }
       }
     });
     room.onMessage('dempower', (m: { sid: string; pct: number }) => {
