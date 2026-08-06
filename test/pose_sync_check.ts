@@ -107,9 +107,29 @@ async function main(): Promise<void> {
     //
     // 突き合わせは「同じ瞬間に読む」ことが肝心。片方を読んでから
     // もう片方を読むまでに時間が空くと、正しく揃っていてもずれて見える。
+    // 食い違いには2種類ある。
+    //
+    //   一時的 … 同じ知らせが2人に届く時刻の差。回線の往復ぶんだけずれる。
+    //            すぐ揃うので、見ている側には気づけない。
+    //   居座り … サーバーが配っていない・各自が勝手に判断している。
+    //            揃わないまま残るので、人によって違う絵が見え続ける。
+    //
+    // 確かめたいのは後者。食い違いを見つけたら少し待って、まだ違うかを見る。
     let compared = 0;
-    let mismatch = 0;
+    let mismatch = 0;      // 待っても揃わなかった数
+    let transient = 0;     // すぐ揃った数
     const firstBad: string[] = [];
+
+    // 同じ相手をもう一度見比べて、まだ食い違っているか
+    const stillApart = async (
+      pick: (s: { players: Record<string, string>; enemies: string[] }) => string,
+    ): Promise<boolean> => {
+      for (let i = 0; i < 8; i++) {
+        await sleep(80);
+        if (pick(snapshot(a)) === pick(snapshot(b))) return false;
+      }
+      return true;
+    };
     const seenP = new Set<string>();
     const seenE = new Set<string>();
 
@@ -123,9 +143,12 @@ async function main(): Promise<void> {
         compared++;
         seenP.add(sa.players[sid]);
         if (sa.players[sid] !== sb.players[sid]) {
-          mismatch++;
-          if (firstBad.length < 3) {
-            firstBad.push(`味方 A=${sa.players[sid]} / B=${sb.players[sid]}`);
+          const bad = `味方 A=${sa.players[sid]} / B=${sb.players[sid]}`;
+          if (await stillApart(s => s.players[sid])) {
+            mismatch++;
+            if (firstBad.length < 3) firstBad.push(bad);
+          } else {
+            transient++;
           }
         }
       }
@@ -134,9 +157,12 @@ async function main(): Promise<void> {
         compared++;
         seenE.add(sa.enemies[i]);
         if (sa.enemies[i] !== sb.enemies[i]) {
-          mismatch++;
-          if (firstBad.length < 3) {
-            firstBad.push(`敵 A=${sa.enemies[i]} / B=${sb.enemies[i]}`);
+          const bad = `敵 A=${sa.enemies[i]} / B=${sb.enemies[i]}`;
+          if (await stillApart(s => s.enemies[i])) {
+            mismatch++;
+            if (firstBad.length < 3) firstBad.push(bad);
+          } else {
+            transient++;
           }
         }
       }
@@ -151,9 +177,10 @@ async function main(): Promise<void> {
       await sleep(80);
     }
 
-    console.log(`     突き合わせ ${compared}回 / 食い違い ${mismatch}回`);
-    check('★2人の画面でポーズが必ず一致する', mismatch === 0,
-      firstBad.join(' / ') || '食い違いなし');
+    console.log(`     突き合わせ ${compared}回 / 居座った食い違い ${mismatch}回`
+      + ` / すぐ揃った(回線の往復ぶん) ${transient}回`);
+    check('★2人の画面でポーズが揃う(ずれたままにならない)', mismatch === 0,
+      firstBad.join(' / ') || '居座った食い違いなし');
 
     const pList = [...seenP].sort().join('・');
     const eList = [...seenE].sort().join('・');
