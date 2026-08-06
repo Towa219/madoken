@@ -26,8 +26,6 @@
   "_flip補足": "FLUX は left / right の指示に従わないので、出てきた絵を1枚ずつ実寸で見て反転する。一覧の小さい絵では判別できない(何度も読み違えた)。",
   "_flip敵": "56枚を1枚ずつ実寸で見て、右(プレイヤーと逆)を向いていたものだけを挙げてある。丸い相手ほど間違えやすい(一覧の小さい絵では向きが分からない)。",
   "flip": [
-    "player:1",
-    "player:2",
     "player:3",
     "player:4",
     "player:5",
@@ -40,8 +38,9 @@
       "out": "player/1.png",
       "name": "黒金の魔女",
       "height": 400,
-      "seed": 71001,
-      "prompt": "a cute anime witch girl, black long coat with gold filigree trim, oversized pointed black witch hat with a gold band, long flowing black hair, amber eyes, holding a large open spellbook that glows with golden light"
+      "seed": 72901,
+      "prompt": "a cute anime witch girl, black long coat with gold filigree trim, oversized pointed black witch hat with a gold band, long flowing black hair, amber eyes, holding a large open spellbook that glows with golden light",
+      "_seed": "素の種では顔が正面のままだったので、顔もはっきり斜めを向く種に差し替えた。"
     },
     {
       "out": "player/2.png",
@@ -80,11 +79,15 @@
     },
     "imp": {
       "seed": 72002,
-      "prompt": "a cute little demon imp monster, purple and blue skin, small bat wings, long pointed ears, two small horns, huge round yellow eyes, tiny fangs, chubby rounded body, a thin pointed tail"
+      "prompt": "a cute little demon imp monster, purple and blue skin, small bat wings, long pointed ears, two small horns, huge round yellow eyes, tiny fangs, chubby rounded body, a thin pointed tail",
+      "_view": "共通の指定だと真横を向いてしまうので、この子だけ浅い角度にする。",
+      "view": "turned only slightly to the side, about 30 degrees, the face is mostly toward the viewer but angled a little, both eyes clearly visible with both cheeks showing, absolutely not a side profile, we are looking at it from the front at a slight angle"
     },
     "golem": {
       "seed": 72003,
-      "prompt": "a cute stone golem monster, chunky rounded gray rock body with cracks, glowing blue runes carved into it, thick heavy arms, small glowing eyes, moss on its shoulders"
+      "prompt": "a cute stone golem monster, chunky rounded gray rock body with cracks, glowing blue runes carved into it, thick heavy arms, small glowing eyes, moss on its shoulders",
+      "_view": "共通の指定だと真横を向いてしまうので、この子だけ浅い角度にする。",
+      "view": "turned only slightly to the side, about 30 degrees, the face is mostly toward the viewer but angled a little, both eyes clearly visible with both cheeks showing, absolutely not a side profile, we are looking at it from the front at a slight angle"
     },
     "wisp": {
       "seed": 72104,
