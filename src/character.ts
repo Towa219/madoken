@@ -23,8 +23,12 @@ function render(box: HTMLElement): void {
     btn.title = ch.note;
 
     const url = playerArtUrl(ch.id);
+    // 表示倍率は戦闘画面と同じものを使う。
+    // ここで効かせないと、選択画面だけ倍率無しで並び、戦闘では揃っている頭が
+    // 選択画面では揃っていない、という食い違いが出る(実際にそう見えていた)。
     const art = url
-      ? `<span class="char-art" style="background-image:url('${esc(url)}')"></span>`
+      ? `<span class="char-art" style="background-image:url('${esc(url)}');`
+        + `background-size:auto ${Math.round(ch.scale * 100)}%"></span>`
       : '<span class="char-art none">?</span>';
 
     btn.innerHTML =

@@ -202,8 +202,12 @@ def gen_player(subj, num, pose, seed=None):
     # 末尾に書いても FLUX はほぼ正面で描いてしまう(何度書き直しても変わらず、
     # 言い回しの問題ではなかった)。先頭に置いた途端に斜め向きになる。
     # 左右は相変わらず従わないので、出てきた絵を見て flip で直す。
+    # 頭身も1体ごとに差し替えられる。共通の指定でも体つきによって
+    # 頭の大きさが揃わないため(選択画面では表示倍率がかからないので、
+    # 絵そのものを揃えないと並べた時に見劣りする)。
+    body = s.get('body') or subj['player_body']
     p = (f"{subj['player_view']}, {s['prompt']}, {subj['player_poses'][pose]}, "
-         f"{subj['player_body']}, {style_of(subj, False)}")
+         f"{body}, {style_of(subj, False)}")
     img = generate(p, PLAYER_W, PLAYER_H, pose_seed(s, pose, seed))
     cut = cutout(img)
     check_cutout(cut, ident)
