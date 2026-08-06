@@ -51,11 +51,9 @@
       "out": "player/3.png",
       "name": "紅蓮の戦導士",
       "height": 400,
-      "seed": 74302,
+      "seed": 74306,
       "prompt": "a cute anime battle mage girl, crimson red leather armor with a short skirt, red cape, long bright red hair in a high ponytail, green eyes, red boots, holding a golden staff tipped with a small flame",
-      "_seed": "脚の指定を入れたうえで、頭と脚の釣り合いが他と揃う種を選んだ。",
-      "_body": "1人だけ脚が長く、他と体つきが揃わない(測定 頭39.8% / 平均43.2% ＝ 頭に対して胴脚が長い)。この子だけ脚の短さを強く指定する。",
-      "body": "chibi super deformed, three heads tall, very short stubby legs that are only about one quarter of the total height, big round head including the hair taking up one third of the total height, small compact body, short arms, standing upright with a straight back, not leaning forward, standing on the ground with both feet fully visible, entire body from the top of the head to the tips of the shoes inside the frame"
+      "_seed": "頭の割合(髪込み)が他と揃う種を測って選んだ。53%や50%になる種は1人だけ頭でっかちに見える。"
     },
     {
       "out": "player/4.png",
