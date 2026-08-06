@@ -147,6 +147,13 @@ export class CoopRoom extends Room<CoopState> {
   // 復帰待ちの仲間。待っている間は敵に狙われず、生存判定からも外す。
   // (決闘と違って時間は止めない。他の人まで待たせるのは酷なので)
   private waiting = new Set<string>();
+  // 決着(全滅・中断)の控え。
+  //
+  // 決着の知らせはその時つながっている人にしか届かない。倒れたまま通信が切れ、
+  // その間に仲間が退出して戦闘が終わると、戻ってきた人には何も届かない。
+  // 画面は戦闘のまま・魔法ボタンは全部灰色で、退出以外に何もできなくなる。
+  // 「共闘中に誰か退出されて復帰できなくなる」の正体がこれ。
+  private outcome: { type: string; payload: unknown } | null = null;
 
   onCreate(options: { stage?: unknown }): void {
     this.setState(new CoopState());
@@ -163,6 +170,13 @@ export class CoopRoom extends Room<CoopState> {
 
     this.onMessage('cast', (client: Client, msg: { idx?: unknown }) => {
       this.tryCast(client.sessionId, Math.floor(Number(msg?.idx)));
+    });
+
+    // 部屋に入り直した人が「留守の間に決着していないか」を聞いてくる。
+    // サーバーから勝手に送ると、相手がまだ受け取り口を用意し終える前に
+    // 着いてしまって取りこぼすので、受け取れるようになった側から聞かせる。
+    this.onMessage('catchup', (client: Client) => {
+      if (this.outcome) client.send(this.outcome.type, this.outcome.payload);
     });
 
     this.setSimulationInterval(dtMs => this.update(dtMs / 1000), 50);
@@ -302,6 +316,7 @@ export class CoopRoom extends Room<CoopState> {
     this.state.phase = 'done';
     this.pending = [];
     const clearedStage = this.state.stage - 1;
+    this.outcome = { type: 'aborted', payload: { name: leaverName, clearedStage } };
     for (const client of this.clients) {
       this.submitToRanking(client.sessionId);
       client.send('aborted', { name: leaverName, clearedStage });
@@ -961,6 +976,7 @@ export class CoopRoom extends Room<CoopState> {
     this.ended = true;
     this.state.phase = 'done';
     const rp = battleRP(stage, false);
+    this.outcome = { type: 'result', payload: { win: false, drops: [], rp } };
     for (const client of this.clients) {
       this.submitToRanking(client.sessionId);
       client.send('result', { win: false, drops: [], rp });
@@ -969,7 +985,13 @@ export class CoopRoom extends Room<CoopState> {
 
   // 次ステージへ(生存者25%回復・死亡者は50%で復活・MP全快)
   private nextStage(): void {
-    if (this.ended || this.clients.length === 0) return;
+    // 見るのは「席が残っているか」であって「今つながっているか」ではない。
+    //
+    // 全員の通信が同時に切れている一瞬に当たると this.clients は空になる。
+    // そこで打ち切ると次ステージへの移行がその場で消え、部屋はクリア表示の
+    // まま永久に止まる。戻ってきても敵はいない・ボタンは灰色で何もできない。
+    // 復帰待ちの人の席は state.players に残っているので、そちらで数える。
+    if (this.ended || this.state.players.size === 0) return;
     this.state.stage += 1;
     this.setMetadata({ stage: this.state.stage });
 

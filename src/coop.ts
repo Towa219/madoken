@@ -95,6 +95,8 @@ export class CoopView {
   private waitingHtml = '';
   // 中断/決着の通知を受け取ったか。受け取らずに切れた場合は通信不良。
   private toldWhy = false;
+  // 部屋が終わっているのに何も知らされないまま経った秒数
+  private doneT = 0;
 
   private $(sel: string): HTMLElement {
     return document.querySelector(sel) as HTMLElement;
@@ -136,6 +138,7 @@ export class CoopView {
     this.statusBuilt = false;
     this.waitingHtml = '';
     this.toldWhy = false;
+    this.doneT = 0;
     this.$('#coop-enemy-status').innerHTML = '';
     this.$('#coop-overlay').classList.add('hidden');
 
@@ -532,6 +535,28 @@ export class CoopView {
 
     room.onLeave(() => void this.handleDisconnect());
     room.onError(() => void this.handleDisconnect());
+
+    // 留守の間に決着していないかをサーバーに聞く。
+    // 受け取り口を用意し終えてから聞くので、取りこぼしがない。
+    // 初回の入室でも投げるが、決着はまだ無いので何も返ってこない。
+    try { room.send('catchup'); } catch { /* 送れなくても致命的ではない */ }
+  }
+
+  // 決着の知らせが何も届かないまま部屋が終わっていた時の逃げ道。
+  // サーバー側で取りこぼしは塞いだが、ここが最後の砦。
+  // これが無いと、戦闘画面に取り残されて退出しか押せない状態になる。
+  private showEnded(): void {
+    const overlay = this.$('#coop-overlay');
+    overlay.innerHTML =
+      `<div class="result-box">` +
+      `<h2 class="lose">共闘終了</h2>` +
+      `<div>離れているあいだにこの共闘は終わっていた。</div>` +
+      `<div class="note" style="margin-top:10px">ここまでの記録は保存されている。</div>` +
+      `<div style="margin-top:16px">` +
+      `<button id="btn-coop-back">ロビーへ戻る</button>` +
+      `</div></div>`;
+    overlay.classList.remove('hidden');
+    overlay.querySelector('#btn-coop-back')?.addEventListener('click', () => this.exitNow());
   }
 
   private showResult(m: { win: boolean; drops: ElementId[]; rp: number }): void {
@@ -663,6 +688,15 @@ export class CoopView {
       this.prevStage = stage;
       this.cds = this.cds.map(() => 0);
       this.prevCastingIdx = -1;
+    }
+
+    // 部屋は終わっているのに決着の知らせが来ない = 留守の間に終わっていた。
+    // 少しだけ待つのは、知らせが状態の更新より僅かに遅れて届くことがあるため。
+    if (st.phase === 'done' && !this.toldWhy) {
+      this.doneT += dt;
+      if (this.doneT > 2) { this.toldWhy = true; this.showEnded(); }
+    } else {
+      this.doneT = 0;
     }
 
     const bossFight = stage % 5 === 0;
