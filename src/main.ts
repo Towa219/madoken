@@ -13,7 +13,7 @@ import {
 import {
   deleteCloudSave, initCloudUI, renderCloudStatus, scheduleCloudSave,
 } from './cloudsave';
-import { initWelcome, waitForServer } from './boot';
+import { initWelcome, waitForServer, watchVersion } from './boot';
 import { renderTips } from './tips';
 import { initShare } from './share';
 import { loadArtwork } from './artwork';
@@ -243,6 +243,8 @@ function main(): void {
     if (ok) initWelcome(startOnline);
     else startOnline();
   });
+  // この画面が古くなっていないか見張る(開きっぱなしだと直しが届かない)
+  watchVersion();
 
   $('#tab-lab').addEventListener('click', () => switchTab('lab'));
   $('#tab-book').addEventListener('click', () => switchTab('book'));

@@ -309,6 +309,18 @@ button.tab.active { background: #5533aa; border-color: #7755cc; }
 }
 #wake-banner.hidden { display: none; }
 
+/* 開きっぱなしの古い画面への案内。見落とすと不具合が直らないままなので目立たせる */
+#update-banner {
+  background: #1c2a30; border-bottom: 1px solid #55bbcc;
+  color: #aaeeff; font-size: 12px; padding: 8px 12px; line-height: 1.6;
+}
+#update-banner.hidden { display: none; }
+#update-banner button {
+  background: #2a5566; border: 1px solid #55bbcc; color: #ddf6ff;
+  border-radius: 6px; padding: 4px 10px; font-size: 12px; cursor: pointer;
+}
+#update-banner button:hover { background: #35707f; }
+
 /* 最初の起動でニックネームを決める画面 */
 #welcome-overlay {
   position: fixed; inset: 0; z-index: 50;

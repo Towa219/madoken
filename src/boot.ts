@@ -6,6 +6,7 @@
 import {
   NICK_MAX_FULL, NICK_MAX_WIDTH, normalizeNickname, validateNickname,
 } from '../shared/nickname';
+import { VERSION } from '../shared/version';
 import { parseTransferCode, pullCloudSave } from './cloudsave';
 import { notify, state } from './state';
 
@@ -68,6 +69,57 @@ export async function waitForServer(): Promise<boolean> {
     + 'オンライン機能は時間をおいて試してください。';
   if (wakeTick) window.clearInterval(wakeTick);
   return false;
+}
+
+// ---- 版のずれを見張る ----
+//
+// この画面は一度開くと何日でもそのまま動き続ける。サーバーだけ新しくしても
+// 開きっぱなしのページは古いままで、直したはずの不具合が直らないように見える。
+//
+// 実際に起きた例:
+//   ボスの曲を3曲に分けた後も「古いBGMが鳴る」という報告が続いた。
+//   古いページは起動時に読んだ古い音の一覧(boss → bgm/boss.mp3)を抱えていて、
+//   サーバーにその古いファイルが残っている限り、ずっとそれを鳴らし続ける。
+//
+// 直しようがないので「気づける」ようにする。
+const VERSION_CHECK_SEC = 300;
+
+async function serverVersion(): Promise<string> {
+  try {
+    const res = await fetch(`${apiBase()}/api/status`, { cache: 'no-store' });
+    if (!res.ok) return '';
+    const data = await res.json() as { version?: unknown };
+    return String(data?.version ?? '');
+  } catch {
+    return ''; // つながらない時は黙っている(起動待ちの案内が別に出る)
+  }
+}
+
+function showUpdate(latest: string): void {
+  const el = $('#update-banner');
+  if (!el.classList.contains('hidden')) return; // すでに出ているなら触らない
+  el.textContent =
+    `🔄 新しい版 v${latest} が出ています(この画面は v${VERSION} のままです)。`
+    + '読み込み直すまで、直った不具合も古いまま残ります。 ';
+  const btn = document.createElement('button');
+  btn.textContent = '今すぐ読み込み直す';
+  // 戦闘中に勝手に読み込み直すと途中で放り出すことになるので、押してもらう。
+  btn.addEventListener('click', () => location.reload());
+  el.appendChild(btn);
+  el.classList.remove('hidden');
+}
+
+export function watchVersion(): void {
+  const look = async (): Promise<void> => {
+    const latest = await serverVersion();
+    if (latest && latest !== VERSION) showUpdate(latest);
+  };
+  void look();
+  window.setInterval(() => void look(), VERSION_CHECK_SEC * 1000);
+  // 放置していた画面に戻ってきた時が一番ずれている。その時にも確かめる。
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) void look();
+  });
 }
 
 // ---- 初回の登録画面(新規で始める / 別端末から引き継ぐ) ----

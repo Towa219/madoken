@@ -1,11 +1,14 @@
 {
   "_使い方": "このファイルを manifest.json という名前でコピーし、実際に置いた音の行だけ残す。書かなかったものは無音のまま。",
   "_補足": "sfx は gen_bgm.py --manifest でも自動生成できる(sfx/ に置いたファイル名がそのまま名前になる)。",
+  "_ボス曲": "boss1=ステージ5・10 / boss2=15・20 / boss3=25以降(shared/data.ts の bossBgmFor が選ぶ)。",
 
   "bgm": {
     "lobby": "bgm/lobby.mp3",
     "battle": "bgm/battle.mp3",
-    "boss": "bgm/boss.mp3",
+    "boss1": "bgm/boss1.mp3",
+    "boss2": "bgm/boss2.mp3",
+    "boss3": "bgm/boss3.mp3",
     "duel": "bgm/duel.mp3"
   },
 
