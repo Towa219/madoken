@@ -38,20 +38,20 @@ export const CHAR_CHANGE_COST = 200;
 //   ±8%までに抑え、頭を揃えきるより背丈の自然さを優先する。
 //   帽子や髭のある子は測定値そのものが当てにならない(紫紺は測ると1.37倍
 //   必要と出るが、そのとおりにすると1人だけ見上げるほど大きくなる)。
-// 測定値(頭の幅 / 全身の高さ): 43.5% / 49.8% / 43.0% / 47.2% / 31.5% / 46.5%(平均 43.6%)
+// 測定値(頭の幅 / 全身の高さ): 43.5% / 40.2% / 44.8% / 47.2% / 31.5% / 46.5%(平均 42.3%)
 export const CHARACTERS: CharacterDef[] = [
   { id: 0, name: '黒金の魔女', note: '雷を操り、魔導書に真理を読む',
-    element: 'thunder', scale: 1.02 },
+    element: 'thunder', scale: 1.00 },
   { id: 1, name: '白銀の学士', note: '風を読み、記録と観測を重んじる',
-    element: 'wind', scale: 0.92 },
+    element: 'wind', scale: 1.04 },
   { id: 2, name: '紅蓮の戦導士', note: '炎を纏い、前へ出て杖を振るう',
-    element: 'fire', scale: 1.02 },
+    element: 'fire', scale: 1.00 },
   { id: 3, name: '翠緑の薬導士', note: '水を扱い、調合と薬に通じた癒し手',
-    element: 'water', scale: 0.96 },
+    element: 'water', scale: 0.94 },
   { id: 4, name: '紫紺の導師', note: '大地を鎮める、古き術の大魔導士',
     element: 'earth', scale: 1.00 },
   { id: 5, name: '蒼氷の術士', note: '氷を結び、静けさの中で術を編む',
-    element: 'ice', scale: 0.98 },
+    element: 'ice', scale: 0.96 },
 ];
 
 // 表示倍率(範囲外なら等倍)
