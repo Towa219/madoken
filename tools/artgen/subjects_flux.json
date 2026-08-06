@@ -32,7 +32,13 @@
   },
 
   "_flip補足": "3・4・5は4枚とも左を向いていた(髪の流れ・杖を持つ側で分かる)。FLUX は向きの指示に従わないので、出てきた絵を見て反転で直す。",
-  "flip": ["player:3", "player:4", "player:5", "enemy:blob:idle"],
+  "_flip敵": "56枚を1枚ずつ実寸で見て、右(プレイヤーと逆)を向いていたものだけを挙げてある。丸い相手ほど間違えやすい(一覧の小さい絵では向きが分からない)。",
+  "flip": [
+    "player:3", "player:4", "player:5",
+    "enemy:blob:idle", "enemy:blob:hurt",
+    "enemy:bird:idle", "enemy:bird:release",
+    "enemy:orb:release"
+  ],
 
   "players": [
     {
