@@ -1,53 +1,48 @@
 {
   "_説明": "FLUX.1 schnell 用のキャラクター定義。Animagine XL 用の subjects.json とは書き方が違う(タグ列挙ではなく英文)ので別ファイルにしてある。元に戻したくなったら subjects.json + gen.py の方をそのまま使えばよい。",
-
   "_ポーズ": "1体につき idle / cast / release / hurt の4枚を作る。姿かたちの説明は完全に同じ文を使い、末尾のポーズ文だけを差し替える。seed も4枚で同じにする。こうしないと同じキャラに見えない。",
-
   "_向き": "プレイヤーは右向き・敵は左向きが正しい。逆に描かれたものは flip に書けば左右反転する。ポーズごとに指定できる('player:3' で4枚とも / 'player:3:cast' でその1枚だけ)。",
   "_向き補足": "被弾のポーズだけは相手に背を向けて正しい。攻撃を受けてのけぞる=相手から顔をそむける動きなので、向かい合わせに直すと『殴られて相手に突っ込む』絵になる。",
-
   "_style": "背景の指定は style に混ぜず、style_head と style_tail の間に差し込む。光り物は黒背景で描かせる必要があり、白背景の指定が残っていると『白い四角』が切り抜かれずに残る(実際にウィスプで起きた)。",
   "style_head": "cute anime video game character art, japanese anime style, clean cel shading, crisp bold outlines, vibrant saturated colors, big expressive sparkling eyes, soft rounded cheeks, appealing cute character design, slightly stylized proportions with a large head, full body from head to feet, whole body inside the frame, centered",
   "bg_white": "plain solid white background",
   "style_tail": "no text, no watermark, no border, no frame",
-
-  "player_view": "three-quarter view from the side, facing to the right",
+  "player_view": "three-quarter view at a 45 degree angle, the character is turned 45 degrees to the side, both the body and the head are rotated the same amount, the shoulders are at 45 degrees to the camera, the face is seen in three-quarter view with the nose and cheek in partial profile, both eyes visible, definitely not a front facing pose and not a full side profile",
   "enemy_view": "three-quarter view from the side, facing to the left",
-
-  "_player_body": "5体で等身がバラバラだったので、頭身をここで固定する。何も言わないと FLUX は3頭身から5頭身まで好き勝手に描き、並べた時に別のゲームの絵が混ざったように見える。全身が入ること・足先まで描くことも一緒に強く指定する(被弾のポーズだけ胸から上の構図になりやすいため)。",
-  "player_body": "chibi super deformed proportions, about three heads tall, big round oversized head, small compact body, short arms and short legs, standing on the ground with both feet fully visible, entire body from the top of the head to the tips of the shoes inside the frame",
-
+  "_player_body": "5体で頭身と頭の大きさを揃えるための指定。何も言わないと FLUX は3頭身から5頭身まで好き勝手に描き、並べた時に別のゲームの絵が混ざったように見える。頭の割合を数で言い切るのが効く。",
+  "player_body": "chibi super deformed, exactly three heads tall, the head is very large and takes up one third of the total height, small compact body, short arms and short legs, standing on the ground with both feet fully visible, entire body from the top of the head to the tips of the shoes inside the frame",
   "player_poses": {
     "idle": "standing calmly in a relaxed ready stance, gentle friendly expression",
     "cast": "chanting a spell, both hands raised together in front of the chest, a glowing magic circle forming in the air beside the hands, eyes narrowed in concentration, hair and clothes lifted by magical wind",
     "release": "unleashing the finished spell, both arms thrust forward with open palms, a bright burst of magical energy erupting from the hands, cape and hair blown backward, determined shouting expression",
     "hurt": "struck by an attack and recoiling backward, head turned away, eyes squeezed shut, one arm raised defensively in front of the face, pained expression, small impact sparks"
   },
-
   "enemy_poses": {
     "idle": "in a calm waiting idle pose",
     "cast": "gathering magical power, a glowing magic circle forming in front of it, body hunched and charging up, glowing aura rising around it",
     "release": "unleashing its attack, lunging forward with a bright burst of energy, mouth wide open roaring",
     "hurt": "struck by a spell and recoiling backward, flinching hard, eyes squeezed shut, small impact sparks around it"
   },
-
-  "_flip補足": "3・4・5は4枚とも左を向いていた(髪の流れ・杖を持つ側で分かる)。FLUX は向きの指示に従わないので、出てきた絵を見て反転で直す。",
+  "_flip補足": "プレイヤーは出てきた絵を見て、左を向いていたものだけを反転する。FLUX は left / right の指示には従わない。",
   "_flip敵": "56枚を1枚ずつ実寸で見て、右(プレイヤーと逆)を向いていたものだけを挙げてある。丸い相手ほど間違えやすい(一覧の小さい絵では向きが分からない)。",
   "flip": [
-    "player:3", "player:4",
-    "enemy:blob:idle", "enemy:blob:hurt",
-    "enemy:bird:idle", "enemy:bird:release",
+    "player:1",
+    "player:2",
+    "player:3",
+    "player:4",
+    "player:5",
+    "enemy:blob:idle",
+    "enemy:blob:hurt",
+    "enemy:bird:idle",
+    "enemy:bird:release",
     "enemy:orb:release"
   ],
-
   "players": [
     {
       "out": "player/1.png",
       "name": "黒金の魔女",
       "height": 400,
       "seed": 71001,
-      "_view": "この子だけ横向きにする。view があると、この文がプロンプトの先頭に来る(先頭でないと FLUX は向きの指示に従わない)。",
-      "view": "side view, seen from the side, the character stands in a three-quarter side view with the body and the face clearly turned to the side, we see the side of the face, not facing the camera",
       "prompt": "a cute anime witch girl, black long coat with gold filigree trim, oversized pointed black witch hat with a gold band, long flowing black hair, amber eyes, holding a large open spellbook that glows with golden light"
     },
     {
@@ -62,7 +57,6 @@
       "name": "紅蓮の戦導士",
       "height": 400,
       "seed": 71003,
-      "view": "side view, seen from the side, the character stands in a three-quarter side view with the body and the face clearly turned to the side, we see the side of the face, not facing the camera",
       "prompt": "a cute anime battle mage girl, crimson red leather armor with a short skirt, red cape, long bright red hair in a high ponytail, green eyes, red boots, holding a golden staff tipped with a small flame"
     },
     {
@@ -78,11 +72,9 @@
       "height": 400,
       "_seed": "素の種では正面のままだったので、横を向いた種に差し替えた。",
       "seed": 71305,
-      "view": "side view, seen from the side, the character stands in a three-quarter side view with the body and the face clearly turned to the side, we see the side of the face, not facing the camera",
       "prompt": "a cute anime old archmage grandpa, short and round, deep purple robe with silver rune embroidery, long fluffy white beard, wide brimmed pointed purple hat, kind wrinkled smiling face, holding a tall gnarled wooden staff topped with a small glowing blue orb"
     }
   ],
-
   "enemies": {
     "blob": {
       "seed": 72001,
@@ -110,7 +102,9 @@
     "orb": {
       "seed": 72005,
       "_seeds": "待機だけ暗く描かれたので、そのポーズだけ引き直した種を固定する。",
-      "seeds": { "idle": 72105 },
+      "seeds": {
+        "idle": 72105
+      },
       "prompt": "a cute floating arcane orb monster, a glowing violet sphere of magic energy with a single round eye, thin golden runic rings orbiting around it, floating in the air, no legs"
     },
     "beast": {
@@ -149,5 +143,6 @@
       "seed": 72014,
       "prompt": "a cute anglerfish monster, deep blue scaled round fish body, huge jaws with soft jagged teeth, a glowing lure on a stalk above its head, big round eyes, small fins"
     }
-  }
+  },
+  "_player_view": "向きの指定は文の先頭に置く。末尾だと FLUX は従わず、ほぼ正面で描いてしまう。顔と体を別々に書くのが肝心で、片方だけだと「体は横・顔は正面」のちぐはぐな絵になる。"
 }

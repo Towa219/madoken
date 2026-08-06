@@ -200,19 +200,10 @@ def gen_player(subj, num, pose, seed=None):
     # 向きの指定は「文の先頭」に置かないと効かない。
     #
     # 末尾に書いても FLUX はほぼ正面で描いてしまう(何度書き直しても変わらず、
-    # 言い回しの問題ではなかった)。先頭に置いた途端に横向き・斜め向きになる。
+    # 言い回しの問題ではなかった)。先頭に置いた途端に斜め向きになる。
     # 左右は相変わらず従わないので、出てきた絵を見て flip で直す。
-    #
-    # 2番・4番は既にちょうど良い向きなので、view を持たせず今までの並びのまま
-    # にしてある(並びを変えると同じ seed でも絵が変わってしまうため)。
-    view = s.get('view')
-    if view:
-        p = (f"{view}, {s['prompt']}, {subj['player_poses'][pose]}, "
-             f"{subj['player_body']}, {style_of(subj, False)}")
-    else:
-        p = (f"{s['prompt']}, {subj['player_poses'][pose]}, "
-             f"{subj['player_body']}, "
-             f"{subj['player_view']}, {style_of(subj, False)}")
+    p = (f"{subj['player_view']}, {s['prompt']}, {subj['player_poses'][pose]}, "
+         f"{subj['player_body']}, {style_of(subj, False)}")
     img = generate(p, PLAYER_W, PLAYER_H, pose_seed(s, pose, seed))
     cut = cutout(img)
     check_cutout(cut, ident)
