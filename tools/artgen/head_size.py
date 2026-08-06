@@ -13,8 +13,8 @@
 #
 #   python head_size.py
 #
-# ※ 必ず --shrink(減色)の前に測ること。減色すると肌の色がわずかに動き、
-#   肌の判定から外れて数値が変わる(実際に 127px → 181px と食い違った)。
+# 減色(--shrink)で肌の色がわずかに動くので、判定の幅は広めに取ってある。
+# 狭いと減色の前後で数値が変わってしまう(実際に 127px → 181px と食い違った)。
 
 import os
 import sys
@@ -48,8 +48,8 @@ def eye_span(path):
     a = np.asarray(im).astype(int)[:int(im.height * TOP)]
     r, g, b, al = a[..., 0], a[..., 1], a[..., 2], a[..., 3]
     body = al > 128
-    skin = (body & (r > 205) & (g > 160) & (g < 235)
-            & (b > 140) & (b < 220) & (r > b + 20) & (r >= g))
+    skin = (body & (r > 195) & (g > 150) & (g < 240)
+            & (b > 130) & (b < 225) & (r > b + 15) & (r >= g - 5))
     ys, xs = np.where(skin)
     if len(xs) == 0:
         return None, im.height
@@ -86,8 +86,8 @@ def face_width(path):
     a = np.asarray(im).astype(int)[:int(im.height * TOP)]
     r, g, b, al = a[..., 0], a[..., 1], a[..., 2], a[..., 3]
     body = al > 128
-    skin = (body & (r > 205) & (g > 160) & (g < 235)
-            & (b > 140) & (b < 220) & (r > b + 20) & (r >= g))
+    skin = (body & (r > 195) & (g > 150) & (g < 240)
+            & (b > 130) & (b < 225) & (r > b + 15) & (r >= g - 5))
     ys, xs = np.where(skin)
     if len(xs) == 0:
         return None, None, im.height

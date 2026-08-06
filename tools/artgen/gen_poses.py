@@ -206,7 +206,8 @@ def gen_player(subj, num, pose, seed=None):
     # 頭の大きさが揃わないため(選択画面では表示倍率がかからないので、
     # 絵そのものを揃えないと並べた時に見劣りする)。
     body = s.get('body') or subj['player_body']
-    p = (f"{subj['player_view']}, {s['prompt']}, {subj['player_poses'][pose]}, "
+    view = s.get('view') or subj['player_view']
+    p = (f"{view}, {s['prompt']}, {subj['player_poses'][pose]}, "
          f"{body}, {style_of(subj, False)}")
     img = generate(p, PLAYER_W, PLAYER_H, pose_seed(s, pose, seed))
     cut = cutout(img)

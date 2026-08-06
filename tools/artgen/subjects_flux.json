@@ -53,10 +53,12 @@
       "out": "player/3.png",
       "name": "紅蓮の戦導士",
       "height": 400,
-      "seed": 78304,
+      "seed": 79302,
       "prompt": "a cute anime battle mage girl, a long crimson red robe coat that reaches all the way down to her ankles and completely covers her legs, dark leather armor pieces on the shoulders, a red cape, long bright red hair in a high ponytail, green eyes, holding a golden staff tipped with a small flame",
-      "_seed": "足首まである丈の衣装で脚が隠れ、顔が45度に向き、両目の幅も平均に近い種を選んだ。",
-      "_prompt": "他の5人は長いローブやコートで脚が隠れている。この子だけ短いスカートとブーツで脚が出ていたため、同じ頭身の指定でも1人だけ脚長に見えていた。衣装を丈の長いコートに変えて輪郭を揃える。"
+      "_seed": "顔と視線がはっきり右(敵の方)を向く種を選んだ。反転は不要。",
+      "_prompt": "他の5人は長いローブやコートで脚が隠れている。この子だけ短いスカートとブーツで脚が出ていたため、同じ頭身の指定でも1人だけ脚長に見えていた。衣装を丈の長いコートに変えて輪郭を揃える。",
+      "_view": "この子だけ顔が正面に寄りやすいので、頭と視線の向きを強く書く。",
+      "view": "three-quarter view at a 45 degree angle, the character is turned 45 degrees to the right side, both the body and the head are rotated by the same amount, the shoulders are at 45 degrees to the camera, the face is seen in three-quarter view with the nose and one cheek in partial profile, both eyes still visible, clearly turned but still partly toward the viewer, definitely not a straight front facing pose and definitely not a full side profile, her head is clearly turned to the side and she is looking away from the camera toward the side, we can see her cheek and the line of her nose in profile, her eyes are looking to the side and not at the viewer"
     },
     {
       "out": "player/4.png",
