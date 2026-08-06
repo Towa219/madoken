@@ -10,6 +10,10 @@ import { playerArtUrl } from './artwork';
 import { showToast } from './lab';
 import { notify, state } from './state';
 
+// 選択画面の枠に収める。倍率が100%を超えると絵が枠の上へはみ出すので、
+// いちばん大きい子を100%として全員を割る。頭の大きさの比は変わらない。
+const MAX_SCALE = Math.max(...CHARACTERS.map(c => c.scale));
+
 const pickers = new Set<HTMLElement>();
 
 function esc(s: string): string {
@@ -40,7 +44,7 @@ function render(box: HTMLElement): void {
     // 選択画面では揃っていない、という食い違いが出る(実際にそう見えていた)。
     const art = url
       ? `<span class="char-art" style="background-image:url('${esc(url)}');`
-        + `background-size:auto ${Math.round(ch.scale * 100)}%"></span>`
+        + `background-size:auto ${Math.round((ch.scale / MAX_SCALE) * 100)}%"></span>`
       : '<span class="char-art none">?</span>';
 
     btn.innerHTML =

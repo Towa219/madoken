@@ -26,7 +26,8 @@
   "_flip補足": "FLUX は left / right の指示に従わず、種ごとに向きが変わる。作り直すと向き・頭身・姿勢が全部引き直されて別の所が崩れるので、絵は固定して反転だけで直すこと。",
   "_flip敵": "56枚を1枚ずつ実寸で見て、右(プレイヤーと逆)を向いていたものだけを挙げてある。丸い相手ほど間違えやすい(一覧の小さい絵では向きが分からない)。",
   "flip": [
-    "player:6"
+    "player:6",
+    "player:4"
   ],
   "players": [
     {
@@ -68,7 +69,9 @@
       "height": 400,
       "_seed": "全4ポーズが反転なしで右を向く種を tools/artgen/facing.py で測って選んだ。",
       "seed": 72504,
-      "prompt": "a cute anime old archmage grandpa, short and round, deep purple robe with silver rune embroidery, long fluffy white beard, wide brimmed pointed purple hat, kind wrinkled smiling face, holding a tall gnarled wooden staff topped with a small glowing blue orb"
+      "prompt": "a cute anime old archmage grandpa, short and round, deep purple robe with silver rune embroidery, long fluffy white beard, wide brimmed pointed purple hat, kind wrinkled smiling face, holding a tall gnarled wooden staff topped with a small glowing blue orb",
+      "_body": "他より頭が小さく出る(測定 33.5% / 平均 44.1%)。倍率で伸ばすと背だけ高くなるので、絵の方の頭を大きくする。",
+      "body": "chibi super deformed, two and a half heads tall, a very large round head including the hair and the hat taking up nearly half of the total height, small compact body, short arms and short legs, standing upright with a straight back, not leaning forward, standing on the ground with both feet fully visible, entire body from the top of the head to the tips of the shoes inside the frame"
     },
     {
       "out": "player/6.png",
