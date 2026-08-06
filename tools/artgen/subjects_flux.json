@@ -1,0 +1,141 @@
+{
+  "_説明": "FLUX.1 schnell 用のキャラクター定義。Animagine XL 用の subjects.json とは書き方が違う(タグ列挙ではなく英文)ので別ファイルにしてある。元に戻したくなったら subjects.json + gen.py の方をそのまま使えばよい。",
+
+  "_ポーズ": "1体につき idle / cast / release / hurt の4枚を作る。姿かたちの説明は完全に同じ文を使い、末尾のポーズ文だけを差し替える。seed も4枚で同じにする。こうしないと同じキャラに見えない。",
+
+  "_向き": "プレイヤーは右向き・敵は左向きが正しい。逆に描かれたものは flip に書けば左右反転する。",
+
+  "_style": "背景の指定は style に混ぜず、style_head と style_tail の間に差し込む。光り物は黒背景で描かせる必要があり、白背景の指定が残っていると『白い四角』が切り抜かれずに残る(実際にウィスプで起きた)。",
+  "style_head": "cute anime video game character art, japanese anime style, clean cel shading, crisp bold outlines, vibrant saturated colors, big expressive sparkling eyes, soft rounded cheeks, appealing cute character design, slightly stylized proportions with a large head, full body from head to feet, whole body inside the frame, centered",
+  "bg_white": "plain solid white background",
+  "style_tail": "no text, no watermark, no border, no frame",
+
+  "player_view": "three-quarter view from the side, facing to the right",
+  "enemy_view": "three-quarter view from the side, facing to the left",
+
+  "player_poses": {
+    "idle": "standing calmly in a relaxed ready stance, gentle friendly expression",
+    "cast": "chanting a spell, both hands raised together in front of the chest, a glowing magic circle forming in the air beside the hands, eyes narrowed in concentration, hair and clothes lifted by magical wind",
+    "release": "unleashing the finished spell, both arms thrust forward with open palms, a bright burst of magical energy erupting from the hands, cape and hair blown backward, determined shouting expression",
+    "hurt": "struck by an attack and recoiling backward, head turned away, eyes squeezed shut, one arm raised defensively in front of the face, pained expression, small impact sparks"
+  },
+
+  "enemy_poses": {
+    "idle": "in a calm waiting idle pose",
+    "cast": "gathering magical power, a glowing magic circle forming in front of it, body hunched and charging up, glowing aura rising around it",
+    "release": "unleashing its attack, lunging forward with a bright burst of energy, mouth wide open roaring",
+    "hurt": "struck by a spell and recoiling backward, flinching hard, eyes squeezed shut, small impact sparks around it"
+  },
+
+  "flip": [],
+
+  "players": [
+    {
+      "out": "player/1.png",
+      "name": "黒金の魔女",
+      "height": 400,
+      "seed": 71001,
+      "prompt": "a cute anime witch girl, black long coat with gold filigree trim, oversized pointed black witch hat with a gold band, long flowing black hair, amber eyes, holding a large open spellbook that glows with golden light"
+    },
+    {
+      "out": "player/2.png",
+      "name": "白銀の学士",
+      "height": 400,
+      "seed": 71002,
+      "prompt": "a cute anime boy scholar mage, white and silver robe with a blue sash, round glasses, neat short silver hair, blue eyes, a floating parchment scroll and a white quill beside him"
+    },
+    {
+      "out": "player/3.png",
+      "name": "紅蓮の戦導士",
+      "height": 400,
+      "seed": 71003,
+      "prompt": "a cute anime battle mage girl, crimson red leather armor with a short skirt, red cape, long bright red hair in a high ponytail, green eyes, red boots, holding a golden staff tipped with a small flame"
+    },
+    {
+      "out": "player/4.png",
+      "name": "翠緑の薬導士",
+      "height": 400,
+      "seed": 71004,
+      "_seeds": "被弾だけ胸から上の構図になったので、そのポーズだけ引き直した種を固定する。",
+      "seeds": { "hurt": 71204 },
+      "prompt": "a cute anime herbalist alchemist girl, green hooded cloak, leather satchel full of small potion bottles, braided brown hair, warm brown eyes, holding a round flask glowing with green light"
+    },
+    {
+      "out": "player/5.png",
+      "name": "紫紺の導師",
+      "height": 400,
+      "seed": 71005,
+      "_seeds": "発射だけ顔が崩れたので、そのポーズだけ引き直した種を固定する。",
+      "seeds": { "release": 71205 },
+      "prompt": "a cute anime old archmage grandpa, short and round, deep purple robe with silver rune embroidery, long fluffy white beard, wide brimmed pointed purple hat, kind wrinkled smiling face, holding a tall gnarled wooden staff topped with a small glowing blue orb"
+    }
+  ],
+
+  "enemies": {
+    "blob": {
+      "seed": 72001,
+      "prompt": "a cute monster, a bright green translucent jelly slime with a round wobbling body, glossy highlights, two small round black eyes and a tiny mouth"
+    },
+    "imp": {
+      "seed": 72002,
+      "prompt": "a cute little demon imp monster, purple and blue skin, small bat wings, long pointed ears, two small horns, huge round yellow eyes, tiny fangs, chubby rounded body, a thin pointed tail"
+    },
+    "golem": {
+      "seed": 72003,
+      "prompt": "a cute stone golem monster, chunky rounded gray rock body with cracks, glowing blue runes carved into it, thick heavy arms, small glowing eyes, moss on its shoulders"
+    },
+    "wisp": {
+      "seed": 72104,
+      "_cut": "光り物なので黒背景に描かせ、明るさをそのまま不透明度にする。白背景だと『光』ではなく『影』として描かれ、切り抜くと黒い塊しか残らない。",
+      "cut": "luma",
+      "_poses": "共通のポーズ文にある『前に魔法陣』を使うと、本体と離れた輪が別に描かれ、絵が片側に寄って頭上のHPバーが本体から外れる。本体だけで表現する文に差し替える。",
+      "poses": {
+        "cast": "gathering power, its flame burning much brighter and taller, a glowing aura swelling around its own body, eyes shut in concentration",
+        "release": "unleashing its attack, its whole body flaring into a brilliant burst of light, mouth wide open"
+      },
+      "prompt": "a cute will-o-wisp spirit monster, a brightly glowing pale blue ball of ethereal flame with a tiny simple glowing face, radiant white hot core, wispy trailing light, floating in the air, no legs"
+    },
+    "orb": {
+      "seed": 72005,
+      "_seeds": "待機だけ暗く描かれたので、そのポーズだけ引き直した種を固定する。",
+      "seeds": { "idle": 72105 },
+      "prompt": "a cute floating arcane orb monster, a glowing violet sphere of magic energy with a single round eye, thin golden runic rings orbiting around it, floating in the air, no legs"
+    },
+    "beast": {
+      "seed": 72006,
+      "prompt": "a cute four legged beast monster, shaggy gray fur, big fluffy tail, small fangs, sharp little claws, big round eyes, wolf like"
+    },
+    "bird": {
+      "seed": 72007,
+      "prompt": "a cute giant bat monster, dark purple fluffy fur, membrane wings held close to its body, huge round eyes, tiny fangs, small clawed feet, compact rounded silhouette"
+    },
+    "plant": {
+      "seed": 72008,
+      "prompt": "a cute carnivorous plant monster, a big purple flower head with soft round teeth, green leaves and curling vines, a small tongue, round cartoon eyes"
+    },
+    "undead": {
+      "seed": 72009,
+      "prompt": "a cute little skeleton warrior monster, small white bone body, round skull head with glowing blue dots for eyes, a tattered brown cloak, holding a small rusty sword"
+    },
+    "knight": {
+      "seed": 72010,
+      "prompt": "a cute cursed empty armor monster, dark steel blue full plate armor with a rounded chibi shape, a glowing cyan slit visor with no face inside, holding a big greatsword"
+    },
+    "serpent": {
+      "seed": 72011,
+      "prompt": "a cute little dragon serpent monster, red scales, a coiling snake body, two small horns on its head, big round eyes, tiny fangs, a soft cream colored belly"
+    },
+    "insect": {
+      "seed": 72012,
+      "prompt": "a cute giant stag beetle monster, glossy dark purple shell, huge rounded pincer mandibles, six short jointed legs on the ground, long antennae, big round eyes, low crawling body"
+    },
+    "eye": {
+      "seed": 72013,
+      "prompt": "a cute floating eyeball monster, one big round eye with a violet iris, short soft wiggling tentacles hanging beneath it, small bat wings, floating in the air, no legs"
+    },
+    "fish": {
+      "seed": 72014,
+      "prompt": "a cute anglerfish monster, deep blue scaled round fish body, huge jaws with soft jagged teeth, a glowing lure on a stalk above its head, big round eyes, small fins"
+    }
+  }
+}

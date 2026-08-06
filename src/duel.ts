@@ -2,11 +2,14 @@
 
 import { Application, Container, Graphics, Text } from 'pixi.js';
 import type { Room } from 'colyseus.js';
-import { ELEMENTS, EQUIP_MAX, SPRITE_SCALE , RECONNECT_TRIES, RECONNECT_WAIT_MS } from '../shared/data';
+import {
+  ELEMENTS, EQUIP_MAX, poseName, SPRITE_SCALE, RECONNECT_TRIES, RECONNECT_WAIT_MS,
+} from '../shared/data';
 import { clampCharId } from '../shared/characters';
 import { spellCooldown, spellDisplayName } from '../shared/spellcraft';
 import {
-  COUNT_STYLE, makePlayerSprite, makeProjectileGfx, START_LABEL,
+  COUNT_STYLE, makePlayerSprite, makeProjectileGfx, setPlayerSpritePose,
+  START_LABEL,
 } from './battle';
 import { showToast } from './lab';
 import { equippedSpells } from './state';
@@ -491,6 +494,9 @@ export class DuelView {
         }
         const sprite = makePlayerSprite(clampCharId(p.charId));
         if (p.slot === 1) sprite.scale.x = -1; // 右側は向かい合わせ
+        // ポーズの差し替え先。左右反転はこの入れ物にかけてあるので、
+        // 中の絵を入れ替えても向かい合わせのままになる。
+        sprite.label = 'art';
         cont.addChild(sprite);
         const nameT = new Text({
           text: p.name,
@@ -525,6 +531,14 @@ export class DuelView {
       }
       cont.position.set(XS[p.slot] ?? 140, GROUND_Y);
       cont.alpha = p.alive ? 1 : 0.25;
+
+      // ポーズはサーバーが決めた番号をそのまま使う。
+      // 各自の画面で判断すると、通信の遅れで相手だけ違う絵になる。
+      const art = cont.getChildByLabel('art') as Container | null;
+      if (art) {
+        setPlayerSpritePose(art, clampCharId(p.charId),
+          p.alive ? poseName(p.pose) : 'hurt');
+      }
 
       const castT = cont.getChildByLabel('castT') as Text | null;
       if (castT) {

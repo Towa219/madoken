@@ -32,5 +32,78 @@
     "ice": "proj/ice.png",
     "light": "proj/light.png",
     "dark": "proj/dark.png"
+  },
+  "playerPoses": {
+    "cast": [
+      "player/1_cast.png",
+      "player/2_cast.png",
+      "player/3_cast.png",
+      "player/4_cast.png",
+      "player/5_cast.png"
+    ],
+    "release": [
+      "player/1_release.png",
+      "player/2_release.png",
+      "player/3_release.png",
+      "player/4_release.png",
+      "player/5_release.png"
+    ],
+    "hurt": [
+      "player/1_hurt.png",
+      "player/2_hurt.png",
+      "player/3_hurt.png",
+      "player/4_hurt.png",
+      "player/5_hurt.png"
+    ]
+  },
+  "enemyPoses": {
+    "cast": {
+      "blob": "enemy/blob_cast.png",
+      "imp": "enemy/imp_cast.png",
+      "golem": "enemy/golem_cast.png",
+      "wisp": "enemy/wisp_cast.png",
+      "orb": "enemy/orb_cast.png",
+      "beast": "enemy/beast_cast.png",
+      "bird": "enemy/bird_cast.png",
+      "plant": "enemy/plant_cast.png",
+      "undead": "enemy/undead_cast.png",
+      "knight": "enemy/knight_cast.png",
+      "serpent": "enemy/serpent_cast.png",
+      "insect": "enemy/insect_cast.png",
+      "eye": "enemy/eye_cast.png",
+      "fish": "enemy/fish_cast.png"
+    },
+    "release": {
+      "blob": "enemy/blob_release.png",
+      "imp": "enemy/imp_release.png",
+      "golem": "enemy/golem_release.png",
+      "wisp": "enemy/wisp_release.png",
+      "orb": "enemy/orb_release.png",
+      "beast": "enemy/beast_release.png",
+      "bird": "enemy/bird_release.png",
+      "plant": "enemy/plant_release.png",
+      "undead": "enemy/undead_release.png",
+      "knight": "enemy/knight_release.png",
+      "serpent": "enemy/serpent_release.png",
+      "insect": "enemy/insect_release.png",
+      "eye": "enemy/eye_release.png",
+      "fish": "enemy/fish_release.png"
+    },
+    "hurt": {
+      "blob": "enemy/blob_hurt.png",
+      "imp": "enemy/imp_hurt.png",
+      "golem": "enemy/golem_hurt.png",
+      "wisp": "enemy/wisp_hurt.png",
+      "orb": "enemy/orb_hurt.png",
+      "beast": "enemy/beast_hurt.png",
+      "bird": "enemy/bird_hurt.png",
+      "plant": "enemy/plant_hurt.png",
+      "undead": "enemy/undead_hurt.png",
+      "knight": "enemy/knight_hurt.png",
+      "serpent": "enemy/serpent_hurt.png",
+      "insect": "enemy/insect_hurt.png",
+      "eye": "enemy/eye_hurt.png",
+      "fish": "enemy/fish_hurt.png"
+    }
   }
 }

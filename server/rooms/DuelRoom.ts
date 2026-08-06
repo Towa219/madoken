@@ -8,7 +8,10 @@ import { Schema, MapSchema, defineTypes } from '@colyseus/schema';
 import type { Client } from 'colyseus';
 import type { MapSchema as MapSchemaType } from '@colyseus/schema';
 import type { IncomingMessage } from 'node:http';
-import { DUEL_MAX_HP, DUEL_MAX_MP, RECONNECT_SEC } from '../../shared/data';
+import {
+  DUEL_MAX_HP, DUEL_MAX_MP, POSE_CAST, POSE_HURT, POSE_HURT_SEC, POSE_IDLE,
+  POSE_RELEASE, POSE_RELEASE_SEC, RECONNECT_SEC,
+} from '../../shared/data';
 import { sealWardMul, spellCooldown } from '../../shared/spellcraft';
 import { parseSpells } from '../spellPayload';
 import { clientIp, logConnection } from '../connlog';
@@ -47,6 +50,7 @@ class DuelPlayer extends Schema {
   declare sealed: boolean;    // 封印されているか
   declare castT: number;
   declare castTotal: number;
+  declare pose: number;       // 見た目のポーズ(両者の画面で同じ絵になる)
 }
 defineTypes(DuelPlayer, {
   name: 'string', hp: 'number', maxHp: 'number', mp: 'number', maxMp: 'number',
@@ -55,6 +59,7 @@ defineTypes(DuelPlayer, {
   castingIdx: 'number', castT: 'number', castTotal: 'number',
   castName: 'string', wardPct: 'number', atkBoost: 'number',
   vigorBonus: 'number', mpRegenBonus: 'number', sealed: 'boolean',
+  pose: 'number',
 });
 
 class DuelState extends Schema {
@@ -95,6 +100,7 @@ interface DInternal {
   dotDps: number;
   dotT: number;
   dotTick: number;
+  poseT: number;     // 一瞬のポーズ(撃った・被弾)の残り時間
 }
 
 // 決闘の封印。
@@ -162,6 +168,9 @@ export class DuelRoom extends Room<DuelState> {
     p.castingIdx = -1; p.castT = 0; p.castTotal = 0; p.castName = '';
     p.wardPct = 0; p.atkBoost = 0; p.vigorBonus = 0; p.sealed = false;
     p.mpRegenBonus = 0;
+    // 最初から入れておく。未設定のまま配ると、受け取った側で「まだ何も
+    // 決まっていない」状態になり、相手だけ別の絵が出る余地が残る。
+    p.pose = POSE_IDLE;
 
     const used = new Set<number>();
     this.state.players.forEach(q => used.add(q.slot));
@@ -196,6 +205,7 @@ export class DuelRoom extends Room<DuelState> {
       atkBoost: 0, atkBoostT: 0, vigorBonus: 0, vigorT: 0,
       mpRegenBonus: 0, mpRegenT: 0,
       sealedT: 0, sealCount: 0, sealResistT: 0, dotDps: 0, dotT: 0, dotTick: 0,
+      poseT: 0,
     });
   }
 
@@ -370,9 +380,12 @@ export class DuelRoom extends Room<DuelState> {
           p.castName = '';
           p.castT = 0;
           internal.cooldowns[idx] = spellCooldown(sp.stats);
+          // 魔法が完成した瞬間の姿(撃つ・張る)を少しの間見せる
+          this.flashPose(sid, POSE_RELEASE, POSE_RELEASE_SEC);
           this.resolveCast(sid, p, sp.stats);
         }
       }
+      this.stepPose(p, internal, dt);
     });
 
     if (!this.ended) {
@@ -547,11 +560,33 @@ export class DuelRoom extends Room<DuelState> {
       if (dmg <= 0) return;
     }
     p.hp = Math.max(0, p.hp - dmg);
+    this.flashPose(sid, POSE_HURT, POSE_HURT_SEC);
     if (p.hp <= 0) {
       p.alive = false;
       p.castingIdx = -1;
       p.castName = '';
     }
+  }
+
+  // ---- ポーズ(見た目だけ) ----
+  //
+  // どちらの画面でも同じ姿が見えるよう、サーバーが決めて両者に配る。
+  // 各自の画面で判断させると、通信の遅れで相手だけ別の絵になる。
+
+  private flashPose(sid: string, pose: number, sec: number): void {
+    const p = this.state.players.get(sid);
+    const internal = this.internals.get(sid);
+    if (!p || !internal) return;
+    p.pose = pose;
+    internal.poseT = sec;
+  }
+
+  private stepPose(p: DuelPlayer, internal: DInternal, dt: number): void {
+    if (internal.poseT > 0) {
+      internal.poseT -= dt;
+      if (internal.poseT > 0) return; // 一瞬のポーズを見せている間は動かさない
+    }
+    p.pose = p.alive && p.castingIdx >= 0 ? POSE_CAST : POSE_IDLE;
   }
 
   private endDuel(): void {

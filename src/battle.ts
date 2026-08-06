@@ -7,11 +7,16 @@ import { Application, Container, Graphics, Sprite, Text } from 'pixi.js';
 import {
   affinityMul, affinitySymbol, battleRP, bossForStage, ELEMENTS, ELEMENT_ORDER,
   bossHpMul, ENEMY_ATK_MUL, ENEMY_HP_MUL, ENEMY_SCALE, enemyTopY, isBossStage,
-  pickEnemiesForStage,
+  pickEnemiesForStage, POSE_HURT_SEC, POSE_RELEASE_SEC,
   PLAYER_MAX_HP, PLAYER_MAX_MP, PLAYER_MP_REGEN, SPRITE_SCALE, stageAtkMul, stageHpMul,
 } from '../shared/data';
 import type { AffinityGrade, EnemyDef } from '../shared/data';
-import { backgroundArt, enemyArt, playerArt, projectileArt } from './artwork';
+import {
+  applyPoseTexture, backgroundArt, enemyArt, enemyPoseTexture, playerArt,
+  playerPoseTexture, projectileArt,
+} from './artwork';
+import type { Pose } from './artwork';
+import { characterScale } from '../shared/characters';
 import { sealResistMul, spellCooldown, spellDisplayName } from '../shared/spellcraft';
 import { state } from './state';
 import { playSfx, startSfxLoop, stopSfxLoop } from './sound';
@@ -67,6 +72,8 @@ interface EnemyUnit {
   dotT: number;
   dotTick: number;
   sealed: number;   // 封印(行動不能)の残り秒
+  pose: Pose;       // 見た目のポーズ
+  poseT: number;    // 一瞬のポーズ(撃った・被弾)の残り時間
 }
 
 interface Proj {
@@ -128,6 +135,9 @@ export class BattleManager {
   private mpRegenTimer = 0;
 
   private casting: { spell: Spell; t: number } | null = null;
+  // 見た目のポーズ。ソロは自分の画面だけなので、ここで決めて描くだけでよい
+  // (共闘・決闘はサーバーが決める。全員の画面で揃える必要があるため)。
+  private poseT = 0;
   private cooldowns = new Map<string, number>();
   private countdown = 0;      // 開始前カウントダウン(秒)
   private prevCount = -99;    // 直前に鳴らしたカウント(毎フレーム鳴らさないため)
@@ -330,6 +340,7 @@ export class BattleManager {
         alive: true, flash: 0,
         bobPhase: Math.random() * Math.PI * 2,
         dotDps: 0, dotT: 0, dotTick: 0, sealed: 0,
+        pose: 'idle', poseT: 0,
       };
       this.drawEnemyHpBar(unit);
       this.enemies.push(unit);
@@ -480,6 +491,7 @@ export class BattleManager {
         this.casting = null;
         stopSfxLoop('casting');
         playSfx('cast');
+        this.setPlayerPose('release', POSE_RELEASE_SEC);
         this.cooldowns.set(sp.id, spellCooldown(sp.stats));
         if (st.selfDamage > 0) {
           this.hp -= st.selfDamage;
@@ -590,11 +602,17 @@ export class BattleManager {
       }
     }
 
+    // 自分の姿(詠唱中・撃った直後・被弾)
+    this.stepPlayerPose(dt);
+
     // 敵の行動
     for (const e of this.enemies) {
       if (!e.alive) continue;
       // 浮遊アニメ
       e.cont.y = GROUND_Y + Math.sin(this.time * 2.2 + e.bobPhase) * 3;
+      // ポーズはこの下の continue より前に進める。
+      // 封印や凍結で抜ける道があるので、後ろに置くとその間だけ姿が固まる。
+      this.stepEnemyPose(e, dt);
 
       // 継続ダメージ(1秒ごと)
       if (e.dotT > 0) {
@@ -641,6 +659,7 @@ export class BattleManager {
       e.atkTimer += dt / (1 + e.slowPct / 100);
       if (e.atkTimer >= e.interval) {
         e.atkTimer = 0;
+        this.setEnemyPose(e, 'release', POSE_RELEASE_SEC);
         this.fireEnemyProj(e);
       }
     }
@@ -751,6 +770,43 @@ export class BattleManager {
   }
 
   // 地震: 弾を飛ばさず敵全体にダメージ+画面と大地を揺らす
+  // ---- ポーズ(見た目だけ) ----
+  //
+  // 一瞬で終わるもの(撃った・被弾)は残り時間で上書きし、
+  // 切れたら「詠唱中か、そうでないか」に戻す。
+  // 共闘・決闘はサーバーが同じ考え方で決めて全員に配る。
+
+  private setPlayerPose(pose: Pose, sec: number): void {
+    this.poseT = sec;
+    setPlayerSpritePose(this.playerCont, state.charId, pose);
+  }
+
+  private stepPlayerPose(dt: number): void {
+    if (this.poseT > 0) {
+      this.poseT -= dt;
+      if (this.poseT > 0) return;
+    }
+    setPlayerSpritePose(this.playerCont, state.charId,
+      this.casting ? 'cast' : 'idle');
+  }
+
+  private setEnemyPose(e: EnemyUnit, pose: Pose, sec: number): void {
+    e.pose = pose;
+    e.poseT = sec;
+    setEnemySpritePose(e.body, e.def, pose);
+  }
+
+  private stepEnemyPose(e: EnemyUnit, dt: number): void {
+    if (e.poseT > 0) {
+      e.poseT -= dt;
+      if (e.poseT > 0) return;
+    }
+    if (e.pose !== 'idle') {
+      e.pose = 'idle';
+      setEnemySpritePose(e.body, e.def, 'idle');
+    }
+  }
+
   private castQuake(st: SpellStats): void {
     this.shake = 18;
     playSfx('quake');
@@ -847,6 +903,7 @@ export class BattleManager {
 
     e.hp -= final;
     e.flash = 0.15;
+    this.setEnemyPose(e, 'hurt', POSE_HURT_SEC);
     playSfx(crit ? 'crit' : 'hit');
     // 着弾リング(属性色)
     const ring = new Graphics();
@@ -904,6 +961,7 @@ export class BattleManager {
     this.hp -= dmg;
     this.shake = 8;
     this.hitFlash = 0.2;
+    this.setPlayerPose('hurt', POSE_HURT_SEC);
     playSfx('damage');
     this.addPopup(PLAYER_X, cy(100), `-${dmg}`, 0xff7755);
     if (this.hp <= 0) {
@@ -1071,6 +1129,31 @@ export function makePlayerSprite(charId = 0): Container {
   g.scale.set(SPRITE_SCALE); // 図形描画のときも画像と同じ大きさに揃える
   c.addChild(g);
   return c;
+}
+
+// ===== ポーズの差し替え =====
+//
+// 絵が無い環境(図形描画)では何もしない。図形で4ポーズを描き分けるのは
+// 割に合わないので、ポーズは画像素材がある時だけの表現にしてある。
+//
+// ソロ・共闘・決闘の3画面から同じ関数を呼ぶ。高さの決め方(キャラごとの倍率、
+// 敵ごとの大きさ)がここにしか無いため、ここに置いて共有する。
+
+export function setPlayerSpritePose(
+  cont: Container, charId: number, pose: Pose,
+): void {
+  const sp = cont.children[0];
+  if (!(sp instanceof Sprite)) return;
+  applyPoseTexture(sp, playerPoseTexture(charId, pose),
+    cs(100) * characterScale(charId));
+}
+
+export function setEnemySpritePose(
+  body: Graphics | Sprite, def: EnemyDef, pose: Pose,
+): void {
+  if (!(body instanceof Sprite)) return;
+  applyPoseTexture(body, enemyPoseTexture(def.shape, pose),
+    Math.abs(enemyTopY(def)));
 }
 
 export function makeEnemySprite(def: EnemyDef): { cont: Container; body: Graphics | Sprite } {

@@ -3,14 +3,16 @@
 import { Application, Container, Graphics, Sprite, Text } from 'pixi.js';
 import type { Room } from 'colyseus.js';
 import {
-  affinitySymbol, ALL_ENEMIES, bossBgmFor, ELEMENTS, ELEMENT_ORDER, enemyTopY, SPRITE_SCALE,
+  affinitySymbol, ALL_ENEMIES, bossBgmFor, ELEMENTS, ELEMENT_ORDER, enemyTopY,
+  poseName, SPRITE_SCALE,
 } from '../shared/data';
 import type { AffinityGrade, EnemyDef } from '../shared/data';
 import {
   EQUIP_MAX, LEGEND_BOSS_STAGE, RECONNECT_TRIES, RECONNECT_WAIT_MS,
 } from '../shared/data';
 import {
-  COUNT_STYLE, makeEnemySprite, makePlayerSprite, makeProjectileGfx, START_LABEL,
+  COUNT_STYLE, makeEnemySprite, makePlayerSprite, makeProjectileGfx,
+  setEnemySpritePose, setPlayerSpritePose, START_LABEL,
 } from './battle';
 import { clampCharId } from '../shared/characters';
 import { spellCooldown, spellDisplayName } from '../shared/spellcraft';
@@ -70,10 +72,15 @@ export class CoopView {
   private token = '';
   private reconnecting = false;
 
+  // art / def はポーズの差し替えに使う。
+  // どのポーズを取るかはサーバーが決めて配るので、誰の画面でも同じ絵になる。
   private pViews = new Map<
-    string, { cont: Container; nameT: Text; castT: Text; buffT: Text }
+    string,
+    { cont: Container; art: Container; nameT: Text; castT: Text; buffT: Text }
   >();
-  private eViews: { cont: Container; body: Graphics | Sprite }[] = [];
+  private eViews: {
+    cont: Container; body: Graphics | Sprite; def: EnemyDef;
+  }[] = [];
   // 今表示している敵の顔ぶれ。変わったら絵と表示を作り直す目印
   private enemySig = '';
   private anims: Anim[] = [];
@@ -828,7 +835,8 @@ export class CoopView {
           ring.ellipse(0, 2, cs(26), cs(7)).stroke({ width: 2, color: 0xffdd66, alpha: 0.9 });
           cont.addChild(ring);
         }
-        cont.addChild(makePlayerSprite(clampCharId(p.charId)));
+        const art = makePlayerSprite(clampCharId(p.charId));
+        cont.addChild(art);
         const nameT = new Text({
           text: p.name,
           style: { fill: sid === this.mySid ? 0xffdd66 : 0xccccdd, fontSize: 12, fontFamily: 'Meiryo, sans-serif' },
@@ -853,11 +861,15 @@ export class CoopView {
         buffT.position.set(0, -cs(105));
         cont.addChild(buffT);
         this.entityLayer.addChild(cont);
-        v = { cont, nameT, castT, buffT };
+        v = { cont, art, nameT, castT, buffT };
         this.pViews.set(sid, v);
       }
       v.cont.position.set(PLAYER_XS[p.slot] ?? 110, GROUND_Y);
       v.cont.alpha = p.alive ? 1 : 0.25;
+      // ポーズはサーバーが決めた番号をそのまま使う。
+      // 自分の画面だけで判断すると、通信の遅れで人によって違う絵になる。
+      setPlayerSpritePose(v.art, clampCharId(p.charId),
+        p.alive ? poseName(p.pose) : 'hurt');
       // 誰が何を詠唱しているかを表示
       v.castT.text = p.castingIdx >= 0 && p.castName ? `✦ ${p.castName}` : '';
 
@@ -910,7 +922,7 @@ export class CoopView {
       nameT.position.set(0, enemyTopY(def) - 30);
       cont.addChild(nameT);
       this.entityLayer.addChild(cont);
-      this.eViews.push({ cont, body });
+      this.eViews.push({ cont, body, def });
     }
     if (!this.statusBuilt && enemies.length > 0) this.buildEnemyStatus(enemies);
     enemies.forEach((e, i) => {
@@ -918,6 +930,7 @@ export class CoopView {
       if (!v) return;
       v.cont.alpha = e.alive ? 1 : 0.25;
       v.body.tint = e.frozen ? 0x88ccff : 0xffffff;
+      setEnemySpritePose(v.body, v.def, e.alive ? poseName(e.pose) : 'hurt');
       const s = this.statusEls[i];
       if (s) {
         s.hpFill.style.width = `${Math.max(0, e.hp / e.maxHp) * 100}%`;

@@ -1,0 +1,36 @@
+{
+  "players": [
+    "player/1.png",
+    "player/2.png",
+    "player/3.png",
+    "player/4.png",
+    "player/5.png"
+  ],
+  "background": "bg/field.jpg",
+  "enemies": {
+    "blob": "enemy/blob.png",
+    "imp": "enemy/imp.png",
+    "golem": "enemy/golem.png",
+    "wisp": "enemy/wisp.png",
+    "orb": "enemy/orb.png",
+    "beast": "enemy/beast.png",
+    "bird": "enemy/bird.png",
+    "plant": "enemy/plant.png",
+    "undead": "enemy/undead.png",
+    "knight": "enemy/knight.png",
+    "serpent": "enemy/serpent.png",
+    "insect": "enemy/insect.png",
+    "eye": "enemy/eye.png",
+    "fish": "enemy/fish.png"
+  },
+  "projectiles": {
+    "fire": "proj/fire.png",
+    "water": "proj/water.png",
+    "wind": "proj/wind.png",
+    "earth": "proj/earth.png",
+    "thunder": "proj/thunder.png",
+    "ice": "proj/ice.png",
+    "light": "proj/light.png",
+    "dark": "proj/dark.png"
+  }
+}

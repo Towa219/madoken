@@ -24,7 +24,9 @@ import {
   affinityMul, battleRP, BOSS_AOE_WARN_SEC, bossForStage, bossHpMul,
   ENEMY_ATK_MUL, ENEMY_HP_MUL,
   isBossStage,
-  pickEnemiesForStage, RECONNECT_SEC, PLAYER_MAX_HP, PLAYER_MAX_MP, PLAYER_MP_REGEN,
+  pickEnemiesForStage, POSE_CAST, POSE_HURT, POSE_HURT_SEC, POSE_IDLE,
+  POSE_RELEASE, POSE_RELEASE_SEC,
+  RECONNECT_SEC, PLAYER_MAX_HP, PLAYER_MAX_MP, PLAYER_MP_REGEN,
   stageAtkMul, stageHpMul,
 } from '../../shared/data';
 import type { AffinityGrade, EnemyDef } from '../../shared/data';
@@ -54,6 +56,7 @@ class PlayerS extends Schema {
   declare mpRegenBonus: number; // MP自然回復の上乗せ(毎秒)。0=なし
   declare castT: number;
   declare castTotal: number;
+  declare pose: number;       // 見た目のポーズ(全員の画面で同じ絵になる)
 }
 defineTypes(PlayerS, {
   name: 'string', hp: 'number', maxHp: 'number', mp: 'number', maxMp: 'number',
@@ -61,7 +64,7 @@ defineTypes(PlayerS, {
   charId: 'number',
   castingIdx: 'number', castT: 'number', castTotal: 'number', castName: 'string',
   wardPct: 'number', atkBoost: 'number', vigorBonus: 'number',
-  mpRegenBonus: 'number',
+  mpRegenBonus: 'number', pose: 'number',
 });
 
 class EnemyS extends Schema {
@@ -75,11 +78,12 @@ class EnemyS extends Schema {
   declare sealed: boolean;   // 封印(行動不能)
   declare slowed: boolean;   // 鈍化
   declare burning: boolean;  // 継続ダメージ中
+  declare pose: number;      // 見た目のポーズ(全員の画面で同じ絵になる)
 }
 defineTypes(EnemyS, {
   defId: 'string', name: 'string', hp: 'number', maxHp: 'number',
   alive: 'boolean', x: 'number', frozen: 'boolean',
-  sealed: 'boolean', slowed: 'boolean', burning: 'boolean',
+  sealed: 'boolean', slowed: 'boolean', burning: 'boolean', pose: 'number',
 });
 
 class CoopState extends Schema {
@@ -120,6 +124,7 @@ interface PInternal {
   mpRegenT: number;
   score: number;     // 戦闘スコア(クリアステージ×10+与ダメ/20)
   submitted: boolean; // ランキング送信済みか(二重送信防止)
+  poseT: number;      // 一瞬のポーズ(撃った・被弾)の残り時間
 }
 
 interface EInternal {
@@ -134,6 +139,7 @@ interface EInternal {
   dotOwner: string; // 継続ダメージの所有者(スコア加算用)
   sealedT: number;  // 封印の残り
   atkCount: number; // 何回攻撃したか(全体攻撃の周期に使う)
+  poseT: number;    // 一瞬のポーズ(撃った・被弾)の残り時間
 }
 
 export class CoopRoom extends Room<CoopState> {
@@ -196,6 +202,9 @@ export class CoopRoom extends Room<CoopState> {
     p.alive = true; p.ready = false;
     p.castingIdx = -1; p.castT = 0; p.castTotal = 0; p.castName = '';
     p.wardPct = 0; p.atkBoost = 0; p.vigorBonus = 0; p.mpRegenBonus = 0;
+    // 最初から入れておく。未設定のまま配ると、受け取った側で「まだ何も
+    // 決まっていない」状態になり、人によって別の絵が出る余地が残る。
+    p.pose = POSE_IDLE;
 
     const used = new Set<number>();
     this.state.players.forEach(q => used.add(q.slot));
@@ -243,7 +252,7 @@ export class CoopRoom extends Room<CoopState> {
       wardAttr: null, wardPct: 0, wardT: 0,
       atkBoost: 0, atkBoostT: 0, vigorBonus: 0, vigorT: 0,
       mpRegenBonus: 0, mpRegenT: 0,
-      score: 0, submitted: false,
+      score: 0, submitted: false, poseT: 0,
     });
   }
 
@@ -400,11 +409,13 @@ export class CoopRoom extends Room<CoopState> {
       e.x = xs[i];
       e.frozen = false;
       e.sealed = false; e.slowed = false; e.burning = false;
+      e.pose = POSE_IDLE;
       this.state.enemies.push(e);
       this.eInternals.push({
         def, atkTimer: Math.random() * def.interval * 0.7,
         frozenT: 0, slowPct: 0, slowT: 0,
         dotDps: 0, dotT: 0, dotTick: 0, dotOwner: '', sealedT: 0, atkCount: 0,
+        poseT: 0,
       });
     });
   }
@@ -499,15 +510,22 @@ export class CoopRoom extends Room<CoopState> {
           p.castName = '';
           p.castT = 0;
           internal.cooldowns[idx] = spellCooldown(sp.stats);
+          // 魔法が完成した瞬間の姿(撃つ・張る)を少しの間見せる
+          this.flashPlayerPose(sid, POSE_RELEASE, POSE_RELEASE_SEC);
           this.resolveCast(sid, p, sp.stats);
         }
       }
+      this.stepPlayerPose(p, internal, dt);
     });
 
     // 敵
     this.state.enemies.forEach((e, i) => {
       if (!e.alive) return;
       const ei = this.eInternals[i];
+
+      // ポーズはこの下の早期 return より前に進める。
+      // 封印や凍結で抜ける道があるので、後ろに置くとその間だけ姿が固まる。
+      this.stepEnemyPose(e, ei, dt);
 
       // 状態異常を全員に見せる(誰がかけたものでも全員の画面に出る)
       e.sealed = ei.sealedT > 0;
@@ -824,6 +842,7 @@ export class CoopRoom extends Room<CoopState> {
     const final = Math.max(1, Math.round(dmg));
 
     e.hp = Math.max(0, e.hp - final);
+    this.flashEnemyPose(idx, POSE_HURT, POSE_HURT_SEC);
     // 与ダメージ分のヘイトとスコア
     const atkInternal = this.internals.get(sid);
     if (atkInternal) {
@@ -874,6 +893,8 @@ export class CoopRoom extends Room<CoopState> {
       this.broadcast('eaoewarn', {
         i: idx, name: ei.def.name, attr: ei.def.attackAttr, sec: BOSS_AOE_WARN_SEC,
       });
+      // 予告の間はずっと溜めている姿にする(予告と絵が一致する)
+      this.flashEnemyPose(idx, POSE_CAST, BOSS_AOE_WARN_SEC);
       this.pending.push({
         t: BOSS_AOE_WARN_SEC,
         fn: () => {
@@ -894,6 +915,7 @@ export class CoopRoom extends Room<CoopState> {
             return;
           }
           this.broadcast('eaoehit', { i: idx, attr: ei.def.attackAttr });
+          this.flashEnemyPose(idx, POSE_RELEASE, POSE_RELEASE_SEC);
           this.state.players.forEach((p, sid) => {
             if (p.alive && !this.waiting.has(sid)) {
               this.damagePlayer(sid, dmg, ei.def.attackAttr);
@@ -918,6 +940,7 @@ export class CoopRoom extends Room<CoopState> {
     }
     const delayMs = 500;
     this.broadcast('eproj', { i: idx, targetSid: target.sid, delayMs });
+    this.flashEnemyPose(idx, POSE_RELEASE, POSE_RELEASE_SEC);
     const dmg = Math.round(base * (0.9 + Math.random() * 0.2));
     this.pending.push({
       t: delayMs / 1000,
@@ -927,6 +950,46 @@ export class CoopRoom extends Room<CoopState> {
         }
       },
     });
+  }
+
+  // ---- ポーズ(見た目だけ) ----
+  //
+  // 「今どんな格好をしているか」を各自の画面に判断させると、通信の遅れや
+  // 取りこぼしで人によって違う絵が出る。サーバーが決めて配れば必ず揃う。
+  //
+  // 詠唱中のように状態から分かるものは毎回計算し、撃った・被弾のように
+  // 一瞬で終わるものは残り時間を持たせて、その間だけ上書きする。
+
+  private flashPlayerPose(sid: string, pose: number, sec: number): void {
+    const p = this.state.players.get(sid);
+    const internal = this.internals.get(sid);
+    if (!p || !internal) return;
+    p.pose = pose;
+    internal.poseT = sec;
+  }
+
+  private flashEnemyPose(idx: number, pose: number, sec: number): void {
+    const e = this.state.enemies[idx];
+    const ei = this.eInternals[idx];
+    if (!e || !ei) return;
+    e.pose = pose;
+    ei.poseT = sec;
+  }
+
+  private stepPlayerPose(p: PlayerS, internal: PInternal, dt: number): void {
+    if (internal.poseT > 0) {
+      internal.poseT -= dt;
+      if (internal.poseT > 0) return; // 一瞬のポーズを見せている間は動かさない
+    }
+    p.pose = p.alive && p.castingIdx >= 0 ? POSE_CAST : POSE_IDLE;
+  }
+
+  private stepEnemyPose(e: EnemyS, ei: EInternal, dt: number): void {
+    if (ei.poseT > 0) {
+      ei.poseT -= dt;
+      if (ei.poseT > 0) return;
+    }
+    e.pose = POSE_IDLE;
   }
 
   private damagePlayer(sid: string, dmg: number, attr?: ElementId): void {
@@ -948,6 +1011,7 @@ export class CoopRoom extends Room<CoopState> {
       if (dmg <= 0) return;
     }
     p.hp = Math.max(0, p.hp - dmg);
+    this.flashPlayerPose(sid, POSE_HURT, POSE_HURT_SEC);
     this.broadcast('phit', { sid, amount: dmg });
     if (p.hp <= 0) {
       p.alive = false;

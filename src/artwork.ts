@@ -10,11 +10,20 @@
 //                          undead/knight/serpent/insect/eye/fish)
 //   proj/<属性>.png     … 弾8種(fire/water/wind/earth/thunder/ice/light/dark)
 //   bg/field.jpg        … 戦闘背景(960x540目安・透過不要なのでJPEG)
+//
+// ポーズ(あれば使う。無ければ待機の絵のまま):
+//   player/1_cast.png / 1_release.png / 1_hurt.png
+//   enemy/blob_cast.png …
 
 import { Assets, Sprite, Texture } from 'pixi.js';
 import type { ElementId } from '../shared/types';
 import type { EnemyShape } from '../shared/data';
 import { characterScale } from '../shared/characters';
+
+// idle = 待機 / cast = 詠唱中 / release = 撃った・張った / hurt = 被弾
+export type Pose = 'idle' | 'cast' | 'release' | 'hurt';
+export const MOTION_POSES = ['cast', 'release', 'hurt'] as const;
+export type MotionPose = typeof MOTION_POSES[number];
 
 interface Manifest {
   players?: string[];   // 選択できるキャラクター(並び順が選択番号)
@@ -22,6 +31,8 @@ interface Manifest {
   background?: string;
   enemies?: Partial<Record<EnemyShape, string>>;
   projectiles?: Partial<Record<ElementId, string>>;
+  playerPoses?: Partial<Record<MotionPose, string[]>>;
+  enemyPoses?: Partial<Record<MotionPose, Partial<Record<EnemyShape, string>>>>;
 }
 
 const BASE = 'img/';
@@ -60,6 +71,32 @@ export async function loadArtwork(): Promise<void> {
 
   const n = textures.size;
   if (n > 0) console.log(`[素材] 画像を${n}枚読み込みました`);
+
+  // ポーズの絵は待ってから始めない。
+  //
+  // ポーズは待機の3倍あるので、これも待つと起動が3倍遅くなる。
+  // 揃うまでは待機の絵で動かし、読めた分から順に使う。
+  // 回線の細い端末ほど恩恵が大きい(戦闘そのものは先に始められる)。
+  void loadPoses();
+}
+
+async function loadPoses(): Promise<void> {
+  const files: string[] = [];
+  for (const pose of MOTION_POSES) {
+    for (const f of manifest?.playerPoses?.[pose] ?? []) if (f) files.push(f);
+    for (const f of Object.values(manifest?.enemyPoses?.[pose] ?? {})) {
+      if (f) files.push(f);
+    }
+  }
+  if (files.length === 0) return;
+  await Promise.all(files.map(async f => {
+    try {
+      textures.set(f, await Assets.load(url(f)) as Texture);
+    } catch {
+      // 1枚欠けても他は使う(その絵だけ待機のまま)
+    }
+  }));
+  console.log(`[素材] ポーズの絵を${files.length}枚読み込みました`);
 }
 
 export function hasArtwork(): boolean {
@@ -105,6 +142,49 @@ export function playerArtUrl(charId: number): string | null {
 export function enemyArt(shape: EnemyShape, targetHeight: number): Sprite | null {
   const sp = make(manifest?.enemies?.[shape]);
   return sp ? bottomAnchored(sp, targetHeight) : null;
+}
+
+// ===== ポーズ =====
+//
+// 差し替えは Sprite の texture だけを入れ替えて行う(作り直さない)。
+// 絵ごとに縦横比が違うので、入れ替えたら必ず倍率を計算し直すこと。
+// これを忘れると、横に広いポーズだけキャラが大きく見える。
+
+function clampIndex(list: string[], i: number): number {
+  return Math.max(0, Math.min(list.length - 1, Math.floor(i)));
+}
+
+// そのポーズの絵。まだ読み込めていない・素材が無い場合は待機の絵を返す。
+export function playerPoseTexture(charId: number, pose: Pose): Texture | null {
+  if (pose !== 'idle') {
+    const list = manifest?.playerPoses?.[pose];
+    const tex = list && list.length > 0
+      ? textures.get(list[clampIndex(list, charId)])
+      : undefined;
+    if (tex) return tex;
+  }
+  const base = manifest?.players;
+  const file = base && base.length > 0
+    ? base[clampIndex(base, charId)]
+    : manifest?.player;
+  return textures.get(file ?? '') ?? null;
+}
+
+export function enemyPoseTexture(shape: EnemyShape, pose: Pose): Texture | null {
+  if (pose !== 'idle') {
+    const tex = textures.get(manifest?.enemyPoses?.[pose]?.[shape] ?? '');
+    if (tex) return tex;
+  }
+  return textures.get(manifest?.enemies?.[shape] ?? '') ?? null;
+}
+
+// スプライトを差し替える。高さは差し替え前と同じに保つ。
+export function applyPoseTexture(
+  sp: Sprite, tex: Texture | null, targetHeight: number,
+): void {
+  if (!tex || sp.texture === tex) return;
+  sp.texture = tex;
+  sp.scale.set(targetHeight / (tex.height || 1));
 }
 
 // 弾の画像(無ければ null)。中心基準。

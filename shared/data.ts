@@ -385,6 +385,28 @@ export const ENEMY_SCALE = 1.5;
 export const enemyTopY = (def: EnemyDef) =>
   SHAPE_TOP[def.shape] * def.size * SPRITE_SCALE * ENEMY_SCALE;
 
+// ===== ポーズ(見た目だけ) =====
+//
+// 共闘・決闘では、どのポーズを取っているかをサーバーが決めて全員に配る。
+// 各自の画面で勝手に判断すると、通信の遅れや取りこぼしで人によって
+// 違うポーズが見えてしまう。番号で持つのは文字列より通信量が小さいため。
+export const POSE_IDLE = 0;
+export const POSE_CAST = 1;    // 詠唱中
+export const POSE_RELEASE = 2; // 撃った・張った
+export const POSE_HURT = 3;    // 被弾
+
+// 一瞬のポーズを見せておく時間(秒)。短すぎると見えず、長すぎると次の動作に食い込む。
+export const POSE_RELEASE_SEC = 0.55;
+export const POSE_HURT_SEC = 0.45;
+
+const POSE_NAMES = ['idle', 'cast', 'release', 'hurt'] as const;
+export type PoseName = typeof POSE_NAMES[number];
+
+export function poseName(code: unknown): PoseName {
+  const n = Math.floor(Number(code));
+  return POSE_NAMES[n] ?? 'idle';
+}
+
 export const ENEMIES: EnemyDef[] = [
   // --- tier1 (ステージ1〜4) ---
   { id: 'slime', name: 'スライム', hp: 26, atk: 7, interval: 3.2, tier: 1,
