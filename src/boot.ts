@@ -98,8 +98,10 @@ async function serverVersion(): Promise<string> {
 function showUpdate(latest: string): void {
   const el = $('#update-banner');
   if (!el.classList.contains('hidden')) return; // すでに出ているなら触らない
+  // 「新しい版が出ています」と決めつけない。
+  // 入れ替えの最中など、開いている画面の方が新しいこともある。
   el.textContent =
-    `🔄 新しい版 v${latest} が出ています(この画面は v${VERSION} のままです)。`
+    `🔄 サーバー側は v${latest} です(この画面は v${VERSION})。`
     + '読み込み直すまで、直った不具合も古いまま残ります。 ';
   const btn = document.createElement('button');
   btn.textContent = '今すぐ読み込み直す';

@@ -34,7 +34,7 @@
   "_flip補足": "3・4・5は4枚とも左を向いていた(髪の流れ・杖を持つ側で分かる)。FLUX は向きの指示に従わないので、出てきた絵を見て反転で直す。",
   "_flip敵": "56枚を1枚ずつ実寸で見て、右(プレイヤーと逆)を向いていたものだけを挙げてある。丸い相手ほど間違えやすい(一覧の小さい絵では向きが分からない)。",
   "flip": [
-    "player:3", "player:4", "player:5",
+    "player:3", "player:4",
     "enemy:blob:idle", "enemy:blob:hurt",
     "enemy:bird:idle", "enemy:bird:release",
     "enemy:orb:release"
@@ -46,6 +46,8 @@
       "name": "黒金の魔女",
       "height": 400,
       "seed": 71001,
+      "_view": "この子だけ横向きにする。view があると、この文がプロンプトの先頭に来る(先頭でないと FLUX は向きの指示に従わない)。",
+      "view": "side view, seen from the side, the character stands in a three-quarter side view with the body and the face clearly turned to the side, we see the side of the face, not facing the camera",
       "prompt": "a cute anime witch girl, black long coat with gold filigree trim, oversized pointed black witch hat with a gold band, long flowing black hair, amber eyes, holding a large open spellbook that glows with golden light"
     },
     {
@@ -60,6 +62,7 @@
       "name": "紅蓮の戦導士",
       "height": 400,
       "seed": 71003,
+      "view": "side view, seen from the side, the character stands in a three-quarter side view with the body and the face clearly turned to the side, we see the side of the face, not facing the camera",
       "prompt": "a cute anime battle mage girl, crimson red leather armor with a short skirt, red cape, long bright red hair in a high ponytail, green eyes, red boots, holding a golden staff tipped with a small flame"
     },
     {
@@ -73,7 +76,9 @@
       "out": "player/5.png",
       "name": "紫紺の導師",
       "height": 400,
-      "seed": 71005,
+      "_seed": "素の種では正面のままだったので、横を向いた種に差し替えた。",
+      "seed": 71305,
+      "view": "side view, seen from the side, the character stands in a three-quarter side view with the body and the face clearly turned to the side, we see the side of the face, not facing the camera",
       "prompt": "a cute anime old archmage grandpa, short and round, deep purple robe with silver rune embroidery, long fluffy white beard, wide brimmed pointed purple hat, kind wrinkled smiling face, holding a tall gnarled wooden staff topped with a small glowing blue orb"
     }
   ],
