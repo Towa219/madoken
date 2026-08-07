@@ -62,3 +62,34 @@ npm run dev            # 別ターミナルで。http://localhost:5173 が開く
 `assets/` フォルダに PNG を置き、`Assets.load()` + `Sprite` で
 `makePlayerSprite` / `makeEnemySprite` を置き換える。
 推奨サイズ: キャラ 128×128px 程度(透過PNG)。
+
+## ランキングの管理(荒らし対応)
+
+不適切な名前がランキングに載った時の手当て。**環境変数 `ADMIN_KEY` を設定した場合のみ**使える
+(Render の Environment に足す)。設定していなければ全て 403 で拒否される。
+
+記録を消すだけでは同じ名前で登録し直せてしまうので、名前そのものを塞ぐ手段も用意してある。
+禁止にすると、**元の持ち主の端末からも**その名前は使えなくなる(名前の予約ごと外すため)。
+
+```
+# 一覧を見る(上位100件)
+curl "https://madoken.onrender.com/api/admin/ranking?key=KEY"
+
+# 記録だけ消す
+curl -X POST https://madoken.onrender.com/api/admin/ranking/remove \
+  -H "Content-Type: application/json" -d '{"key":"KEY","name":"名前"}'
+
+# 記録を消して名前も塞ぐ
+curl -X POST https://madoken.onrender.com/api/admin/ranking/remove \
+  -H "Content-Type: application/json" -d '{"key":"KEY","name":"名前","ban":true}'
+
+# 禁止名の一覧 / 解除
+curl "https://madoken.onrender.com/api/admin/ban?key=KEY"
+curl -X POST https://madoken.onrender.com/api/admin/ban \
+  -H "Content-Type: application/json" -d '{"key":"KEY","name":"名前","action":"remove"}'
+```
+
+禁止名は Upstash に保存される(未設定ならメモリのみ=再起動で消える)。
+判定は全角/半角・大文字小文字を揃えた形で行うので、表記を変えてのすり抜けはできない。
+
+動作確認: `ADMIN_KEY=testkey npm start` で起動し、`npx tsx test/ranking_admin_check.ts`

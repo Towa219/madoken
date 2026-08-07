@@ -11,10 +11,11 @@ import { LobbyChatRoom } from './rooms/LobbyChatRoom';
 import { CoopRoom } from './rooms/CoopRoom';
 import { DuelRoom } from './rooms/DuelRoom';
 import { magicRankScore, persistent, removeScore, submitScore, topRanking } from './ranking';
+import { banName, bannedNames, unbanName } from './banlist';
 import { recentConnections } from './connlog';
 import { buildReport, discordEnabled, sendNow, startDiscordReports } from './discord';
 import { presenceSnapshot } from './presence';
-import { checkName, claimName, releaseName } from './names';
+import { checkName, claimName, forceReleaseName, releaseName } from './names';
 import { deleteSave, getSave, putSave } from './save';
 import { BUILD_DATE, VERSION } from '../shared/version';
 
@@ -32,6 +33,80 @@ app.get('/api/ranking', (_req, res) => {
   void topRanking(3)
     .then(entries => res.json({ persistent, entries }))
     .catch(() => res.json({ persistent, entries: [] }));
+});
+
+// ===== ランキングの管理(ADMIN_KEY が要る) =====
+//
+// 不適切な名前が載った時に、記録を消して名前そのものを塞ぐための入口。
+// 消すだけでは同じ名前で登録し直せてしまうので、禁止名の一覧も持つ。
+//
+//   一覧   GET  /api/admin/ranking?key=KEY
+//   削除   POST /api/admin/ranking/remove  {key, name, ban}
+//   禁止名 GET  /api/admin/ban?key=KEY
+//          POST /api/admin/ban  {key, name, action: 'add' | 'remove'}
+function adminOk(req: express.Request, res: express.Response): boolean {
+  const adminKey = process.env.ADMIN_KEY;
+  if (!adminKey) {
+    res.status(403).json({ error: 'ADMIN_KEY が未設定です(Renderの環境変数に足してください)' });
+    return false;
+  }
+  const given = String(req.query.key ?? (req.body as { key?: unknown })?.key ?? '');
+  if (given !== adminKey) {
+    res.status(403).json({ error: 'キーが違います' });
+    return false;
+  }
+  return true;
+}
+
+app.get('/api/admin/ranking', (req, res) => {
+  if (!adminOk(req, res)) return;
+  const n = Math.max(1, Math.min(200, Math.floor(Number(req.query.n) || 100)));
+  void topRanking(n)
+    .then(entries => res.json({ persistent, count: entries.length, entries }))
+    .catch(() => res.json({ persistent, count: 0, entries: [] }));
+});
+
+app.post('/api/admin/ranking/remove', (req, res) => {
+  if (!adminOk(req, res)) return;
+  const body = req.body as { name?: unknown; ban?: unknown };
+  const name = String(body?.name ?? '');
+  if (!name) { res.status(400).json({ error: '名前が空です' }); return; }
+  void (async () => {
+    await removeScore(name);
+    // 名前を塞ぐ場合は、持ち主の予約も外す。
+    // 外さないと、その人の端末からは同じ名前で入り続けられる。
+    let banned = '';
+    if (body?.ban) {
+      banned = await banName(name);
+      await forceReleaseName(name);
+    }
+    res.json({ ok: true, removed: name, banned: banned || null });
+  })().catch(() => res.status(500).json({ error: '削除に失敗しました' }));
+});
+
+app.get('/api/admin/ban', (req, res) => {
+  if (!adminOk(req, res)) return;
+  void bannedNames()
+    .then(names => res.json({ count: names.length, names }))
+    .catch(() => res.json({ count: 0, names: [] }));
+});
+
+app.post('/api/admin/ban', (req, res) => {
+  if (!adminOk(req, res)) return;
+  const body = req.body as { name?: unknown; action?: unknown };
+  const name = String(body?.name ?? '');
+  const action = String(body?.action ?? 'add');
+  if (!name) { res.status(400).json({ error: '名前が空です' }); return; }
+  void (async () => {
+    if (action === 'remove') {
+      res.json({ ok: true, unbanned: await unbanName(name) });
+      return;
+    }
+    const banned = await banName(name);
+    await removeScore(name);
+    await forceReleaseName(name);
+    res.json({ ok: true, banned });
+  })().catch(() => res.status(500).json({ error: '操作に失敗しました' }));
 });
 
 // 接続ログの閲覧(管理用)。ADMIN_KEY 環境変数を設定した場合のみ有効。

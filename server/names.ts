@@ -8,6 +8,7 @@
 
 import { nicknameKey, normalizeNickname, validateNickname } from '../shared/nickname';
 import { persistent, redis } from './upstash';
+import { isBanned } from './banlist';
 
 const HKEY = 'madoken:names:v1'; // hash: 正規化した名前 → 所有トークン
 const memory = new Map<string, string>();
@@ -18,6 +19,7 @@ export interface NameResult {
 }
 
 const TAKEN = 'そのニックネームは既に他の人が使っています。別の名前にしてください。';
+const BANNED = 'そのニックネームは使用できません。別の名前にしてください。';
 
 // 名前を確保する。空いていれば登録し、自分のものなら成功、他人のものなら失敗。
 export async function claimName(rawName: unknown, rawToken: unknown): Promise<NameResult> {
@@ -27,6 +29,9 @@ export async function claimName(rawName: unknown, rawToken: unknown): Promise<Na
 
   const token = String(rawToken ?? '').slice(0, 64);
   if (!token) return { ok: false, error: '登録用のIDがありません。ページを再読み込みしてください。' };
+
+  // 使用を禁じた名前は、記録を消しても取り直せてしまうので入口で塞ぐ
+  if (await isBanned(name)) return { ok: false, error: BANNED };
 
   const key = nicknameKey(name);
 
@@ -78,6 +83,9 @@ export async function checkName(rawName: unknown, rawToken: unknown): Promise<Na
   const err = validateNickname(name);
   if (err) return { ok: false, error: err };
 
+  // 入力欄の段階で分かるようにしておく(登録して初めて弾かれると分かりにくい)
+  if (await isBanned(name)) return { ok: false, error: BANNED };
+
   const key = nicknameKey(name);
   const token = String(rawToken ?? '');
 
@@ -91,5 +99,21 @@ export async function checkName(rawName: unknown, rawToken: unknown): Promise<Na
     return !o || o === token ? { ok: true } : { ok: false, error: TAKEN };
   } catch {
     return { ok: true };
+  }
+}
+
+// 所有者を問わず名前の予約を外す(管理用)。
+//
+// 禁止名にするだけでは、既にその名前を持っている端末は
+// 自分のトークンで通り続けてしまう。予約ごと外して締め出す。
+export async function forceReleaseName(rawName: unknown): Promise<void> {
+  const key = nicknameKey(normalizeNickname(rawName));
+  if (!key) return;
+  memory.delete(key);
+  if (!persistent) return;
+  try {
+    await redis(['HDEL', HKEY, key]);
+  } catch (err) {
+    console.error('[ニックネーム] 強制解放に失敗:', (err as Error).message);
   }
 }
