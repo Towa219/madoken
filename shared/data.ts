@@ -719,6 +719,13 @@ export function bossRewardFor(stage: number): { stage: number; rarity: Rarity } 
 // 「潜らずに上位品質へ手が届く唯一の道」にしてある。
 export const GACHA_COST = 1;   // 1回に使うチケット枚数
 
+// 本番の抽選を始めるかどうか。
+//
+// false の間は「お試し」。引くと演出と結果は出るが、チケットは減らず
+// 魔法も受け取れない。見た目と手触りを確かめている間の状態で、
+// ここを true にすればそのまま本番になる(他は何も変えなくてよい)。
+export const GACHA_LIVE = false;
+
 export const GACHA_ODDS: { rarity: Rarity; pct: number }[] = [
   { rarity: 'legend', pct: 1 },
   { rarity: 'epic', pct: 7 },

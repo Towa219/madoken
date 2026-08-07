@@ -6,7 +6,8 @@
 import {
   battleRP, DEFEAT_RP_RATE,
   DISASSEMBLE_RATE, DISCOVERY_BONUS_RP, ELEMENTS, ELEMENT_ORDER, ENEMIES,
-  ENEMY_HP_MUL, BOSSES, DUEL_MAX_HP, GACHA_ODDS, GATHER_COST, GATHER_COUNT,
+  ENEMY_HP_MUL, BOSSES, DUEL_MAX_HP, GACHA_LIVE, GACHA_ODDS, GATHER_COST,
+  GATHER_COUNT,
   SLOT6_BOSS_STAGE, SLOT6_COST,
   BOSS_REWARDS, LIBRARY_BONUS_FULL_KINDS, LIBRARY_BONUS_MAX, LIBRARY_BONUS_PER_KIND,
   LIBRARY_BONUS_START, libraryBonus,
@@ -187,6 +188,14 @@ export function renderManual(): void {
   <ul>
     ${GACHA_ODDS.map(o => `<li>${RARITIES[o.rarity].name || '通常'}: <b>${o.pct}%</b></li>`).join('')}
   </ul>
+  <p><b>すでに持っている魔法が出た場合は、増えずに +1 強化されます</b>
+  (調合で同じ構成をもう一度作った時と同じ扱い。最大+${ENHANCE_MAX})。
+  引いた品質のほうが高ければ、<b>その場で品質も上がります</b> ―
+  手持ちの通常品にレジェンドを引き当てれば、レジェンドに変わります。</p>
+  <p class="man-note">すでに+${ENHANCE_MAX}で、品質も上がらない場合だけは何も変わりません。</p>
+  ${GACHA_LIVE ? '' : `<p class="man-note"><b>🔧 いまはお試し公開中です。</b>
+  引く感触を見てもらうための状態で、チケットは減らず、出た魔法も
+  受け取れません。</p>`}
   <p class="man-note">調合でエピック以上を出すのは現実的な確率ではありません。
   深く潜らずに上位品質へ手が届く、いまのところ唯一の道です。
   演出は押せば飛ばせます。</p>

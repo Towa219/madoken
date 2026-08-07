@@ -227,6 +227,16 @@ export function bestCompositionFor(
   return best;
 }
 
+// レシピ(エレメント構成)が完全一致か。
+// 「同じ魔法」の物差し。調合の強化判定とガチャの重複判定で必ず同じ物を使う。
+export function recipesEqual(a: ElementCounts, b: ElementCounts): boolean {
+  const ids = new Set([...Object.keys(a), ...Object.keys(b)]) as Set<ElementId>;
+  for (const id of ids) {
+    if ((a[id] ?? 0) !== (b[id] ?? 0)) return false;
+  }
+  return true;
+}
+
 // 授ける魔法の中身をくじで決める。系統は運任せ。
 //
 // 系統をただ1つ選んで bestCompositionFor に渡すだけでは駄目で、

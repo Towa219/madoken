@@ -11,8 +11,8 @@ import {
   TRANSMUTE_COST, transmuteResult,
 } from '../shared/data';
 import {
-  computeSpell, ENHANCE_MAX, finalStats, randomComposition, spellDisplayName,
-  spellMagicValue, spellNameFor, statsSummary,
+  computeSpell, ENHANCE_MAX, finalStats, randomComposition, recipesEqual,
+  spellDisplayName, spellMagicValue, spellNameFor, statsSummary,
 } from '../shared/spellcraft';
 import {
   addElements, addSpell, applyLoadout, deleteSpell, equipSlotNo, equipSlots,
@@ -56,15 +56,6 @@ function selCounts(): ElementCounts {
 
 function placedOf(id: ElementId): number {
   return slotSel.filter(s => s === id).length;
-}
-
-// レシピ(エレメント構成)が完全一致か
-function recipesEqual(a: ElementCounts, b: ElementCounts): boolean {
-  const ids = new Set([...Object.keys(a), ...Object.keys(b)]) as Set<ElementId>;
-  for (const id of ids) {
-    if ((a[id] ?? 0) !== (b[id] ?? 0)) return false;
-  }
-  return true;
 }
 
 // 魔導書に収まっている魔法の「種類」数(レシピが違えば別の種類)。

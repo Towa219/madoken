@@ -1,6 +1,8 @@
 // ショップのガチャ(魔導の抽選)
 //
 // チケット1枚で魔法を1本引く。品質は GACHA_ODDS の確率で決め、
+// ただし GACHA_LIVE が false の間は「お試し」で、演出と結果は出るが
+// チケットは減らず魔法も入らない。
 // 系統は運任せ。その系統が成立する構成のうち最も魔導値が高いものを作る
 // (最深部の報酬 grantBossReward と同じ作り方に揃えてある)。
 //
@@ -9,15 +11,18 @@
 // 開くたびに GPU の確保が走って重い。回転・拡大・発光は CSS の方が素直。
 
 import {
-  GACHA_COST, GACHA_ODDS, RARITIES, rollGachaRarity,
+  GACHA_COST, GACHA_LIVE, GACHA_ODDS, RARITIES, rollGachaRarity,
 } from '../shared/data';
 import {
-  computeSpell, finalStats, randomComposition, spellMagicValue, spellNameFor,
+  computeSpell, ENHANCE_MAX, finalStats, randomComposition,
+  spellDisplayName, spellMagicValue, spellNameFor,
 } from '../shared/spellcraft';
 import { addSpell, notify, save, state } from './state';
 import { showToast } from './lab';
 import { playBgm, playSfx } from './sound';
-import type { Rarity, Spell } from '../shared/types';
+import { gachaOutcomeFor } from '../shared/gacha';
+import type { GachaOutcome } from '../shared/gacha';
+import type { ElementCounts, Rarity, Spell } from '../shared/types';
 
 const $ = <T extends HTMLElement = HTMLElement>(sel: string) =>
   document.querySelector(sel) as T;
@@ -42,13 +47,8 @@ let skip: (() => void) | null = null;
 
 // ===== 抽選 =====
 
-// 引いた品質で魔法を1本こしらえる。まだ持ち物には入れない。
-function makeSpell(rarity: Rarity): Spell | null {
-  // 素材の数は今の調合スロットに合わせる(最深部の報酬と同じ扱い)。
-  // 系統を1つ選ぶだけでは、素材が足りない系統を引いた時に何も出ない。
-  const picked = randomComposition(Math.max(3, state.slots));
-  if (!picked) return null;
-  const counts = picked.counts;
+// 新しくもらう1本を組み立てる
+function newSpellOf(counts: ElementCounts, rarity: Rarity): Spell {
   const { matched } = computeSpell(counts);
   return {
     id: `sp_gacha_${Date.now()}`,
@@ -60,6 +60,31 @@ function makeSpell(rarity: Rarity): Spell | null {
     equipCount: 0,
     rarity,
   };
+}
+
+// 引いた結果。まだ持ち物には反映しない(演出の後で入れる)。
+// 新規か強化かの判断そのものは shared/gacha.ts に置いてある。
+function rollOutcome(): GachaOutcome | null {
+  const rarity = rollGachaRarity();
+  // 素材の数は今の調合スロットに合わせる(最深部の報酬と同じ扱い)。
+  // 系統を1つ選ぶだけでは、素材が足りない系統を引いた時に何も出ない。
+  const picked = randomComposition(Math.max(3, state.slots));
+  if (!picked) return null;
+  return gachaOutcomeFor(state.spells, picked.counts, rarity);
+}
+
+// 引いたものを実際に持ち物へ反映する。お試し中は呼ばない。
+function applyOutcome(o: GachaOutcome): void {
+  if (o.kind === 'new') { addSpell(newSpellOf(o.counts, o.rarity)); return; }
+  if (o.kind === 'max') return;
+  const sp = o.owned;
+  if (o.rarityUp) {
+    sp.rarity = o.rarity;
+    // 品質が変わると上位品質の真名に変わる(同じ構成なら名前は一意に決まる)
+    sp.name = spellNameFor(sp.recipe, sp.rarity);
+  }
+  sp.level = o.level;
+  sp.stats = finalStats(sp.recipe, sp.level, sp.rarity);
 }
 
 // ===== 演出 =====
@@ -136,50 +161,106 @@ export function renderShop(): void {
       + `<b>${o.pct}%</b></div>`;
   }).join('');
   $('#gacha-odds').innerHTML = rows;
+  // 本番前は、押す前に分かる場所へ断りを出す。
+  // 結果を見てから「受け取れません」では、当たった時に落胆させる。
+  $('#gacha-notice').innerHTML = GACHA_LIVE ? ''
+    : '<b>🔧 お試し公開中</b> — 引く感触を見てもらうための状態です。'
+      + 'チケットは減らず、出た魔法も受け取れません。';
 
   const have = state.tickets;
   const btn = $<HTMLButtonElement>('#gacha-draw');
-  btn.disabled = have < GACHA_COST || running;
-  $('#gacha-have').textContent = have >= GACHA_COST
-    ? `所持チケット: ${have}枚`
-    : 'チケットが足りない。1日1枚、最初に開いた時に配られる。';
+  // お試し中はチケットを使わないので、0枚でも押せる
+  btn.disabled = running || (GACHA_LIVE && have < GACHA_COST);
+  btn.textContent = GACHA_LIVE ? '引く(チケット1枚)' : '引いてみる(お試し)';
+  if (!GACHA_LIVE) {
+    $('#gacha-have').textContent =
+      `お試し中。チケットは減らず、引いた魔法も受け取れない(所持 ${have}枚)。`;
+  } else {
+    $('#gacha-have').textContent = have >= GACHA_COST
+      ? `所持チケット: ${have}枚`
+      : 'チケットが足りない。1日1枚、最初に開いた時に配られる。';
+  }
 }
 
 async function draw(): Promise<void> {
   if (running) return;
-  if (state.tickets < GACHA_COST) {
+  if (GACHA_LIVE && state.tickets < GACHA_COST) {
     showToast('チケットが足りない。明日また来よう。');
     return;
   }
-  const rarity = rollGachaRarity();
-  const spell = makeSpell(rarity);
-  if (!spell) {                       // 構成が作れない = 起こらないはずの事故
+  const outcome = rollOutcome();
+  if (!outcome) {                     // 構成が作れない = 起こらないはずの事故
     showToast('抽選に失敗した。チケットは減っていない。');
     return;
   }
 
   running = true;
-  state.tickets -= GACHA_COST;
-  save();                             // 演出の途中で閉じられても消費は確定させる
-  notify();
+  if (GACHA_LIVE) {
+    state.tickets -= GACHA_COST;
+    save();                           // 演出の途中で閉じられても消費は確定させる
+    notify();
+  }
   renderShop();
+  showResult(outcome);
 
-  const r = RARITIES[rarity];
-  $('#gacha-result-rarity').textContent = r.name || '通常';
-  $('#gacha-result-rarity').style.color = r.cssColor;
-  $('#gacha-result-name').textContent = spell.name;
-  $('#gacha-result-name').style.color = r.cssColor;
-  $('#gacha-result-note').textContent =
-    `魔導値 ${spellMagicValue(spell.stats)} / 残りチケット ${state.tickets}枚`;
-
-  await runFx(rarity);
+  // 光の柱の色は「引いた品質」で出す。重複で強化になる時も、
+  // 何を引いたのかは同じように見せる(色だけ地味にすると当たりが分からない)。
+  await runFx(outcome.rarity);
 
   // 受け取りは演出の後。先に入れると、結果を見る前に魔導書が動いて見える
-  addSpell(spell);
-  save();
-  notify();
+  if (GACHA_LIVE) {
+    applyOutcome(outcome);
+    save();
+    notify();
+  }
   running = false;
   renderShop();
+}
+
+// 結果カードの中身。重複した時は「+1」であることを一目で分かるようにする。
+function showResult(o: GachaOutcome): void {
+  const r = RARITIES[o.rarity];
+  const trial = GACHA_LIVE ? ''
+    : ' ※お試し中。実際には反映されず、チケットも減っていない。';
+
+  if (o.kind === 'new') {
+    const spell = newSpellOf(o.counts, o.rarity);
+    $('#gacha-result-rarity').textContent = r.name || '通常';
+    $('#gacha-result-rarity').style.color = r.cssColor;
+    $('#gacha-result-name').textContent = spell.name;
+    $('#gacha-result-name').style.color = r.cssColor;
+    $('#gacha-result-note').textContent =
+      `魔導値 ${spellMagicValue(spell.stats)}`
+      + (GACHA_LIVE ? ` / 残りチケット ${state.tickets}枚` : '') + trial;
+    return;
+  }
+
+  const owned = o.owned;
+  if (o.kind === 'max') {
+    $('#gacha-result-rarity').textContent = `${r.name || '通常'}(重複)`;
+    $('#gacha-result-rarity').style.color = r.cssColor;
+    $('#gacha-result-name').textContent = spellDisplayName(owned);
+    $('#gacha-result-name').style.color = RARITIES[owned.rarity].cssColor;
+    $('#gacha-result-note').textContent =
+      `すでに最大強化(+${ENHANCE_MAX})で、品質も上がらなかった。`
+      + (GACHA_LIVE ? ` / 残りチケット ${state.tickets}枚` : '') + trial;
+    return;
+  }
+
+  // 強化。品質も上がる時は、上がった後の名前を見せる
+  const after = o.rarityUp ? o.rarity : owned.rarity;
+  const shown = o.rarityUp ? spellNameFor(owned.recipe, after) : owned.name;
+  const stats = finalStats(owned.recipe, o.level, after);
+  $('#gacha-result-rarity').textContent =
+    `${r.name || '通常'}(重複 → 強化)`;
+  $('#gacha-result-rarity').style.color = r.cssColor;
+  $('#gacha-result-name').textContent = `${shown} +${o.level}`;
+  $('#gacha-result-name').style.color = RARITIES[after].cssColor;
+  $('#gacha-result-note').textContent =
+    `すでに持っている魔法。+${owned.level} → +${o.level} に強化`
+    + (o.rarityUp ? `(品質も ${RARITIES[after].name} に上がった)` : '')
+    + ` / 魔導値 ${spellMagicValue(owned.stats)} → ${spellMagicValue(stats)}`
+    + (GACHA_LIVE ? ` / 残りチケット ${state.tickets}枚` : '') + trial;
 }
 
 export function initShop(): void {

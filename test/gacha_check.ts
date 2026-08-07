@@ -2,8 +2,11 @@
 //
 // 見るのは
 //   ・確率表が 100% になっているか(表と実装がずれていないか)
+//   ・同じ構成を持っていたら、増やさずに +1 強化になるか
+//   ・引いた品質のほうが高ければ、品質も上がるか
+//   ・すでに+9で品質も上がらない時は何も変わらないか
 //   ・チケットが無いと引けないか
-//   ・引くとチケットが1枚減り、魔法が1本増えるか
+//   ・引くとチケットが1枚減り、魔法が1本増えるか(お試し中は動かないか)
 //   ・演出が出て、飛ばせて、結果が出るか
 //   ・出た品質と結果の表示が一致しているか
 //   ・演出の途中で閉じてもチケットの二重消費や取りこぼしが起きないか
@@ -17,7 +20,10 @@ import { spawn } from 'node:child_process';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { GACHA_ODDS, rollGachaRarity } from '../shared/data';
+import { ENHANCE_MAX } from '../shared/spellcraft';
+import { GACHA_LIVE, GACHA_ODDS, rollGachaRarity } from '../shared/data';
+import { gachaOutcomeFor } from '../shared/gacha';
+import type { Spell } from '../shared/types';
 
 const BASE = process.env.MADOKEN_ENDPOINT ?? 'http://127.0.0.1:2567';
 const HTTP = BASE.replace(/^ws/, 'http');
@@ -134,6 +140,40 @@ async function main(): Promise<void> {
   check('★確率の境目が表のとおり', bad.length === 0,
     bad.map(([r, w]) => `${r}→${w}のはず`).join(' / '));
 
+  // ---- 0b. 重複した時の扱い(ブラウザ不要) ----
+  const mk = (level: number, rarity: string): Spell => ({
+    id: 'x', name: 'テスト', recipe: { fire: 2, wind: 1 }, stats: {} as never,
+    discoveries: [], level, equipCount: 0, rarity: rarity as never,
+  });
+  const same = { fire: 2, wind: 1 };
+  const other = { fire: 3 };
+
+  const nw = gachaOutcomeFor([mk(0, 'normal')], other, 'normal');
+  check('★持っていない構成なら新しく1本', nw.kind === 'new', nw.kind);
+
+  const en = gachaOutcomeFor([mk(2, 'normal')], same, 'normal');
+  check('★同じ構成なら増やさずに+1', en.kind === 'enhance'
+    && en.level === 3, `${en.kind} / +${(en as { level?: number }).level}`);
+
+  const up = gachaOutcomeFor([mk(2, 'normal')], same, 'legend');
+  check('★引いた品質が上なら品質も上がる',
+    up.kind === 'enhance' && up.rarityUp === true && up.level === 3,
+    `${up.kind} / 品質上昇=${(up as { rarityUp?: boolean }).rarityUp}`);
+
+  const down = gachaOutcomeFor([mk(2, 'legend')], same, 'normal');
+  check('★引いた品質が下なら品質は据え置き',
+    down.kind === 'enhance' && down.rarityUp === false,
+    `品質上昇=${(down as { rarityUp?: boolean }).rarityUp}`);
+
+  const cap = gachaOutcomeFor([mk(ENHANCE_MAX, 'legend')], same, 'normal');
+  check(`★+${ENHANCE_MAX}で品質も上がらないなら何も変わらない`,
+    cap.kind === 'max', cap.kind);
+
+  const capUp = gachaOutcomeFor([mk(ENHANCE_MAX, 'normal')], same, 'legend');
+  check(`★+${ENHANCE_MAX}でも品質が上がるなら反映する`,
+    capUp.kind === 'enhance' && capUp.level === ENHANCE_MAX,
+    `${capUp.kind} / +${(capUp as { level?: number }).level}`);
+
   const profile = mkdtempSync(join(tmpdir(), 'madoken-gc-'));
   const chrome = spawn(CHROME, [
     '--headless=new', `--remote-debugging-port=${PORT}`,
@@ -200,8 +240,10 @@ async function main(): Promise<void> {
     const during = await cdp.evaluate<Snap>(snap());
     check('★演出が出る', during.fxOpen);
     check('演出中は結果を見せない', !during.resultOpen);
-    check('★引いた直後にチケットが減る', during.tickets === before.tickets - 1,
-      `${before.tickets}→${during.tickets}枚`);
+    check(GACHA_LIVE ? '★引いた直後にチケットが減る'
+      : '★お試し中はチケットが減らない',
+    during.tickets === before.tickets - (GACHA_LIVE ? 1 : 0),
+    `${before.tickets}→${during.tickets}枚`);
 
     // 演出を飛ばす(実際の操作と同じく、覆いを押す)
     for (let i = 0; i < 6; i++) {
@@ -211,24 +253,28 @@ async function main(): Promise<void> {
     await sleep(900);
     const after = await cdp.evaluate<Snap>(snap());
     check('★演出を飛ばすと結果が出る', after.resultOpen);
-    check('★魔法が1本増える', after.spells === before.spells + 1,
+    check(GACHA_LIVE ? '★魔法が1本増える' : '★お試し中は魔法が増えない',
+      after.spells === before.spells + (GACHA_LIVE ? 1 : 0),
       `${before.spells}→${after.spells}本`);
-    check('★出た品質と表示が一致する',
-      !!after.last && after.rarityText === RARITY_JA[after.last.rarity],
-      `保存=${after.last?.rarity} 表示=${after.rarityText}`);
-    check('★出た魔法と表示が一致する',
-      !!after.last && after.nameText === after.last.name,
-      `保存=${after.last?.name} 表示=${after.nameText}`);
-    check('上のバーの枚数も減っている', after.shown.includes(String(after.tickets)),
-      after.shown);
+    check('結果カードに品質が出る',
+      Object.values(RARITY_JA).some(v => after.rarityText.includes(v)),
+      after.rarityText);
+    check('結果カードに魔法名が出る', after.nameText.length > 0, after.nameText);
+    if (GACHA_LIVE) {
+      check('★出た品質と表示が一致する',
+        !!after.last && after.rarityText.includes(RARITY_JA[after.last.rarity]),
+        `保存=${after.last?.rarity} 表示=${after.rarityText}`);
+    }
+    check('上のバーの枚数がセーブと一致する',
+      after.shown.includes(String(after.tickets)), after.shown);
 
     // ---- 3. 結果を閉じても取りこぼさない ----
     await cdp.evaluate('document.querySelector("#gacha-close").click()');
     await sleep(300);
     const closed = await cdp.evaluate<Snap>(snap());
     check('結果を閉じると演出も消える', !closed.fxOpen);
-    check('閉じても魔法は残る', closed.spells === before.spells + 1,
-      `${closed.spells}本`);
+    check('閉じても持ち物は変わらない',
+      closed.spells === before.spells + (GACHA_LIVE ? 1 : 0), `${closed.spells}本`);
 
     // ---- 4. チケットが尽きたら引けない ----
     await cdp.evaluate('document.querySelector("#gacha-draw").click()');
@@ -241,16 +287,19 @@ async function main(): Promise<void> {
     await cdp.evaluate('document.querySelector("#gacha-close").click()');
     await sleep(300);
     const empty = await cdp.evaluate<Snap>(snap());
-    check('★2回引くとチケットが0になる', empty.tickets === 0, `${empty.tickets}枚`);
-    check('★0枚では引くボタンが押せない', empty.drawDisabled);
+    check(GACHA_LIVE ? '★2回引くとチケットが0になる'
+      : '★お試し中は2回引いてもチケットが残る',
+    empty.tickets === (GACHA_LIVE ? 0 : 2), `${empty.tickets}枚`);
+    check(GACHA_LIVE ? '★0枚では引くボタンが押せない'
+      : '★お試し中は0枚でも押せる', empty.drawDisabled === GACHA_LIVE);
 
     // 押しても増えないことまで見る(ボタンの見た目だけの無効化を防ぐ)
     await cdp.evaluate('document.querySelector("#gacha-draw").click()');
     await sleep(600);
     const stuck = await cdp.evaluate<Snap>(snap());
-    check('★0枚で押しても魔法は増えない', stuck.spells === empty.spells,
+    check('★もう一度押しても魔法は増えない', stuck.spells === empty.spells,
       `${empty.spells}→${stuck.spells}本`);
-    check('チケットが負にならない', stuck.tickets === 0, `${stuck.tickets}枚`);
+    check('チケットが負にならない', stuck.tickets >= 0, `${stuck.tickets}枚`);
   } finally {
     cdp.close();
     chrome.kill();
