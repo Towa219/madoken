@@ -63,8 +63,9 @@
    "name": "翠緑の薬導士",
    "height": 400,
    "seed": 72404,
-   "prompt": "a cute anime herbalist alchemist girl, green hooded cloak, leather satchel full of small potion bottles, braided brown hair, warm brown eyes, holding a round flask glowing with green light",
-   "_seed": "全4ポーズが反転なしで右を向く種を tools/artgen/facing.py で測って選んだ。"
+   "prompt": "a cute anime herbalist alchemist girl, green hooded cloak, leather satchel full of small potion bottles, brown hair neatly parted to both sides away from her face and swept outward behind her shoulders, no hair hanging in front of her face, both eyes and the forehead fully visible, warm brown eyes, holding a round flask glowing with green light",
+   "_seed": "全4ポーズが反転なしで右を向く種を tools/artgen/facing.py で測って選んだ。",
+   "_prompt": "三つ編みが顔にかかっていたので、髪を左右に分けて肩の後ろへ流す指定に変えた。「顔にかからない」だけでは足りず、どこへ流すかまで書かないと前に垂れる。三つ編みを残す書き方(two low side tails)も試したが、発射のポーズだけ三つ編みが顔の前に戻ったので、残さない方を採った。"
   },
   {
    "out": "player/5.png",
