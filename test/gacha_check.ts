@@ -7,7 +7,8 @@
 //   ・引いた品質のほうが高ければ、品質も上がるか
 //   ・すでに+9で品質も上がらない時は何も変わらないか
 //   ・チケットが無いと引けないか
-//   ・引くとチケットが1枚減り、魔法が1本増えるか(お試し中は動かないか)
+//   ・引くとチケットが1枚減り、当たった物(魔法か研究P)が実際に入るか
+//     (GACHA_LIVE が false の「お試し」中は、何も動かないこと)
 //   ・演出が出て、飛ばせて、結果が出るか
 //   ・出た品質と結果の表示が一致しているか
 //   ・演出の途中で閉じてもチケットの二重消費や取りこぼしが起きないか
@@ -104,7 +105,7 @@ const snap = () => `
     const fx = document.querySelector('#gacha-fx');
     const res = document.querySelector('#gacha-result');
     return {
-      tickets: s.tickets, spells: (s.spells || []).length,
+      tickets: s.tickets, spells: (s.spells || []).length, rp: s.researchP,
       last: (s.spells || []).slice(-1)[0] || null,
       fxOpen: !!fx && !fx.classList.contains('hidden'),
       resultOpen: !!res && !res.classList.contains('hidden'),
@@ -117,7 +118,8 @@ const snap = () => `
 `;
 
 interface Snap {
-  tickets: number; spells: number; last: { rarity: string; name: string } | null;
+  tickets: number; spells: number; rp: number;
+  last: { rarity: string; name: string; level: number } | null;
   fxOpen: boolean; resultOpen: boolean; rarityText: string; nameText: string;
   drawDisabled: boolean; shown: string;
 }
@@ -272,17 +274,33 @@ async function main(): Promise<void> {
     await sleep(900);
     const after = await cdp.evaluate<Snap>(snap());
     check('★演出を飛ばすと結果が出る', after.resultOpen);
-    check(GACHA_LIVE ? '★魔法が1本増える' : '★お試し中は魔法が増えない',
-      after.spells === before.spells + (GACHA_LIVE ? 1 : 0),
-      `${before.spells}→${after.spells}本`);
     check('結果カードに当たりの種類が出る',
       [...Object.values(RARITY_JA), '研究P']
         .some(v => after.rarityText.includes(v)), after.rarityText);
-    check('結果カードに魔法名が出る', after.nameText.length > 0, after.nameText);
-    if (GACHA_LIVE) {
+    check('結果カードに中身が出る', after.nameText.length > 0, after.nameText);
+
+    // 何が当たるかは運任せなので、出た内容とセーブの変化を突き合わせる
+    const gotRp = after.rarityText.includes('研究P');
+    if (!GACHA_LIVE) {
+      check('★お試し中は魔法が増えない', after.spells === before.spells,
+        `${before.spells}→${after.spells}本`);
+      check('★お試し中は研究Pも増えない', after.rp === before.rp,
+        `${before.rp}→${after.rp}`);
+    } else if (gotRp) {
+      const amount = Number(/\+(\d+)/.exec(after.nameText)?.[1] ?? 0);
+      check('★研究Pが表示どおり増える', amount > 0 && after.rp === before.rp + amount,
+        `${before.rp}→${after.rp}(表示 +${amount})`);
+      check('研究Pの回は魔法が増えない', after.spells === before.spells,
+        `${before.spells}→${after.spells}本`);
+    } else {
+      check('★魔法が1本増える', after.spells === before.spells + 1,
+        `${before.spells}→${after.spells}本`);
       check('★出た品質と表示が一致する',
         !!after.last && after.rarityText.includes(RARITY_JA[after.last.rarity]),
         `保存=${after.last?.rarity} 表示=${after.rarityText}`);
+      check('★出た魔法と表示が一致する',
+        !!after.last && after.nameText === after.last.name,
+        `保存=${after.last?.name} 表示=${after.nameText}`);
     }
     check('上のバーの枚数がセーブと一致する',
       after.shown.includes(String(after.tickets)), after.shown);
@@ -292,8 +310,8 @@ async function main(): Promise<void> {
     await sleep(300);
     const closed = await cdp.evaluate<Snap>(snap());
     check('結果を閉じると演出も消える', !closed.fxOpen);
-    check('閉じても持ち物は変わらない',
-      closed.spells === before.spells + (GACHA_LIVE ? 1 : 0), `${closed.spells}本`);
+    check('閉じても持ち物は変わらない', closed.spells === after.spells
+      && closed.rp === after.rp, `${closed.spells}本 / 研究P${closed.rp}`);
 
     // ---- 4. チケットが尽きたら引けない ----
     await cdp.evaluate('document.querySelector("#gacha-draw").click()');
@@ -316,9 +334,52 @@ async function main(): Promise<void> {
     await cdp.evaluate('document.querySelector("#gacha-draw").click()');
     await sleep(600);
     const stuck = await cdp.evaluate<Snap>(snap());
-    check('★もう一度押しても魔法は増えない', stuck.spells === empty.spells,
-      `${empty.spells}→${stuck.spells}本`);
+    check('★もう一度押しても何も増えない',
+      stuck.spells === empty.spells && stuck.rp === empty.rp,
+      `${empty.spells}→${stuck.spells}本 / 研究P${empty.rp}→${stuck.rp}`);
     check('チケットが負にならない', stuck.tickets >= 0, `${stuck.tickets}枚`);
+
+    // ---- 5. 魔法が当たる経路(乱数を固定して必ず出す) ----
+    // 何が出るかは運任せなので、上の手順では研究Pばかりの回もある。
+    // レジェンドを狙い撃ちして、受け取りと重複の扱いまで見る。
+    if (GACHA_LIVE) {
+      await openWith(5);
+      // 0 を返すと必ず先頭の当たり(レジェンド)になる。
+      // 構成の抽選も同じ乱数を使うので、系統は毎回同じものが選ばれる。
+      await cdp.evaluate('Math.random = () => 0');
+      const base = await cdp.evaluate<Snap>(snap());
+
+      const drawOnce = async () => {
+        await cdp.evaluate('document.querySelector("#gacha-draw").click()');
+        for (let i = 0; i < 8; i++) {
+          await cdp.evaluate('document.querySelector("#gacha-fx").click()');
+          await sleep(120);
+        }
+        await sleep(800);
+        const got = await cdp.evaluate<Snap>(snap());
+        await cdp.evaluate('document.querySelector("#gacha-close").click()');
+        await sleep(300);
+        return got;
+      };
+
+      const first = await drawOnce();
+      check('★レジェンドを引くと魔法が1本増える', first.spells === base.spells + 1,
+        `${base.spells}→${first.spells}本`);
+      check('★受け取った魔法がレジェンドになっている',
+        first.last?.rarity === 'legend', String(first.last?.rarity));
+      check('レジェンドと表示されている', first.rarityText.includes('レジェンド'),
+        first.rarityText);
+
+      const second = await drawOnce();
+      check('★同じものをもう一度引いても本数は増えない',
+        second.spells === first.spells, `${first.spells}→${second.spells}本`);
+      check('★代わりに +1 強化される', second.last?.level === 1,
+        `+${second.last?.level}`);
+      check('結果カードに「重複 → 強化」と出る',
+        second.rarityText.includes('重複'), second.rarityText);
+      check('チケットは2枚使われている', second.tickets === base.tickets - 2,
+        `${base.tickets}→${second.tickets}枚`);
+    }
   } finally {
     cdp.close();
     chrome.kill();
