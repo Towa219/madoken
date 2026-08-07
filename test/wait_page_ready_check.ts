@@ -151,6 +151,15 @@ async function main(): Promise<void> {
     check('予告編のボタンも出ている',
       await cdp.evaluate<boolean>(
         'document.getElementById("btn-pv").getBoundingClientRect().width > 0'));
+    check('★サムネイルが動画の縦横比で出ている',
+      await cdp.evaluate<boolean>(`
+        (() => {
+          const r = document.getElementById('pv-thumb').getBoundingClientRect();
+          if (r.width < 200) return false;
+          const ratio = r.width / r.height;
+          return Math.abs(ratio - 1280 / 704) < 0.05;   // 動画と同じ形
+        })()
+      `));
 
     // しばらく置いても、押すまで進まないこと
     await sleep(9000);
@@ -158,8 +167,9 @@ async function main(): Promise<void> {
       (await cdp.evaluate<string>(HERE)).indexOf(GAME_HOST) < 0,
       await cdp.evaluate<string>(HERE));
 
-    // 予告編を開いて閉じても、まだ入口に留まる
-    check('予告編を開ける', await cdp.click('#btn-pv'));
+    // 予告編を開いて閉じても、まだ入口に留まる。
+    // 開くのはサムネイルから ― こちらが主な入口なので、こちらで確かめる。
+    check('★サムネイルを押すと予告編が始まる', await cdp.click('#pv-thumb'));
     await sleep(3000);
     check('予告編が開く',
       await cdp.evaluate<boolean>(

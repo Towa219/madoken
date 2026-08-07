@@ -209,13 +209,17 @@ async function main(): Promise<void> {
       outside.length === 0, outside.slice(0, 3).join(' / '));
 
     // ⑦ 予告編は押すまで取りに行かない
+    //
+    // サムネイルの絵(88KB)は最初から出してよい。読ませないのは動画(21MB)。
     const pvLoaded = () => cdp.requested.some(u => u.indexOf('pv.mp4') >= 0);
-    check('★予告編は押すまで読み込まれない(21MBを先に取りに行かない)', !pvLoaded());
+    check('★予告編の動画は押すまで読み込まれない(21MBを先に取りに行かない)', !pvLoaded());
+    check('サムネイルの絵は先に出ている',
+      cdp.requested.some(u => u.indexOf('pv_poster.jpg') >= 0));
 
     // ⑧ 押すと読み込まれ、見ている間はゲームへ飛ばされない
-    if (await cdp.click('#btn-pv')) {
+    if (await cdp.click('#pv-thumb')) {
       await sleep(2500);
-      check('★押すと予告編が読み込まれる', pvLoaded());
+      check('★サムネイルを押すと予告編が読み込まれる', pvLoaded());
       check('予告編が開く',
         await cdp.evaluate<boolean>(
           '!document.getElementById("pv-modal").classList.contains("hidden")'));

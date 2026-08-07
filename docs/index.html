@@ -42,7 +42,8 @@
     display: flex; align-items: center; justify-content: center;
     padding: 20px; text-align: center;
   }
-  #box { max-width: 460px; width: 100%; }
+  /* サムネイルを載せるので少し広げてある(以前は460px) */
+  #box { max-width: 560px; width: 100%; }
 
   h1 {
     font-size: 30px; margin: 0 0 4px; letter-spacing: 1px;
@@ -109,6 +110,43 @@
 
   /* 予告編 */
   #pv-box { margin-bottom: 16px; }
+
+  /* サムネイル。動画と同じ縦横比で、押すとそのまま再生に入る。 */
+  #pv-thumb {
+    display: block; width: 100%; padding: 0; margin: 0 0 10px;
+    position: relative; overflow: hidden; cursor: pointer;
+    background: #0a0a14; border: 1px solid #3a3a5c; border-radius: 10px;
+    /* 絵が届く前から場所を取っておく。後から入ると下の文字が飛び跳ねる。 */
+    aspect-ratio: 1280 / 704;
+  }
+  #pv-thumb img {
+    display: block; width: 100%; height: 100%; object-fit: cover;
+    transition: transform 0.25s ease, filter 0.25s ease;
+  }
+  #pv-thumb:hover { border-color: #7755cc; }
+  #pv-thumb:hover img { transform: scale(1.03); filter: brightness(1.08); }
+
+  /* 再生の印。丸の中に三角を描く(画像を増やさない) */
+  .pv-play {
+    position: absolute; left: 50%; top: 50%; width: 62px; height: 62px;
+    margin: -31px 0 0 -31px; border-radius: 50%;
+    background: #0d0d1acc; border: 2px solid #ccbbee;
+    box-shadow: 0 0 18px #00000088;
+    transition: background 0.25s ease, transform 0.25s ease;
+  }
+  .pv-play::after {
+    content: ''; position: absolute; left: 24px; top: 18px;
+    border-style: solid; border-width: 12px 0 12px 19px;
+    border-color: transparent transparent transparent #eee6ff;
+  }
+  #pv-thumb:hover .pv-play { background: #4a2f8fdd; transform: scale(1.08); }
+
+  .pv-time {
+    position: absolute; right: 8px; bottom: 8px;
+    background: #05050cd9; color: #ddddee; border-radius: 4px;
+    padding: 2px 7px; font-size: 12px; letter-spacing: 0.5px;
+  }
+
   #btn-pv { font-size: 13px; padding: 9px 20px; border-color: #5533aa; color: #ccbbee; }
   #btn-pv:hover { background: #3a2a5f; }
 
@@ -151,6 +189,13 @@
   <div id="elapsed"></div>
 
   <div id="pv-box">
+    <!-- 押すと動画が始まる。絵は動画の1コマ(pv_poster.jpg)をそのまま使う。
+         枠は縦横比だけ先に決めてあるので、絵が届く前でも下の文字が飛ばない。 -->
+    <button id="pv-thumb" aria-label="予告編を再生する（45秒）">
+      <img src="pv_poster.jpg" alt="" width="1280" height="704">
+      <span class="pv-play" aria-hidden="true"></span>
+      <span class="pv-time" aria-hidden="true">0:45</span>
+    </button>
     <button class="go" id="btn-pv">▶ 予告編を見る（45秒）</button>
   </div>
 
@@ -348,6 +393,7 @@
   }
 
   document.getElementById('btn-pv').addEventListener('click', openPv);
+  document.getElementById('pv-thumb').addEventListener('click', openPv);
   document.getElementById('btn-pv-close').addEventListener('click', closePv);
   document.getElementById('btn-enter').addEventListener('click', enterGame);
   video.addEventListener('ended', function () {
