@@ -10,7 +10,9 @@
 //   ③ 本体が眠っている間、待機ページに留まって経過を出し続けるか
 //   ④ しばらく待つと「待たずに開く」の逃げ道が出るか
 //   ⑤ 本体が起きていれば、そのまま自動でゲームへ進むか
-//   ⑥ 外部(GitHub Pages と本体以外)を一切読みに行っていないか
+//   ⑥ 外部(この待機ページの配信元と本体以外)を一切読みに行っていないか
+//   ⑦ 予告編は押すまで読み込まれないか(21MBを最初から取りに行かせない)
+//   ⑧ 予告編を見ている間、勝手にゲームへ飛ばされないか
 //
 //   npx tsx test/wait_page_check.ts
 
@@ -74,6 +76,28 @@ class Cdp {
       expression: expr, awaitPromise: true, returnByValue: true,
     });
     return r.result?.result?.value as T;
+  }
+
+  // 実際の指と同じく画面の座標を押す。
+  // 見えていないボタンは押せずに false を返す。
+  async click(sel: string): Promise<boolean> {
+    const box = await this.evaluate<{ x: number; y: number } | null>(`
+      (() => {
+        const e = document.querySelector(${JSON.stringify(sel)});
+        if (!e || e.disabled) return null;
+        const r = e.getBoundingClientRect();
+        if (r.width === 0) return null;
+        return { x: r.x + r.width / 2, y: r.y + r.height / 2 };
+      })()
+    `);
+    if (!box) return false;
+    for (const type of ['mousePressed', 'mouseReleased']) {
+      await this.send('Input.dispatchMouseEvent', {
+        type, x: box.x, y: box.y, button: 'left', clickCount: 1,
+      });
+    }
+    await sleep(300);
+    return true;
   }
 
   async shot(name: string): Promise<void> {
@@ -172,12 +196,58 @@ async function main(): Promise<void> {
       (await cdp.evaluate<string>(HERE)).indexOf(GAME_HOST) < 0);
     await cdp.shot('wait_page_slow');
 
-    // ⑥ 外部を読みに行っていないか(塞ぐ前に判定する)
+    // ⑥ 外部を読みに行っていないか
+    //
+    // 許すのは「この待機ページ自身の配信元」と「ゲーム本体」だけ。
+    // 配信元を決め打ちにすると、ローカルに立てて試した時に
+    // 自分自身を外部と誤判定する(実際にやった)。
+    const selfOrigin = new URL(WAIT_URL).origin;
     const outside = cdp.requested.filter(u =>
       !u.startsWith('data:') && !u.startsWith('about:')
-      && u.indexOf('towa219.github.io') < 0 && u.indexOf(GAME_HOST) < 0);
+      && u.indexOf(selfOrigin) !== 0 && u.indexOf(GAME_HOST) < 0);
     check('★外部の読み込みが一切ない(遅い先に足を引かれない)',
       outside.length === 0, outside.slice(0, 3).join(' / '));
+
+    // ⑦ 予告編は押すまで取りに行かない
+    const pvLoaded = () => cdp.requested.some(u => u.indexOf('pv.mp4') >= 0);
+    check('★予告編は押すまで読み込まれない(21MBを先に取りに行かない)', !pvLoaded());
+
+    // ⑧ 押すと読み込まれ、見ている間はゲームへ飛ばされない
+    if (await cdp.click('#btn-pv')) {
+      await sleep(2500);
+      check('★押すと予告編が読み込まれる', pvLoaded());
+      check('予告編が開く',
+        await cdp.evaluate<boolean>(
+          '!document.getElementById("pv-modal").classList.contains("hidden")'));
+
+      // 見ている最中に本体を起こしても、画面を奪わないこと
+      await cdp.send('Network.setBlockedURLs', { urls: [] });
+      await sleep(9000);
+      check('★見ている間は勝手にゲームへ飛ばされない',
+        (await cdp.evaluate<string>(HERE)).indexOf(GAME_HOST) < 0,
+        await cdp.evaluate<string>(HERE));
+      check('準備ができたことは知らせる',
+        (await cdp.evaluate<string>(
+          'document.getElementById("pv-note").textContent ?? ""')).indexOf('準備') >= 0);
+
+      // 閉じたら送る
+      await cdp.click('#btn-pv-close');
+      let went = false;
+      for (let i = 0; i < 20; i++) {
+        await sleep(500);
+        if ((await cdp.evaluate<string>(HERE)).indexOf(GAME_HOST) >= 0) { went = true; break; }
+      }
+      check('★閉じるとゲームへ進む', went);
+      await sleep(3000);
+      check('進んだ先がゲームになっている',
+        await cdp.evaluate<boolean>('!!document.querySelector("#tab-lab")'));
+      console.log(failures === 0
+        ? '\n=== 合格 ===' : `\n=== ${failures}件 失敗 ===`);
+      await sleep(400);
+      cdp.close(); chrome.kill();
+      process.exit(failures === 0 ? 0 : 1);
+    }
+    check('予告編のボタンが押せる', false);
 
     // ⑤ 起きていれば自動で進む
     await cdp.send('Network.setBlockedURLs', { urls: [] });

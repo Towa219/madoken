@@ -96,6 +96,34 @@
   #slow { font-size: 12px; color: #8888aa; margin-top: 14px; line-height: 1.7; }
   #foot { font-size: 11px; color: #55556e; margin-top: 24px; }
 
+  /* サーバーが既に起きていた時の案内 */
+  #ready.hidden { display: none; }
+  #ready { margin-bottom: 16px; }
+  a.go.enter, button.go.enter {
+    background: #4a2f8f; border-color: #7755cc; color: #eee6ff;
+    font-size: 15px; padding: 11px 30px;
+  }
+  a.go.enter:hover, button.go.enter:hover { background: #5c3cb0; }
+  #ready-count { font-size: 12px; color: #8888aa; margin: 10px 0 0; }
+
+  /* 予告編 */
+  #pv-box { margin-bottom: 16px; }
+  #btn-pv { font-size: 13px; padding: 9px 20px; border-color: #5533aa; color: #ccbbee; }
+  #btn-pv:hover { background: #3a2a5f; }
+
+  #pv-modal {
+    position: fixed; inset: 0; z-index: 20; background: #05050cf2;
+    display: flex; align-items: center; justify-content: center; padding: 16px;
+  }
+  #pv-modal.hidden { display: none; }
+  #pv-inner { width: 100%; max-width: 900px; text-align: center; }
+  #pv-video {
+    width: 100%; height: auto; border-radius: 8px; border: 1px solid #33335a;
+    background: #000;
+  }
+  #pv-actions { display: flex; gap: 8px; justify-content: center; margin-top: 12px; }
+  #pv-note { font-size: 12px; color: #88bbaa; margin: 10px 0 0; min-height: 18px; }
+
   /* 動きを減らす設定の端末では回さない */
   @media (prefers-reduced-motion: reduce) {
     #outer, #inner { animation: none; }
@@ -121,6 +149,16 @@
   <div id="dots" aria-hidden="true"></div>
   <div id="elapsed"></div>
 
+  <div id="pv-box">
+    <button class="go" id="btn-pv">▶ 予告編を見る（45秒）</button>
+  </div>
+
+  <!-- サーバーが既に起きていた時。すぐ飛ばさず、数秒だけ選ばせる -->
+  <div id="ready" class="hidden">
+    <button class="go enter" id="btn-enter">ゲームを始める</button>
+    <p id="ready-count"></p>
+  </div>
+
   <div id="slow" class="hidden">
     まだ目を覚ましません。もう少しかかるようです。<br>
     <a class="go" id="direct" href="https://madoken.onrender.com/">待たずに開く</a>
@@ -133,6 +171,23 @@
   </div>
 
   <p id="foot">© 2026 YuriPapa</p>
+</div>
+
+<!-- 予告編。押されるまで読み込まない(preload="none")。
+     待機ページの取り柄は「すぐ出る」ことなので、21MBの動画を
+     最初から読みに行かせてはいけない。 -->
+<div id="pv-modal" class="hidden">
+  <div id="pv-inner">
+    <video id="pv-video" controls playsinline preload="none"
+           poster="pv_poster.jpg" width="1280" height="704">
+      <source src="pv.mp4" type="video/mp4">
+    </video>
+    <div id="pv-actions">
+      <button class="go" id="btn-pv-close">閉じる</button>
+      <a class="go" id="btn-pv-play" href="https://madoken.onrender.com/">今すぐ遊ぶ</a>
+    </div>
+    <p id="pv-note"></p>
+  </div>
 </div>
 
 <script>
@@ -169,12 +224,66 @@
   paint();
   var ticker = setInterval(paint, 1000);
 
-  function goGame() {
-    if (stopped) return;
+  // 予告編を見ている間は、勝手にゲームへ飛ばさない。
+  // 途中で画面が切り替わるのは、待たせるより不快なので。
+  var watching = false;
+  var readyWhileWatching = false;
+
+  // ★ サーバーが既に起きていると、1秒たらずでゲームへ飛んでしまい、
+  //   予告編を押す間もなかった(実際にそうなった)。
+  //   初めての人にだけ、数秒だけ立ち止まって選んでもらう。
+  //   2回目からはそのまま通す ― 毎回止められるのは煩わしい。
+  var SEEN_KEY = 'madoken_entered';
+  var HOLD_SEC = 6;
+
+  function firstTime() {
+    try { return !localStorage.getItem(SEEN_KEY); } catch (e) { return false; }
+  }
+
+  function markSeen() {
+    try { localStorage.setItem(SEEN_KEY, '1'); } catch (e) { /* 使えなくても構わない */ }
+  }
+
+  var holdTimer = null;
+
+  function enterGame() {
     stopped = true;
     clearInterval(ticker);
+    if (holdTimer) clearTimeout(holdTimer);
+    markSeen();
     // replace にして、ゲームから戻るを押した時にこの待機ページへ戻らないようにする
     location.replace(GAME);
+  }
+
+  function goGame() {
+    if (stopped) return;
+    if (watching) {
+      // 見終わるか閉じるまで待つ。準備ができたことだけ伝える。
+      readyWhileWatching = true;
+      document.getElementById('pv-note').textContent =
+        '✓ 準備ができました。見終わったら「今すぐ遊ぶ」へ。';
+      return;
+    }
+    if (firstTime() && !holdTimer) {
+      // 初回だけ、数秒待って選ばせる
+      clearInterval(ticker);
+      document.getElementById('lead').textContent = '✧ 準備ができました ✧';
+      document.getElementById('why').classList.add('hidden');
+      document.getElementById('slow').classList.add('hidden');
+      document.getElementById('elapsed').textContent = '';
+      document.getElementById('ready').classList.remove('hidden');
+      var left = HOLD_SEC;
+      var count = document.getElementById('ready-count');
+      count.textContent = left + '秒後に自動で始まります';
+      holdTimer = setInterval(function () {
+        left--;
+        if (watching) { return; }        // 予告編を見ている間は数えない
+        count.textContent = left + '秒後に自動で始まります';
+        if (left <= 0) { clearInterval(holdTimer); holdTimer = null; enterGame(); }
+      }, 1000);
+      return;
+    }
+    enterGame();
   }
 
   function giveUp() {
@@ -217,6 +326,41 @@
   // 起動画面は出てしまうが、ここで足止めするよりはよい。
   if (!window.fetch) { goGame(); return; }
   loop();
+
+  // ---- 予告編 ----
+  //
+  // 押されるまで読み込まない。待機ページの取り柄は「すぐ出る」ことなので、
+  // 21MBの動画を最初から取りに行かせてはいけない。
+  var modal = document.getElementById('pv-modal');
+  var video = document.getElementById('pv-video');
+
+  function openPv() {
+    watching = true;
+    modal.classList.remove('hidden');
+    document.getElementById('pv-note').textContent = '';
+    video.load();                       // ここで初めて取りに行く
+    var p = video.play();
+    if (p && p['catch']) p['catch'](function () { /* 自動再生を断られたら手で押してもらう */ });
+  }
+
+  function closePv() {
+    watching = false;
+    modal.classList.add('hidden');
+    try { video.pause(); } catch (e) { /* 既に止まっている */ }
+    // 見ている間に準備ができていたら、閉じた時点で送る。
+    // goGame ではなく enterGame を呼ぶ ― 予告編を見終わった人を
+    // もう一度「予告編を見ますか」で足止めしても仕方がない。
+    if (readyWhileWatching) enterGame();
+  }
+
+  document.getElementById('btn-pv').addEventListener('click', openPv);
+  document.getElementById('btn-pv-close').addEventListener('click', closePv);
+  document.getElementById('btn-enter').addEventListener('click', enterGame);
+  video.addEventListener('ended', function () {
+    document.getElementById('pv-note').textContent = readyWhileWatching
+      ? '✓ 準備ができました。「今すぐ遊ぶ」へ。'
+      : 'まだ起こしている最中です。閉じるとそのままお待ちいただけます。';
+  });
 
   document.getElementById('retry').addEventListener('click', function () {
     started = Date.now();
