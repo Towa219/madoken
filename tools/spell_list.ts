@@ -82,7 +82,7 @@ const rows = all.map(c => {
 const out = join(import.meta.dirname, 'spell_list.json');
 writeFileSync(out, JSON.stringify({
   作成日: new Date().toISOString().slice(0, 10),
-  条件: '強化レベル0・品質「通常」・エレメント6個以内',
+  条件: '強化レベル0・品質「通常」・エレメント6個以内・キャラの得意属性による威力加算(+10%)は含まない',
   系統数: RECIPES.length,
   件数: rows.length,
   rows,
