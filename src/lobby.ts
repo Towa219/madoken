@@ -28,6 +28,50 @@ let nick = '';
 const coop = new CoopView();
 const duel = new DuelView();
 
+// ---- 在室者の見え方を外へ渡す(個人取引が使う) ----
+//
+// 取引の画面(src/trade.ts)はロビーの接続に相乗りする。
+// 取引側から lobby.ts を呼び、lobby.ts からは取引側を呼ばない一方通行にして、
+// 読み込みの順番でどちらかが未定義になる事故を避けている。
+
+export interface LobbyMember {
+  id: string;        // sessionId(取引を申し込む宛先)
+  name: string;
+  trading: boolean;  // 別の人と取引中
+}
+
+type LobbyWatcher = () => void;
+const lobbyWatchers: LobbyWatcher[] = [];
+
+// 接続の入れ替わりと在室者の変化のたびに呼ばれる
+export function onLobbyUpdate(fn: LobbyWatcher): void {
+  lobbyWatchers.push(fn);
+  fn();
+}
+
+function emitLobbyUpdate(): void {
+  for (const fn of lobbyWatchers) fn();
+}
+
+export function lobbyRoomRef(): Room | null {
+  return lobbyRoom;
+}
+
+export function myLobbyId(): string {
+  return lobbyRoom?.sessionId ?? '';
+}
+
+export function lobbyMembers(): LobbyMember[] {
+  const st = lobbyRoom?.state as {
+    players?: { forEach(cb: (p: { name: string; trading?: boolean }, key: string) => void): void };
+  } | undefined;
+  const out: LobbyMember[] = [];
+  st?.players?.forEach((p, id) => {
+    out.push({ id, name: p.name, trading: p.trading === true });
+  });
+  return out;
+}
+
 export function coopTryCast(i: number): void {
   coop.tryCast(i);
 }
@@ -220,6 +264,7 @@ async function connect(): Promise<void> {
       name: nick, nickToken: state.nickToken,
     });
     wireLobby(lobbyRoom);
+    emitLobbyUpdate();  // 取引の画面に新しい接続を渡す
 
     autoConnect = true; // 以後は切断されても自動で繋ぎ直す
     // 戦闘中に繋ぎ直した場合、ロビーを出すと戦闘画面が隠れてしまう。
@@ -263,9 +308,13 @@ function wireLobby(room: Room): void {
   room.onMessage('chat', (msg: { name: string; text: string }) => {
     addChatLine(msg.name, msg.text);
   });
-  room.onStateChange(() => renderMembers());
+  room.onStateChange(() => {
+    renderMembers();
+    emitLobbyUpdate();
+  });
   room.onLeave((code?: number) => {
     lobbyRoom = null;
+    emitLobbyUpdate();  // 取引中なら卓を畳ませる
     // ロビーと戦闘部屋は別々の接続。ロビーが切れても戦闘は続いているので、
     // 戦闘中は画面を切り替えない(切り替えると戦闘画面が消えて
     // 「部屋が落ちた」ように見える)。

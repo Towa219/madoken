@@ -221,7 +221,50 @@
           </div>
         </div>
       </section>
+
+      <section class="panel" id="trade-panel">
+        <h2>🤝 エレメント取引 <small>ロビーに居る人と1対1で交換する</small></h2>
+        <p class="note">
+          相場は決まっている。火・水・風・土・雷・氷はどれも同じ価値で、
+          光と闇はその4個ぶん。釣り合っていない取引は成立しない。
+        </p>
+        <div id="trade-rates"></div>
+        <h3>取引を申し込む</h3>
+        <div id="trade-partners"></div>
+        <div id="trade-msg" class="note"></div>
+      </section>
     </main>
+
+    <!-- 個人取引の卓。開いている間は下の画面を触らせない -->
+    <div id="trade-modal" class="hidden" aria-hidden="true">
+      <div id="trade-invite" class="trade-card hidden">
+        <h3 id="trade-invite-title"></h3>
+        <p class="note" id="trade-invite-note"></p>
+        <div class="trade-actions">
+          <button id="btn-trade-yes" class="primary">受ける</button>
+          <button id="btn-trade-no">断る</button>
+        </div>
+      </div>
+      <div id="trade-table" class="trade-card hidden">
+        <h3 id="trade-title"></h3>
+        <div id="trade-sides">
+          <div class="trade-side">
+            <h4>あなたが出す</h4>
+            <div id="trade-mine"></div>
+          </div>
+          <div class="trade-side">
+            <h4 id="trade-theirs-title">相手が出す</h4>
+            <div id="trade-theirs"></div>
+          </div>
+        </div>
+        <div id="trade-balance"></div>
+        <div class="trade-actions">
+          <button id="btn-trade-ready" class="primary">準備完了</button>
+          <button id="btn-trade-quit">やめる</button>
+        </div>
+        <div id="trade-status" class="note"></div>
+      </div>
+    </div>
 
     <!-- ガチャ演出。全画面をかぶせるので、画面の外に置く -->
     <div id="gacha-fx" class="hidden" aria-hidden="true">

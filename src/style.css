@@ -811,6 +811,72 @@ button.tab:disabled { opacity: 0.4; cursor: not-allowed; }
   #gacha-result { animation: none; }
 }
 
+/* ===== エレメント取引(交易所) ===== */
+
+#trade-panel { margin-top: 8px; }
+#trade-panel h3 {
+  margin: 12px 0 6px; font-size: 13px; color: #bb99ff; font-weight: normal;
+}
+#trade-rates { display: flex; gap: 8px; flex-wrap: wrap; }
+.trade-rate {
+  background: #1c1c34; border: 1px solid #3a3a5c; border-radius: 8px;
+  padding: 6px 12px; font-size: 13px;
+}
+.trade-rate small { display: block; font-size: 10px; color: #8888aa; }
+
+#trade-partners { display: flex; gap: 6px; flex-wrap: wrap; min-height: 26px; }
+.trade-partner {
+  border-radius: 12px; padding: 3px 14px; font-size: 12px;
+  border-color: #5533aa; color: #ccbbee;
+}
+#trade-msg { margin-top: 8px; min-height: 16px; }
+
+/* ---- 卓 ---- */
+
+#trade-modal {
+  position: fixed; inset: 0; z-index: 60;
+  display: flex; align-items: center; justify-content: center;
+  background: #05050ceb; padding: 12px; overflow-y: auto;
+}
+#trade-modal.hidden { display: none; }
+
+.trade-card {
+  background: #1c1c34; border: 1px solid #5533aa; border-radius: 12px;
+  padding: 20px 24px; max-width: 620px; width: 100%;
+}
+.trade-card.hidden { display: none; }
+.trade-card h3 { font-size: 18px; color: #ccbbee; margin-bottom: 8px; }
+.trade-card h4 { font-size: 12px; color: #8888aa; margin-bottom: 6px; }
+
+#trade-sides { display: flex; gap: 16px; }
+.trade-side {
+  flex: 1 1 0; min-width: 0;
+  background: #14142a; border: 1px solid #2a2a45; border-radius: 8px;
+  padding: 10px;
+}
+.trade-row {
+  display: flex; align-items: center; gap: 6px; padding: 3px 0; font-size: 13px;
+}
+.trade-row.put .trade-num { color: #ffdd66; }
+.trade-elem { flex: 1 1 auto; min-width: 0; }
+.trade-row button { padding: 2px 9px; font-size: 14px; line-height: 1.2; }
+.trade-num { min-width: 22px; text-align: center; }
+.trade-rest { color: #8888aa; font-size: 10px; min-width: 40px; text-align: right; }
+
+/* 釣り合いの表示。ここが取引の可否そのものなので、色で先に伝える */
+#trade-balance {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  margin: 12px 0; padding: 8px 12px; border-radius: 8px; font-size: 14px;
+}
+#trade-balance.ok { background: #16301f; border: 1px solid #338855; }
+#trade-balance.ng { background: #2e1a1a; border: 1px solid #884444; }
+#trade-balance b { font-size: 18px; }
+#trade-balance .trade-eq { font-size: 20px; color: #aaaacc; }
+#trade-balance small { flex: 1 1 100%; font-size: 11px; color: #aaaacc; }
+
+.trade-actions { display: flex; gap: 8px; }
+#trade-status { margin: 8px 0 0; }
+
 /* 狭い画面(スマホ)では縦積み */
 @media (max-width: 900px) {
   #lab-screen { flex-direction: column; }
@@ -825,6 +891,9 @@ button.tab:disabled { opacity: 0.4; cursor: not-allowed; }
   #topbar { flex-direction: column; align-items: stretch; gap: 8px; }
   #topbar-info { justify-content: center; font-size: 12px; }
   #game-title { font-size: 24px; width: 100%; text-align: center; }
+  /* 取引の卓: 横に並べると1列が細くなりすぎて +/- が押せない */
+  #trade-sides { flex-direction: column; }
+  .trade-card { padding: 14px; }
   #topbar nav { margin-left: 0; width: 100%; justify-content: center; }
   /* ボタンは3個ずつ2段に折り返す(6個あるため) */
   #topbar nav button {

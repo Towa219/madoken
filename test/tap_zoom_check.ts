@@ -7,7 +7,7 @@
 //
 // 見るのは
 //   ・画面の中に touch-action が auto(=拡大が起きる)のままの要素が無いか
-//   ・指2本のピンチ拡大は残っているか(viewportで拡大を禁じていないか)
+//   ・viewport が v0.88.0 の判断どおりか(アプリ内ブラウザ向けに拡大を禁じている)
 //
 //   npx tsx test/tap_zoom_check.ts
 
@@ -151,17 +151,26 @@ async function main(): Promise<void> {
     }
     await sleep(3000);
 
-    // 指2本での拡大は残っていること(細かい字を読めなくなるのは困る)
+    // viewport の指定。
+    //
+    // 以前はここで「ピンチ拡大を禁じていないこと」を求めていた ―
+    // 細かい字を読めなくなるのは困る、という理由で。
+    // v0.88.0 でその判断を変え、user-scalable=no を入れてある。
+    // iOS Safari はこれを無視するので指2本の拡大は残るが、
+    // X・Discord・LINE のアプリ内ブラウザ(WKWebView)では効き、
+    // 共有リンクから開いた人の戦闘中の誤拡大が止まる。
+    // 判断を変えた側に合わせて、こちらの見張りも入れ替えた。
     const vp = await cdp.evaluate<string>(
       'document.querySelector("meta[name=viewport]")?.getAttribute("content") ?? ""');
-    check('ピンチ拡大は禁じていない',
-      !/user-scalable\s*=\s*(no|0)/.test(vp) && !/maximum-scale\s*=\s*1(\.0)?\b/.test(vp), vp);
+    check('アプリ内ブラウザ向けに拡大を禁じている(v0.88.0の判断)',
+      /user-scalable\s*=\s*no/.test(vp) && /maximum-scale\s*=\s*1(\.0)?\b/.test(vp), vp);
 
     // 主な画面をひと通り回って、拡大が起きる要素が残っていないか見る
     const tabs: [string, string][] = [
       ['#tab-lab', '研究室'],
       ["#tab-book", "発見図鑑"],
       ['#tab-battle', '戦闘'],
+      ['#tab-shop', '交易所'],
       ['#tab-manual', '説明書'],
     ];
     for (const [sel, name] of tabs) {

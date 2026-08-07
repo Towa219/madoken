@@ -15,6 +15,7 @@ import {
   SLOT3_COST, SLOT4_BOSS_STAGE, SLOT4_COST, SLOT5_BOSS_STAGE, SLOT5_COST,
   START_SLOTS, TRANSMUTE_COST,
 } from '../shared/data';
+import { ELEMENT_VALUE } from '../shared/trade';
 import { ENHANCE_MAX } from '../shared/spellcraft';
 import { NICK_MAX_FULL, NICK_MAX_WIDTH } from '../shared/nickname';
 import { INTRO_LEAD } from './intro';
@@ -204,6 +205,37 @@ export function renderManual(): void {
   <p class="man-note">調合でエピック以上を出すのは現実的な確率ではありません。
   深く潜らずに上位品質へ手が届く、いまのところ唯一の道です。
   演出は押せば飛ばせます。</p>
+</section>
+
+<section class="man-sec">
+  <h3>交易所(エレメント取引)</h3>
+  <p>交易所では<b>ロビーに居る人と1対1でエレメントを交換</b>できます。
+  相手を選んで申し込み、受けてもらえると二人ぶんの卓が開きます。
+  互いに出すものを置き、<b>二人とも「準備完了」を押した瞬間に成立</b>します。</p>
+  <p><b>相場は固定で、値切ることも吹っかけることもできません。</b>
+  ${ELEMENT_ORDER.filter(id => ELEMENT_VALUE[id] === 1)
+    .map(id => `<b style="color:${ELEMENTS[id].cssColor}">${ELEMENTS[id].name}</b>`)
+    .join('・')}
+  はどれも同じ価値で、
+  ${ELEMENT_ORDER.filter(id => ELEMENT_VALUE[id] > 1)
+    .map(id => `<b style="color:${ELEMENTS[id].cssColor}">${ELEMENTS[id].name}</b>`)
+    .join('と')}
+  はその<b>${ELEMENT_VALUE.light}個ぶん</b>です。</p>
+  <ul>
+    <li>${ELEMENTS.fire.name}1 ⇔ ${ELEMENTS.water.name}1 など、基本${
+      ELEMENT_ORDER.filter(id => ELEMENT_VALUE[id] === 1).length}種どうしは<b>1対1</b></li>
+    <li>${ELEMENTS.fire.name}${ELEMENT_VALUE.light} ⇔ ${ELEMENTS.light.name}1 ―
+    基本${ELEMENT_ORDER.filter(id => ELEMENT_VALUE[id] === 1).length}種と光・闇は<b>${
+      ELEMENT_VALUE.light}対1</b></li>
+    <li>${ELEMENTS.light.name}1 ⇔ ${ELEMENTS.dark.name}1 ― 光と闇は<b>1対1</b></li>
+  </ul>
+  <p class="man-note">卓には何種類でも混ぜて置けます。合計の価値さえ釣り合っていれば成立し、
+  釣り合っていないうちは準備完了を押せません(卓の下に今の価値が出ます)。</p>
+  <p class="man-note"><b>どちらかが中身を変えると、二人の準備完了は外れます。</b>
+  承諾した後にこっそり減らす、ということはできません。
+  手持ちが減るのは成立した時だけで、途中でやめても・回線が切れても何も失いません。</p>
+  <p class="man-note">交換で世界のエレメントが増えることはありません。
+  偏りを直したいだけなら、相手を探さずにできる<b>錬成</b>(研究室)もあります。</p>
 </section>
 
 <section class="man-sec">

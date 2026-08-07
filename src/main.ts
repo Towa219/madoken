@@ -15,6 +15,7 @@ import {
 import { initWelcome, waitForServer, watchVersion } from './boot';
 import { watchDailyBonus } from './daily';
 import { enterShop, initShop } from './gacha';
+import { initTrade, renderTradePanel, tradeInProgress } from './trade';
 import { installNoZoom } from './nozoom';
 import { renderTips } from './tips';
 import { initShare } from './share';
@@ -49,14 +50,18 @@ const TAB_BUTTONS = [
   '#tab-settings',
 ];
 
-// 戦闘中は、今表示しているタブ以外を押せなくする
+// 戦闘中・取引中は、今表示しているタブ以外を押せなくする
 function updateTabLock(): void {
-  const locked = battleInProgress();
+  const fighting = battleInProgress();
+  const locked = fighting || tradeInProgress();
+  const why = fighting
+    ? '戦闘中は移動できない(決着をつけるか撤退する)'
+    : '取引中は移動できない(取引を終えるかやめる)';
   for (const sel of TAB_BUTTONS) {
     const b = $<HTMLButtonElement>(sel);
     const keep = b.classList.contains('active');
     b.disabled = locked && !keep;
-    b.title = b.disabled ? '戦闘中は移動できない(決着をつけるか撤退する)' : '';
+    b.title = b.disabled ? why : '';
   }
 }
 
@@ -67,6 +72,13 @@ function switchTab(tab: Tab): void {
   // 戦闘中の移動を止める(ボタンを無効にしているが、念のためここでも弾く)
   if (battleInProgress()) {
     showToast('戦闘中は他の画面に移動できない。決着をつけるか撤退しよう。');
+    return;
+  }
+  // 取引の卓は画面全体をふさぐので、そもそも押せない。
+  // それでもここで弾いておく ― 卓を開いたまま素材庫を使えると、
+  // 出すと約束したエレメントを先に使えてしまう。
+  if (tradeInProgress()) {
+    showToast('取引中は他の画面に移動できない。取引を終えるかやめよう。');
     return;
   }
   playSfx('click');
@@ -84,7 +96,7 @@ function switchTab(tab: Tab): void {
   $('#tab-shop').classList.toggle('active', tab === 'shop');
   $('#tab-manual').classList.toggle('active', tab === 'manual');
   $('#tab-settings').classList.toggle('active', tab === 'settings');
-  if (tab === 'shop') enterShop();
+  if (tab === 'shop') { enterShop(); renderTradePanel(); }
   // 交易所から出たらロビーの曲に戻す(専用BGMを引きずらない)
   else if (prev === 'shop') playBgm('lobby');
   if (tab === 'manual') renderManual();
@@ -266,6 +278,7 @@ function main(): void {
   // 1日1枚のログインボーナス(日付が変わっていれば配る)
   watchDailyBonus();
   initShop();
+  initTrade();
   installNoZoom();
 
   $('#tab-lab').addEventListener('click', () => switchTab('lab'));

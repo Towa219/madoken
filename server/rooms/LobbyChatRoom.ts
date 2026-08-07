@@ -9,6 +9,7 @@ import { clientIp, logConnection } from '../connlog';
 import { setRoomPresence } from '../presence';
 import { claimName } from '../names';
 import { addLobbySink } from '../lobbyfeed';
+import { TradeTables } from '../tradeTable';
 import { clampNickname, nicknameKey, normalizeNickname } from '../../shared/nickname';
 import { CODE_REPLACED } from '../../shared/netcodes';
 
@@ -16,8 +17,9 @@ const { Room } = colyseusPkg;
 
 class LobbyPlayer extends Schema {
   declare name: string;
+  declare trading: boolean;   // 個人取引の最中(誘っても断られるので一覧で分かるようにする)
 }
-defineTypes(LobbyPlayer, { name: 'string' });
+defineTypes(LobbyPlayer, { name: 'string', trading: 'boolean' });
 
 class LobbyState extends Schema {
   declare players: MapSchema<LobbyPlayer>;
@@ -32,6 +34,25 @@ export class LobbyChatRoom extends Room<LobbyState> {
   maxClients = 50;
 
   private unsubFeed?: () => void;
+
+  // 個人取引の卓。ロビーに居る二人が向かい合って交換する。
+  // 送信手段だけを渡し、卓の決まりごとは server/tradeTable.ts に置いてある。
+  private trades = new TradeTables(
+    (sessionId, type, payload) => {
+      const target = this.clients.find(c => c.sessionId === sessionId);
+      try { target?.send(type, payload); } catch { /* 既に閉じている */ }
+      this.syncTradingFlags();
+    },
+    sessionId => this.state.players.get(sessionId)?.name ?? null,
+  );
+
+  // 在室者リストの「取引中」を実際の卓に合わせる
+  private syncTradingFlags(): void {
+    this.state.players.forEach((p, id) => {
+      const now = this.trades.isTrading(id);
+      if (p.trading !== now) p.trading = now;
+    });
+  }
 
   onCreate(): void {
     this.autoDispose = false; // 誰もいなくてもロビーは維持
@@ -48,6 +69,24 @@ export class LobbyChatRoom extends Room<LobbyState> {
       const clean = text.trim().slice(0, 200);
       if (!clean) return;
       this.broadcast('chat', { name: p.name, text: clean });
+    });
+
+    // ---- 個人取引 ----
+    this.onMessage('trade:invite', (client: Client, msg: { to?: unknown }) => {
+      this.trades.invite(client.sessionId, msg?.to);
+    });
+    this.onMessage('trade:answer', (client: Client, msg: { ok?: unknown }) => {
+      this.trades.answer(client.sessionId, msg?.ok === true);
+    });
+    this.onMessage('trade:offer', (client: Client, msg: { counts?: unknown }) => {
+      this.trades.setOffer(client.sessionId, msg?.counts);
+    });
+    this.onMessage('trade:ready', (client: Client, msg: { ready?: unknown }) => {
+      this.trades.setReady(client.sessionId, msg?.ready === true);
+    });
+    this.onMessage('trade:leave', (client: Client) => {
+      this.trades.leave(client.sessionId, '相手が取引をやめた。');
+      this.syncTradingFlags();
     });
   }
 
@@ -75,6 +114,8 @@ export class LobbyChatRoom extends Room<LobbyState> {
       const p = this.state.players.get(other.sessionId);
       if (!p || nicknameKey(p.name) !== key) continue;
       this.replaced.add(other.sessionId); // 「退出した」とは知らせない
+      // 取引の途中なら相手に伝えて畳む。名前を引ける間に呼ぶ。
+      this.trades.leave(other.sessionId, '相手の接続が入れ替わったため中止した。');
       this.state.players.delete(other.sessionId);
       // 切断コードはRenderのプロキシ越しだとクライアントに届かないことがあるため、
       // 理由はメッセージで明示的に伝えてから閉じる。
@@ -92,6 +133,7 @@ export class LobbyChatRoom extends Room<LobbyState> {
     const auth = client.auth as { name?: string } | undefined;
     const p = new LobbyPlayer();
     p.name = clampNickname(auth?.name || options?.name) || '名無し';
+    p.trading = false;
     this.dropOlderSessions(p.name, client);
     this.state.players.set(client.sessionId, p);
     logConnection('ロビー', p.name, (client.auth as { ip?: string } | undefined)?.ip ?? '');
@@ -105,11 +147,15 @@ export class LobbyChatRoom extends Room<LobbyState> {
       this.syncPresence();
       return;
     }
+    // 取引中に居なくなったら相手に伝えて畳む。
+    // 名前を使うので、在室者リストから消す前に呼ぶ。
+    this.trades.leave(client.sessionId, '相手がロビーから居なくなった。');
     const p = this.state.players.get(client.sessionId);
     if (p) {
       this.broadcast('chat', { name: 'システム', text: `${p.name} が退出した` });
     }
     this.state.players.delete(client.sessionId);
+    this.syncTradingFlags();
     this.syncPresence();
   }
 

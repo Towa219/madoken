@@ -26,7 +26,10 @@ let lastX = 0;
 let lastY = 0;
 
 // 戦闘の画面が出ているか。ソロ・共闘・決闘のどれでも止める。
-function inBattle(): boolean {
+//
+// 取引の誘い(src/trade.ts)も、戦っている最中かどうかをこれで見る。
+// 戦闘中に卓が開くと画面がふさがれて何もできなくなる。
+export function inBattleView(): boolean {
   const shown = (sel: string): boolean => {
     const el = document.querySelector(sel);
     if (!el || el.classList.contains('hidden')) return false;
@@ -38,7 +41,7 @@ function inBattle(): boolean {
 
 export function installNoZoom(): void {
   document.addEventListener('touchend', ev => {
-    if (!inBattle()) { lastTime = 0; return; }
+    if (!inBattleView()) { lastTime = 0; return; }
     const t = ev.changedTouches[0];
     if (!t) return;
     const now = ev.timeStamp || Date.now();
@@ -60,7 +63,7 @@ export function installNoZoom(): void {
   // 戦闘中に指2本で広げてしまうと、敵も魔法ボタンも画面外に出て操作できなくなる。
   for (const name of ['gesturestart', 'gesturechange', 'gestureend']) {
     document.addEventListener(name, ev => {
-      if (inBattle()) ev.preventDefault();
+      if (inBattleView()) ev.preventDefault();
     }, { passive: false });
   }
 }
