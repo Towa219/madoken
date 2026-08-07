@@ -1,4 +1,4 @@
-// ショップのガチャ(魔導の抽選)
+// 交易所のガチャ(魔導の抽選)
 //
 // チケット1枚で魔法を1本引く。品質は GACHA_ODDS の確率で決め、
 // ただし GACHA_LIVE が false の間は「お試し」で、演出と結果は出るが
@@ -303,7 +303,7 @@ export function initShop(): void {
     '<img src="img/fx/circle.png" alt="" width="180" height="180">';
 }
 
-// ショップを開いた時に呼ぶ。専用BGMに切り替える。
+// 交易所を開いた時に呼ぶ。専用BGMに切り替える。
 export function enterShop(): void {
   renderShop();
   playBgm('gacha');

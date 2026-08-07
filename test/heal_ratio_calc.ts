@@ -8,7 +8,7 @@
 
 import { computeSpell, finalStats, spellCooldown } from '../shared/spellcraft';
 import { ELEMENT_ORDER, PLAYER_MAX_HP, PLAYER_MAX_MP } from '../shared/data';
-import type { ElementCounts, ElementId } from '../shared/types';
+import type { ElementCounts, ElementId, Rarity } from '../shared/types';
 
 const MP_REGEN = 3;      // ソロ/共闘のMP自然回復(毎秒)
 const MAX_ELEMENTS = 6;  // 調合台の最大スロット
@@ -50,14 +50,30 @@ console.log(`最大HP=${PLAYER_MAX_HP}  最大MP=${PLAYER_MAX_MP}  自然回復=
 console.log('');
 
 interface Worst { c: ElementCounts; lv: number; value: number; detail: string }
-let worstRatio: Worst | null = null;
+let worstRatio: Worst | null = null;      // 通常品質だけで見た最効率
+let worstAnyRatio: Worst | null = null;   // 品質も含めた最効率
 let worstSustain: Worst | null = null;
 let healCount = 0;
+
+// 品質は消費MPを増やさない(増やすと上位品質ほど1回が重くなるだけになる)。
+// そのぶん上位品質は「同じMPで多く回復する」= 効率が良くなるので、
+// HP→MP変換を将来入れる時はこちらの数字を見ること。
+const RARITIES_TO_SCAN: Rarity[] = ['normal', 'rare', 'epic', 'legend'];
 
 for (const c of allCounts()) {
   if (computeSpell(c).stats.kind !== 'heal') continue;
   healCount++;
   for (const lv of [0, 9]) {
+    for (const r of RARITIES_TO_SCAN) {
+      const sr = finalStats(c, lv, r);
+      const rr = sr.healPower / sr.manaCost;
+      if (!worstAnyRatio || rr > worstAnyRatio.value) {
+        worstAnyRatio = {
+          c, lv, value: rr,
+          detail: `${label(c)} +${lv} ${r}: 回復${sr.healPower} / MP${sr.manaCost}`,
+        };
+      }
+    }
     const s = finalStats(c, lv);
     const cycle = spellCooldown(s) + s.castTime; // 1回に拘束される秒数
     const regen = MP_REGEN * cycle;              // その間に自然回復するMP
@@ -87,13 +103,19 @@ check('自然回復のMPだけでは撃ち続けられない',
   (worstSustain?.value ?? 0) > 0,
   `最も際どい構成 ${worstSustain?.detail} → 余裕 ${worstSustain?.value.toFixed(1)}MP`);
 
-check('MP1あたりの回復量に上限がかかっている',
+check('MP1あたりの回復量に上限がかかっている(通常品質)',
   (worstRatio?.value ?? 99) <= 2.4,
   `最効率 ${worstRatio?.value.toFixed(2)} HP/MP (${worstRatio?.detail})`);
 
+// 品質で上がるのは「効率」であって上限そのものではない。
+// レジェンドの倍率は2.0なので、通常の上限の2倍を超えたらどこかがおかしい。
+check('品質を含めても、通常の上限の2倍までに収まっている',
+  (worstAnyRatio?.value ?? 99) <= 2.4 * 2.0,
+  `最効率 ${worstAnyRatio?.value.toFixed(2)} HP/MP (${worstAnyRatio?.detail})`);
+
 console.log('');
 console.log('=== 将来HP→MP変換を入れる場合の上限 ===');
-const r = worstRatio?.value ?? 1;
+const r = worstAnyRatio?.value ?? 1;
 console.log(`回復の最効率が ${r.toFixed(2)} HP/MP なので、`);
 console.log(`変換効率を ${(1 / r).toFixed(2)} 未満にすればループは成立しない。`);
 

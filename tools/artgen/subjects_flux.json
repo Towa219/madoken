@@ -24,11 +24,13 @@
   "hurt": "struck by a spell and recoiling backward, flinching hard, eyes squeezed shut, small impact sparks around it"
  },
  "_flip補足": "FLUX は left / right の指示に従わず、種ごとに向きが変わる。作り直すと向き・頭身・姿勢が全部引き直されて別の所が崩れるので、絵は固定して反転だけで直すこと。",
- "_flip敵": "56枚を1枚ずつ実寸で見て、右(プレイヤーと逆)を向いていたものだけを挙げてある。丸い相手ほど間違えやすい(一覧の小さい絵では向きが分からない)。",
+ "_flip敵": "敵は左向きが正しい(プレイヤーと向かい合う)。ただし被弾だけは相手に背を向けて正しい。ヨルコウモリ(bird)は詠唱と発射だけ右を向いて出るので、その2枚を反転している ― ライチョウオウなどbird の姿を使う敵は全部これになる。",
  "flip": [
   "player:6",
   "player:4",
-  "player:2"
+  "player:2",
+  "enemy:bird:cast",
+  "enemy:bird:release"
  ],
  "players": [
   {

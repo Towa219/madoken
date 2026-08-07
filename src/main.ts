@@ -60,7 +60,7 @@ function updateTabLock(): void {
   }
 }
 
-// 今どのタブを見ているか。ショップから出た時に曲を戻すために覚えておく。
+// 今どのタブを見ているか。交易所から出た時に曲を戻すために覚えておく。
 let curTab: Tab = 'lab';
 
 function switchTab(tab: Tab): void {
@@ -85,7 +85,7 @@ function switchTab(tab: Tab): void {
   $('#tab-manual').classList.toggle('active', tab === 'manual');
   $('#tab-settings').classList.toggle('active', tab === 'settings');
   if (tab === 'shop') enterShop();
-  // ショップから出たらロビーの曲に戻す(専用BGMを引きずらない)
+  // 交易所から出たらロビーの曲に戻す(専用BGMを引きずらない)
   else if (prev === 'shop') playBgm('lobby');
   if (tab === 'manual') renderManual();
   if (tab === 'settings') {

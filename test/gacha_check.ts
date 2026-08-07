@@ -1,4 +1,4 @@
-// ショップのガチャを確かめる。
+// 交易所のガチャを確かめる。
 //
 // 見るのは
 //   ・確率表が 100% になっているか(表と実装がずれていないか)
@@ -129,7 +129,7 @@ const RARITY_JA: Record<string, string> = {
 };
 
 async function main(): Promise<void> {
-  console.log('=== ショップのガチャ ===');
+  console.log('=== 交易所のガチャ ===');
   console.log(`対象: ${HTTP}`);
 
   // ---- 0. 確率表(ブラウザを立ち上げずに確かめられる分) ----
@@ -245,11 +245,11 @@ async function main(): Promise<void> {
       await sleep(600);
     };
 
-    // ---- 1. ショップが開けて、確率表が出る ----
+    // ---- 1. 交易所が開けて、確率表が出る ----
     await openWith(2);
     const opened = await cdp.evaluate<boolean>(
       '!document.querySelector("#shop-screen").classList.contains("hidden")');
-    check('★ショップのタブが開く', opened);
+    check('★交易所のタブが開く', opened);
     const odds = await cdp.evaluate<number>(
       'document.querySelectorAll("#gacha-odds .gacha-odd").length');
     check('確率表が出ている', odds === GACHA_PRIZES.length, `${odds}件`);

@@ -47,7 +47,7 @@ body {
 }
 #rp-display { color: #ffdd66; font-weight: bold; }
 #power-display { color: #ff9977; font-weight: bold; }
-/* ガチャチケット(1日1枚のログインボーナス)。使い道はショップができてから */
+/* ガチャチケット(1日1枚のログインボーナス)。使い道は交易所ができてから */
 #ticket-display { color: #88ddff; font-weight: bold; }
 #online-count { font-size: 12px; color: #88ddaa; }
 
@@ -70,7 +70,7 @@ button {
 button:hover:not(:disabled) { background: #3a3a5f; }
 button:disabled { opacity: 0.4; cursor: default; }
 button.tab.active { background: #5533aa; border-color: #7755cc; }
-/* 未実装のタブ(ショップ)。押せないことがひと目で分かるようにする */
+/* 未実装のタブ(交易所)。押せないことがひと目で分かるようにする */
 button.tab:disabled { opacity: 0.4; cursor: not-allowed; }
 #btn-reset { font-size: 11px; opacity: 0.6; }
 
@@ -695,7 +695,7 @@ button.tab:disabled { opacity: 0.4; cursor: not-allowed; }
 #coop-overlay h2.win { color: #88ddaa; font-size: 22px; margin-bottom: 12px; }
 #coop-overlay h2.lose { color: #ff8877; font-size: 22px; margin-bottom: 12px; }
 
-/* ===== ショップ(ガチャ) ===== */
+/* ===== 交易所(ガチャ) ===== */
 
 #gacha-box { display: flex; gap: 24px; align-items: center; flex-wrap: wrap; }
 #gacha-art img {

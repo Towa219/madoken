@@ -2,7 +2,7 @@
 //
 // 見るのは
 //   ・上のメニューが「戦闘」だけになり、「オンライン」が消えているか
-//   ・「戦闘」の右に「ショップ」があり、押すと開くか
+//   ・「戦闘」の右に「交易所」があり、押すと開くか
 //   ・戦闘タブに、出撃準備とオンラインの両方が出ているか
 //   ・ステージを選んでも、すぐには始まらないか(選ぶ=挑むではない)
 //   ・選んだステージが、ソロと共闘部屋の両方に使われるか
@@ -110,7 +110,7 @@ const pickStage = (n: number) => `
 `;
 
 async function main(): Promise<void> {
-  console.log('=== 戦闘タブ(オンラインと合併)とショップ ===');
+  console.log('=== 戦闘タブ(オンラインと合併)と交易所 ===');
   console.log(`対象: ${HTTP}`);
 
   const profile = mkdtempSync(join(tmpdir(), 'madoken-bt-'));
@@ -161,15 +161,15 @@ async function main(): Promise<void> {
 
     const iBattle = tabs.findIndex(t => t.id === 'tab-battle');
     const iShop = tabs.findIndex(t => t.id === 'tab-shop');
-    check('★「ショップ」がある', iShop >= 0);
-    check('★「ショップ」は戦闘のすぐ右', iShop === iBattle + 1,
-      `戦闘=${iBattle} / ショップ=${iShop}`);
-    check('★「ショップ」が押せる', tabs[iShop]?.disabled === false);
+    check('★「交易所」がある', iShop >= 0);
+    check('★「交易所」は戦闘のすぐ右', iShop === iBattle + 1,
+      `戦闘=${iBattle} / 交易所=${iShop}`);
+    check('★「交易所」が押せる', tabs[iShop]?.disabled === false);
 
-    // 押すとショップが開き、研究室は引っ込む
+    // 押すと交易所が開き、研究室は引っ込む
     await cdp.evaluate("document.querySelector('#tab-shop').click()");
     await sleep(600);
-    check('★押すとショップが開く',
+    check('★押すと交易所が開く',
       await cdp.evaluate<boolean>(visible('#shop-screen')));
     check('研究室は引っ込む',
       !await cdp.evaluate<boolean>(visible('#lab-screen')));

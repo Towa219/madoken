@@ -313,10 +313,20 @@ export function finalStats(
   if (s.kind === 'seal') { s.sealTime = sealTimeAt(base, L); s.coolTime = sealCoolOf(L); }
   if (s.kind === 'empower') s.atkBoost = atkBoostOf(s);
   if (s.kind === 'focus') s.mpRegenBonus = mpRegenBonusOf(s);
-  // 強化で回復量が増えた分、消費MPの下限も上がる(MP1あたりの効率は一定に保つ)。
-  // 下限にも強化ぶんの割引を効かせる。効かせないと回復だけMPが下がらない。
+  // 回復の下限MPは「品質ぶんを除いた回復量」から決める。
+  //
+  // 最終回復量から決めていた頃は、品質で回復量が増えたぶんだけMPも増えた。
+  // 攻撃魔法は品質が上がってもMPは据え置き(=同じMPで倍の威力)なのに、
+  // 回復だけ効率が変わらず、1回が重くなるだけになっていた。
+  // レジェンドの慈雨(光4水2)は 38→76 とMPが倍になり、最大MP150の半分を
+  // 1回で持っていっていた。「上位品質なのにMPが多すぎる」の正体はこれ。
+  //
+  // 回復量は品質倍率に比例するので、割り戻せば品質ぶんだけを外せる。
+  // 強化ぶんは今までどおり下限に効かせる ― 強化まで外すと、自然回復の
+  // MPだけで撃ち続けられるようになる(test/heal_ratio_calc.ts が見張っている)。
   if (s.kind === 'heal') {
-    s.manaCost = Math.max(s.manaCost, Math.round(healManaFloor(s) * ease));
+    s.manaCost = Math.max(
+      s.manaCost, Math.round(healManaFloor(s) / rDef.mul * ease));
   }
   if (s.dotTime > 0) s.dotDps = dotDpsOf(s);
   return s;
