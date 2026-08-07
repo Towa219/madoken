@@ -207,15 +207,9 @@ def gen_player(subj, num, pose, seed=None):
     # 絵そのものを揃えないと並べた時に見劣りする)。
     body = s.get('body') or subj['player_body']
     view = s.get('view') or subj['player_view']
-    # 視線の指定(gaze)。顔がこちらを向きすぎる子にだけ足す。
-    #
-    # 左右で書いても FLUX は従わないので、「体の向いている方を見る」と
-    # 体の向きに結びつけて書く。こう書けば flip で左右を直した時に
-    # 視線も一緒に付いてくる。
-    # 被弾には効かせない。のけぞって顔をそむけるのが正しい姿で、
-    # そこに「前を見る」を足すと顔が壊れる(実際に一度壊した)。
-    if pose != 'hurt' and s.get('gaze'):
-        view = f"{view}, {s['gaze']}"
+    # 視線をここで指示してはいけない。「体の向いている方を見る」と足しただけで
+    # 顔だけでなく体まで回り、真横向きになってしまった(紅蓮で実際に起きた)。
+    # 視線だけ直したい時は絵を引き直さず、eye_shift.py で黒目を寄せること。
     p = (f"{view}, {s['prompt']}, {subj['player_poses'][pose]}, "
          f"{body}, {style_of(subj, False)}")
     img = generate(p, PLAYER_W, PLAYER_H, pose_seed(s, pose, seed))

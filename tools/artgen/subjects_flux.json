@@ -56,9 +56,7 @@
    "seed": 78304,
    "prompt": "a cute anime battle mage girl, a long crimson red robe coat that reaches all the way down to her ankles and completely covers her legs, dark leather armor pieces on the shoulders, a red cape, long bright red hair in a high ponytail, green eyes, holding a golden staff tipped with a small flame",
    "_seed": "顔の崩れない種に戻した(強い視線指定を入れた種は被弾の顔が壊れた)。",
-   "_prompt": "他の5人は長いローブやコートで脚が隠れている。この子だけ短いスカートとブーツで脚が出ていたため、同じ頭身の指定でも1人だけ脚長に見えていた。衣装を丈の長いコートに変えて輪郭を揃える。",
-   "gaze": "she is looking straight ahead in the same direction her body is turned, her head follows her shoulders instead of turning back toward the camera, both pupils are shifted toward the far corners of her eyes so that her gaze follows the tip of her nose, she is watching a distant enemy ahead of her and is not making eye contact with the viewer",
-   "_gaze": "顔と視線がこちらを向きすぎていたため。体の向きに結びつけて書いてある。"
+   "_prompt": "他の5人は長いローブやコートで脚が隠れている。この子だけ短いスカートとブーツで脚が出ていたため、同じ頭身の指定でも1人だけ脚長に見えていた。衣装を丈の長いコートに変えて輪郭を揃える。"
   },
   {
    "out": "player/4.png",
@@ -159,5 +157,5 @@
  },
  "_player_view": "向きの指定は文の先頭に置く。末尾だと FLUX は従わず、ほぼ正面で描いてしまう。顔と体を別々に書くのが肝心で、体だけ書くと「体は斜め・顔は正面」のちぐはぐな絵になる。左右は指示しても従わないので、出てきた絵を見て flip で直す。",
  "_enemy_view": "プレイヤーと同じ考え方。完全な横向きではなく、少し正面に体を向けた45度にする。",
- "_gaze": "視線の指定。顔がこちらを向きすぎる子にだけ足す。左右で書いてもFLUX は従わないので「体の向いている方を見る」と体の向きに結びつけて書く。被弾のポーズには効かせない(顔をそむけるのが正しく、前を見せると顔が壊れる)。"
+ "_視線": "視線はプロンプトで指示しない。「体の向いている方を見る」と足しただけで体まで回って真横向きになった(紅蓮)。引き直した後に視線を直したい時はeye_shift.py で黒目を寄せる。紅蓮の待機・詠唱・発射の3枚は`python eye_shift.py player/3.png player/3_cast.png player/3_release.png --ratio 0.22` を通してある(引き直したら掛け直すこと)。"
 }
