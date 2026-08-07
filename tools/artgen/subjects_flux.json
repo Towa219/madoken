@@ -27,6 +27,7 @@
  "_flip敵": "56枚を1枚ずつ実寸で見て、右(プレイヤーと逆)を向いていたものだけを挙げてある。丸い相手ほど間違えやすい(一覧の小さい絵では向きが分からない)。",
  "flip": [
   "player:6",
+  "player:4",
   "player:2"
  ],
  "players": [
@@ -63,7 +64,7 @@
    "height": 400,
    "seed": 71004,
    "prompt": "a cute anime herbalist alchemist girl, green hooded cloak, leather satchel full of small potion bottles, braided brown hair, warm brown eyes, holding a round flask glowing with green light",
-   "_seed": "v0.59.0 の絵に戻した(指定により)。この種は反転しなくても右を向く ―だから flip から player:4 を外してある。",
+   "_seed": "v0.59.0 の絵に戻した(指定により)。当時と同じく flip で左右を直している。",
    "_絵": "いま置いてある絵は v0.59.0(8e5fe91)から取り出して左右反転したもの。引き直しても同じにはならない(頭身の共通指定 player_body とplayer_view が当時と違う)。作り直す時は、まずこの4枚を退避すること。"
   },
   {
