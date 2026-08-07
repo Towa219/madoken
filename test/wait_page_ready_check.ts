@@ -3,11 +3,13 @@
 // test/wait_page_check.ts は眠っている状態(通信を塞ぐ)を見ている。
 // こちらはその逆で、起きている時に起きること:
 //
-//   ・初めての人は、いきなりゲームへ飛ばされない
+//   ・いきなりゲームへ飛ばされない
 //     (実際に1秒たらずで飛んで、予告編を押す間もなかった)
 //   ・「ゲームを始める」と「予告編を見る」が選べる
-//   ・予告編を見ている間は、数え上げが止まる
-//   ・2回目からは止められずにそのまま通る
+//   ・★ 何度開いても同じであること
+//     「初めての人だけ止める」にしたら、一度通った人は二度と
+//     予告編に辿り着けなくなった。同じ穴に落ちないよう2回見る。
+//   ・押すまで勝手に進まない
 //
 //   npx tsx test/wait_page_ready_check.ts
 
@@ -146,40 +148,50 @@ async function main(): Promise<void> {
     check('「ゲームを始める」が押せる状態で出ている',
       await cdp.evaluate<boolean>(
         '!document.getElementById("ready").classList.contains("hidden")'));
-    check('自動で始まるまでの秒数が出ている',
-      /\d+秒後/.test(await cdp.evaluate<string>(
-        'document.getElementById("ready-count").textContent ?? "" ')));
+    check('予告編のボタンも出ている',
+      await cdp.evaluate<boolean>(
+        'document.getElementById("btn-pv").getBoundingClientRect().width > 0'));
 
-    // 予告編を開くと数え上げが止まる
-    const before = await cdp.evaluate<string>(
-      'document.getElementById("ready-count").textContent ?? ""');
+    // しばらく置いても、押すまで進まないこと
+    await sleep(9000);
+    check('★押すまで勝手にゲームへ進まない',
+      (await cdp.evaluate<string>(HERE)).indexOf(GAME_HOST) < 0,
+      await cdp.evaluate<string>(HERE));
+
+    // 予告編を開いて閉じても、まだ入口に留まる
     check('予告編を開ける', await cdp.click('#btn-pv'));
-    await sleep(4000);
-    check('★予告編を見ている間は数え上げが止まる',
-      (await cdp.evaluate<string>(
-        'document.getElementById("ready-count").textContent ?? ""')) === before,
-      before);
-    check('見ている間はゲームへ飛ばされない',
+    await sleep(3000);
+    check('予告編が開く',
+      await cdp.evaluate<boolean>(
+        '!document.getElementById("pv-modal").classList.contains("hidden")'));
+    await cdp.click('#btn-pv-close');
+    await sleep(1500);
+    check('閉じても入口に留まる',
       (await cdp.evaluate<string>(HERE)).indexOf(GAME_HOST) < 0);
 
-    // 閉じたらゲームへ
-    await cdp.click('#btn-pv-close');
+    // 押したらゲームへ
+    check('「ゲームを始める」を押せる', await cdp.click('#btn-enter'));
     let went = false;
     for (let i = 0; i < 24; i++) {
       await sleep(500);
       if ((await cdp.evaluate<string>(HERE)).indexOf(GAME_HOST) >= 0) { went = true; break; }
     }
-    check('★閉じるとゲームへ進む', went);
+    check('★押すとゲームへ進む', went);
 
-    // ---- 2回目(2度目からは止めない) ----
-    await open(cdp);
-    let quick = false;
-    for (let i = 0; i < 20; i++) {
-      await sleep(400);
-      if ((await cdp.evaluate<string>(HERE)).indexOf(GAME_HOST) >= 0) { quick = true; break; }
+    // ---- 2回目・3回目も同じであること ----
+    //
+    // 「初めての人だけ止める」で作った時は、ここで素通りしてしまい、
+    // 予告編に辿り着けなくなっていた。何度開いても同じでなければならない。
+    for (const n of [2, 3]) {
+      await open(cdp);
+      await sleep(4000);
+      check(`★${n}回目も入口で止まる(素通りしない)`,
+        (await cdp.evaluate<string>(HERE)).indexOf(GAME_HOST) < 0,
+        await cdp.evaluate<string>(HERE));
+      check(`${n}回目も予告編のボタンが出ている`,
+        await cdp.evaluate<boolean>(
+          'document.getElementById("btn-pv").getBoundingClientRect().width > 0'));
     }
-    check('★2回目からは止められずそのまま入れる', quick,
-      quick ? '' : await cdp.evaluate<string>(HERE));
   } catch (err) {
     check('例外なく通る', false, (err as Error).message);
   } finally {

@@ -79,6 +79,7 @@
   #why b { color: #ddddee; }
 
   #dots { display: flex; gap: 7px; justify-content: center; margin-bottom: 8px; }
+  #dots.hidden { display: none; }
   #dots span {
     width: 9px; height: 9px; border-radius: 50%;
     background: #2a2a4a; border: 1px solid #44446a;
@@ -230,29 +231,36 @@
   var readyWhileWatching = false;
 
   // ★ サーバーが既に起きていると、1秒たらずでゲームへ飛んでしまい、
-  //   予告編を押す間もなかった(実際にそうなった)。
-  //   初めての人にだけ、数秒だけ立ち止まって選んでもらう。
-  //   2回目からはそのまま通す ― 毎回止められるのは煩わしい。
-  var SEEN_KEY = 'madoken_entered';
-  var HOLD_SEC = 6;
-
-  function firstTime() {
-    try { return !localStorage.getItem(SEEN_KEY); } catch (e) { return false; }
-  }
-
-  function markSeen() {
-    try { localStorage.setItem(SEEN_KEY, '1'); } catch (e) { /* 使えなくても構わない */ }
-  }
-
-  var holdTimer = null;
+  //   予告編を押す間もなかった。
+  //
+  //   最初は「初めての人だけ止める」にしたが、それも駄目だった ―
+  //   一度でも通った人は二度と予告編に辿り着けない。作者本人が
+  //   何度も開くので、実際にすぐ再現した。
+  //
+  //   いま採っているのは「待った人だけ自動で送る」という決め方。
+  //     ・眠っていて待たされた → 待ちが終わったのだから、そのまま送る
+  //     ・最初から起きていた   → そもそも待っていない。ここは入口として
+  //                              見せ、押して入ってもらう(自動で送らない)
+  //   これなら誰でも、何度でも、予告編に辿り着ける。
+  var WAITED_SEC = 3;      // これ以上かかったら「待たされた」とみなす
 
   function enterGame() {
     stopped = true;
     clearInterval(ticker);
-    if (holdTimer) clearTimeout(holdTimer);
-    markSeen();
     // replace にして、ゲームから戻るを押した時にこの待機ページへ戻らないようにする
     location.replace(GAME);
+  }
+
+  function showEntrance() {
+    clearInterval(ticker);
+    document.getElementById('lead').textContent = '✧ 準備ができました ✧';
+    document.getElementById('why').classList.add('hidden');
+    document.getElementById('slow').classList.add('hidden');
+    document.getElementById('dots').classList.add('hidden');
+    document.getElementById('elapsed').textContent = '';
+    document.getElementById('ready').classList.remove('hidden');
+    document.getElementById('ready-count').textContent =
+      'いつでもどうぞ。先に予告編を見ることもできます。';
   }
 
   function goGame() {
@@ -264,23 +272,10 @@
         '✓ 準備ができました。見終わったら「今すぐ遊ぶ」へ。';
       return;
     }
-    if (firstTime() && !holdTimer) {
-      // 初回だけ、数秒待って選ばせる
-      clearInterval(ticker);
-      document.getElementById('lead').textContent = '✧ 準備ができました ✧';
-      document.getElementById('why').classList.add('hidden');
-      document.getElementById('slow').classList.add('hidden');
-      document.getElementById('elapsed').textContent = '';
-      document.getElementById('ready').classList.remove('hidden');
-      var left = HOLD_SEC;
-      var count = document.getElementById('ready-count');
-      count.textContent = left + '秒後に自動で始まります';
-      holdTimer = setInterval(function () {
-        left--;
-        if (watching) { return; }        // 予告編を見ている間は数えない
-        count.textContent = left + '秒後に自動で始まります';
-        if (left <= 0) { clearInterval(holdTimer); holdTimer = null; enterGame(); }
-      }, 1000);
+    if (sec() < WAITED_SEC) {
+      // 待っていない = 最初から起きていた。入口として見せる。
+      stopped = true;
+      showEntrance();
       return;
     }
     enterGame();
@@ -348,8 +343,7 @@
     modal.classList.add('hidden');
     try { video.pause(); } catch (e) { /* 既に止まっている */ }
     // 見ている間に準備ができていたら、閉じた時点で送る。
-    // goGame ではなく enterGame を呼ぶ ― 予告編を見終わった人を
-    // もう一度「予告編を見ますか」で足止めしても仕方がない。
+    // 待たされていた人は、見終わったのだからそのまま送ってよい。
     if (readyWhileWatching) enterGame();
   }
 
