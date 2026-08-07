@@ -3,6 +3,7 @@
 // 見るのは
 //   ・上のメニューが「戦闘」だけになり、「オンライン」が消えているか
 //   ・「戦闘」の右に「交易所」があり、押すと開くか
+//   ・並びが 研究室 / 戦闘 / 交易所 / 発見図鑑 / 説明書 / ⚙設定 か
 //   ・戦闘タブに、出撃準備とオンラインの両方が出ているか
 //   ・ステージを選んでも、すぐには始まらないか(選ぶ=挑むではない)
 //   ・選んだステージが、ソロと共闘部屋の両方に使われるか
@@ -165,6 +166,14 @@ async function main(): Promise<void> {
     check('★「交易所」は戦闘のすぐ右', iShop === iBattle + 1,
       `戦闘=${iBattle} / 交易所=${iShop}`);
     check('★「交易所」が押せる', tabs[iShop]?.disabled === false);
+
+    // 並びは 研究室 / 戦闘 / 交易所 / 発見図鑑 / 説明書 / ⚙設定。
+    // 遊ぶ順(作る→戦う→交換する)を左に、調べ物を右にまとめてある。
+    const iBook = tabs.findIndex(t => t.id === 'tab-book');
+    const iManual = tabs.findIndex(t => t.id === 'tab-manual');
+    check('★「発見図鑑」は交易所と説明書の間',
+      iBook === iShop + 1 && iManual === iBook + 1,
+      `交易所=${iShop} / 発見図鑑=${iBook} / 説明書=${iManual}`);
 
     // 押すと交易所が開き、研究室は引っ込む
     await cdp.evaluate("document.querySelector('#tab-shop').click()");

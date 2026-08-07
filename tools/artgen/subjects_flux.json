@@ -24,13 +24,17 @@
   "hurt": "struck by a spell and recoiling backward, flinching hard, eyes squeezed shut, small impact sparks around it"
  },
  "_flip補足": "FLUX は left / right の指示に従わず、種ごとに向きが変わる。作り直すと向き・頭身・姿勢が全部引き直されて別の所が崩れるので、絵は固定して反転だけで直すこと。",
- "_flip敵": "敵は左向きが正しい(プレイヤーと向かい合う)。ただし被弾だけは相手に背を向けて正しい。ヨルコウモリ(bird)は詠唱と発射だけ右を向いて出るので、その2枚を反転している ― ライチョウオウなどbird の姿を使う敵は全部これになる。",
+ "_flip敵": "敵は左向きが正しい(プレイヤーと向かい合う)。ただし被弾だけは相手に背を向けて正しい。ヨルコウモリ(bird)は詠唱と発射だけ右を向いて出るので、その2枚を反転している ― ライチョウオウなどbird の姿を使う敵は全部これになる。スライム(blob)は逆に被弾だけが正しく、待機・詠唱・発射の3枚が右を向いて出るので、そちらを反転している。",
+ "_flip書き方": "1枚ずつ指定する形(enemy:blob:idle)を使うこと。ポーズを省いた形(enemy:blob)は「4枚すべて」の意味になり、右向きで正しい被弾まで巻き添えで反転する。",
  "flip": [
   "player:6",
   "player:4",
   "player:2",
   "enemy:bird:cast",
-  "enemy:bird:release"
+  "enemy:bird:release",
+  "enemy:blob:idle",
+  "enemy:blob:cast",
+  "enemy:blob:release"
  ],
  "players": [
   {

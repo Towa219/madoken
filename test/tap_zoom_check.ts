@@ -168,9 +168,9 @@ async function main(): Promise<void> {
     // 主な画面をひと通り回って、拡大が起きる要素が残っていないか見る
     const tabs: [string, string][] = [
       ['#tab-lab', '研究室'],
-      ["#tab-book", "発見図鑑"],
       ['#tab-battle', '戦闘'],
       ['#tab-shop', '交易所'],
+      ['#tab-book', '発見図鑑'],
       ['#tab-manual', '説明書'],
     ];
     for (const [sel, name] of tabs) {

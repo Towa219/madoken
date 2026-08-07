@@ -45,8 +45,9 @@ function battleInProgress(): boolean {
   return battle.isActive() || inBattleView();
 }
 
+// 画面に並んでいる順(index.html の nav と同じにしておく)
 const TAB_BUTTONS = [
-  '#tab-lab', '#tab-book', '#tab-battle', '#tab-shop', '#tab-manual',
+  '#tab-lab', '#tab-battle', '#tab-shop', '#tab-book', '#tab-manual',
   '#tab-settings',
 ];
 
