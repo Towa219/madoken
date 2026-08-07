@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<!--
+  魔導研究記《まどけん》 ― 入口(待機ページ)
+
+  ★ このページは GitHub Pages が出す。ゲーム本体(Render)とは別の場所にある。
+
+  なぜ分けてあるか:
+    ゲーム本体は無料プランで動かしていて、15分ほど誰も遊ばないと眠る。
+    起こすのに30〜60秒かかり、その間 Render の起動画面が出る。
+    初めて来た人はそれを見て「壊れている」と思ってしまう。
+
+    眠っている間、こちらのサーバーは何も動いていない ― 本体の中に
+    どんな案内を書いても、そもそも配れない。だから常に起きている場所に
+    この1枚だけを置き、ここでお待たせしてから本体へ送る。
+
+  ★ ここは絶対にサーバーへ依存させないこと。
+    外部の CSS・フォント・スクリプトも読まない(読みに行った先が遅いと、
+    肝心の「すぐ出る」が崩れる)。絵は同じ場所に置いた2枚だけ。
+    文字は絵が届く前に読めるようにしてある。
+-->
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>魔導研究記《まどけん》</title>
+<meta name="description" content="調合で魔法を作る、ブラウザで遊べる多人数の魔法研究ゲーム。">
+<meta property="og:type" content="website">
+<meta property="og:title" content="魔導研究記《まどけん》">
+<meta property="og:description" content="調合で魔法を作る、ブラウザで遊べる多人数の魔法研究ゲーム。">
+<meta property="og:url" content="https://towa219.github.io/madoken/">
+<!-- OGPの絵もこちら側に置く。本体側を指すと、眠っている時に
+     取りに来た相手(SNSの下読み)が絵を拾えず、カードが崩れる。 -->
+<meta property="og:image" content="https://towa219.github.io/madoken/ogp.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://towa219.github.io/madoken/ogp.png">
+<style>
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0; background: #0d0d1a; color: #ddddee;
+    font-family: "Hiragino Kaku Gothic ProN", "Yu Gothic", "Meiryo", sans-serif;
+    display: flex; align-items: center; justify-content: center;
+    padding: 20px; text-align: center;
+  }
+  #box { max-width: 460px; width: 100%; }
+
+  h1 {
+    font-size: 30px; margin: 0 0 4px; letter-spacing: 1px;
+    background: linear-gradient(135deg, #ddbbff, #8866ee 55%, #66ddff);
+    -webkit-background-clip: text; background-clip: text;
+    -webkit-text-fill-color: transparent; color: #bb99ff;
+  }
+  .sub { font-size: 12px; color: #777799; margin: 0 0 22px; }
+
+  /* 魔法陣。絵が届く前でも高さを取っておく(文字が飛び跳ねない) */
+  #circles {
+    position: relative; width: 180px; height: 180px; margin: 0 auto 20px;
+  }
+  #circles i {
+    position: absolute; inset: 0; display: block;
+    background-repeat: no-repeat; background-position: center;
+    background-size: contain; opacity: 0.85;
+  }
+  /* 外と内を逆に回す。同じ向きだと1枚の絵に見えて動きが出ない */
+  #outer { background-image: url('circle.png'); animation: spin 14s linear infinite; }
+  #inner {
+    background-image: url('circle_inner.png'); transform: scale(0.62);
+    animation: spin-back 9s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @keyframes spin-back { to { transform: scale(0.62) rotate(-360deg); } }
+
+  #lead { font-size: 17px; color: #ccbbee; margin: 0 0 14px; font-weight: bold; }
+  #why {
+    font-size: 13px; line-height: 1.8; color: #aaaacc; margin: 0 0 18px;
+    text-align: left; background: #16162a; border: 1px solid #2a2a45;
+    border-radius: 8px; padding: 12px 14px;
+  }
+  #why b { color: #ddddee; }
+
+  #dots { display: flex; gap: 7px; justify-content: center; margin-bottom: 8px; }
+  #dots span {
+    width: 9px; height: 9px; border-radius: 50%;
+    background: #2a2a4a; border: 1px solid #44446a;
+  }
+  #dots span.on { background: #8866ee; border-color: #aa88ff; }
+  #elapsed { font-size: 12px; color: #8888aa; min-height: 18px; margin-bottom: 16px; }
+
+  a.go, button.go {
+    display: inline-block; background: #2a2a4a; color: #ddddee;
+    border: 1px solid #44446a; border-radius: 6px; padding: 8px 18px;
+    font-size: 13px; font-family: inherit; text-decoration: none; cursor: pointer;
+  }
+  a.go:hover, button.go:hover { background: #3a3a5f; }
+  .hidden { display: none; }
+  #slow { font-size: 12px; color: #8888aa; margin-top: 14px; line-height: 1.7; }
+  #foot { font-size: 11px; color: #55556e; margin-top: 24px; }
+
+  /* 動きを減らす設定の端末では回さない */
+  @media (prefers-reduced-motion: reduce) {
+    #outer, #inner { animation: none; }
+  }
+</style>
+</head>
+<body>
+<div id="box">
+  <h1>魔導研究記《まどけん》</h1>
+  <p class="sub">調合で魔法を作る、多人数の魔法研究ゲーム</p>
+
+  <div id="circles" aria-hidden="true"><i id="outer"></i><i id="inner"></i></div>
+
+  <p id="lead">✧ 魔導炉に火を入れています ✧</p>
+
+  <div id="why">
+    誰も遊んでいない間、この世界は<b>眠っています</b>。
+    いま起こしているところです ―
+    <b>故障ではありません</b>ので、そのままお待ちください。<br>
+    初回は<b>30〜60秒</b>ほどかかります。準備ができ次第、<b>自動で始まります</b>。
+  </div>
+
+  <div id="dots" aria-hidden="true"></div>
+  <div id="elapsed"></div>
+
+  <div id="slow" class="hidden">
+    まだ目を覚ましません。もう少しかかるようです。<br>
+    <a class="go" id="direct" href="https://madoken.onrender.com/">待たずに開く</a>
+  </div>
+
+  <div id="failed" class="hidden">
+    <p id="failmsg">うまく起こせませんでした。時間をおいてもう一度お試しください。</p>
+    <button class="go" id="retry">もう一度ためす</button>
+    <a class="go" href="https://madoken.onrender.com/">そのまま開く</a>
+  </div>
+
+  <p id="foot">© 2026 YuriPapa</p>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  var GAME  = 'https://madoken.onrender.com/';
+  var PROBE = 'https://madoken.onrender.com/api/status';
+
+  var DOTS      = 8;
+  var FULL_SEC  = 60;    // 印が全部灯るまでの秒数(目安の表示にだけ使う)
+  var SLOW_SEC  = 25;    // これを過ぎたら「待たずに開く」も出す
+  var GIVEUP_SEC = 180;  // ここまでで諦めて、選んでもらう
+  var TRY_MS    = 25000; // 1回の問い合わせを待つ上限
+
+  var started = Date.now();
+  var stopped = false;
+
+  var dotsBox = document.getElementById('dots');
+  for (var i = 0; i < DOTS; i++) dotsBox.appendChild(document.createElement('span'));
+  var dots = dotsBox.children;
+
+  function sec() { return Math.round((Date.now() - started) / 1000); }
+
+  function paint() {
+    var s = sec();
+    var lit = Math.min(DOTS, Math.floor((s / FULL_SEC) * DOTS) + 1);
+    for (var i = 0; i < DOTS; i++) {
+      dots[i].className = i < lit ? 'on' : '';
+    }
+    document.getElementById('elapsed').textContent = '経過 ' + s + '秒';
+    if (s >= SLOW_SEC) document.getElementById('slow').classList.remove('hidden');
+  }
+  paint();
+  var ticker = setInterval(paint, 1000);
+
+  function goGame() {
+    if (stopped) return;
+    stopped = true;
+    clearInterval(ticker);
+    // replace にして、ゲームから戻るを押した時にこの待機ページへ戻らないようにする
+    location.replace(GAME);
+  }
+
+  function giveUp() {
+    stopped = true;
+    clearInterval(ticker);
+    document.getElementById('lead').textContent = '⚠ 目を覚ましませんでした';
+    document.getElementById('why').classList.add('hidden');
+    document.getElementById('slow').classList.add('hidden');
+    document.getElementById('failed').classList.remove('hidden');
+  }
+
+  // 1回の問い合わせ。眠っている相手は、起きるまで返事を返さずに
+  // つないだまま待たせてくることがある。放っておくと止まって見えるので、
+  // 上限を決めて切り、掛け直す。
+  function probe() {
+    var ctrl = ('AbortController' in window) ? new AbortController() : null;
+    var timer = setTimeout(function () { if (ctrl) ctrl.abort(); }, TRY_MS);
+    var opts = { cache: 'no-store' };
+    if (ctrl) opts.signal = ctrl.signal;
+    return fetch(PROBE, opts).then(function (res) {
+      clearTimeout(timer);
+      return res.ok;
+    })['catch'](function () {
+      clearTimeout(timer);
+      return false;
+    });
+  }
+
+  function loop() {
+    if (stopped) return;
+    probe().then(function (awake) {
+      if (stopped) return;
+      if (awake) { goGame(); return; }
+      if (sec() >= GIVEUP_SEC) { giveUp(); return; }
+      setTimeout(loop, 2000);
+    });
+  }
+
+  // fetch が無いほど古い入れ物では、待たせずにそのまま送る。
+  // 起動画面は出てしまうが、ここで足止めするよりはよい。
+  if (!window.fetch) { goGame(); return; }
+  loop();
+
+  document.getElementById('retry').addEventListener('click', function () {
+    started = Date.now();
+    stopped = false;
+    document.getElementById('lead').textContent = '✧ 魔導炉に火を入れています ✧';
+    document.getElementById('why').classList.remove('hidden');
+    document.getElementById('failed').classList.add('hidden');
+    paint();
+    ticker = setInterval(paint, 1000);
+    loop();
+  });
+})();
+</script>
+</body>
+</html>
