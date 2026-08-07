@@ -6,7 +6,7 @@
 import {
   battleRP, DEFEAT_RP_RATE,
   DISASSEMBLE_RATE, DISCOVERY_BONUS_RP, ELEMENTS, ELEMENT_ORDER, ENEMIES,
-  ENEMY_HP_MUL, BOSSES, DUEL_MAX_HP, GATHER_COST, GATHER_COUNT,
+  ENEMY_HP_MUL, BOSSES, DUEL_MAX_HP, GACHA_ODDS, GATHER_COST, GATHER_COUNT,
   SLOT6_BOSS_STAGE, SLOT6_COST,
   BOSS_REWARDS, LIBRARY_BONUS_FULL_KINDS, LIBRARY_BONUS_MAX, LIBRARY_BONUS_PER_KIND,
   LIBRARY_BONUS_START, libraryBonus,
@@ -176,6 +176,20 @@ export function renderManual(): void {
     <li>第6スロット: <b>ステージ${SLOT6_BOSS_STAGE}のボス撃破</b> + 研究P${SLOT6_COST}(上限)</li>
   </ul>
   <p class="man-note">スロットが増えるほど複雑な系統に手が届きますが、成功率は下がります。</p>
+</section>
+
+<section class="man-sec">
+  <h3>ショップ(ガチャ)</h3>
+  <p><b>ガチャチケット</b>は1日1枚、その日に初めて開いた時に配られます。
+  枚数は上のバーに出ます。</p>
+  <p>チケット1枚で魔法を1本引けます。系統は運任せで、その系統で作れる
+  いちばん強い構成で生まれます。素材の数は今の調合スロットに合わせます。</p>
+  <ul>
+    ${GACHA_ODDS.map(o => `<li>${RARITIES[o.rarity].name || '通常'}: <b>${o.pct}%</b></li>`).join('')}
+  </ul>
+  <p class="man-note">調合でエピック以上を出すのは現実的な確率ではありません。
+  深く潜らずに上位品質へ手が届く、いまのところ唯一の道です。
+  演出は押せば飛ばせます。</p>
 </section>
 
 <section class="man-sec">

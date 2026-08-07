@@ -695,6 +695,122 @@ button.tab:disabled { opacity: 0.4; cursor: not-allowed; }
 #coop-overlay h2.win { color: #88ddaa; font-size: 22px; margin-bottom: 12px; }
 #coop-overlay h2.lose { color: #ff8877; font-size: 22px; margin-bottom: 12px; }
 
+/* ===== ショップ(ガチャ) ===== */
+
+#gacha-box { display: flex; gap: 24px; align-items: center; flex-wrap: wrap; }
+#gacha-art img {
+  display: block; filter: drop-shadow(0 0 12px #4488ff88);
+  animation: gacha-idle 18s linear infinite;
+}
+#gacha-side { flex: 1 1 320px; }
+#gacha-side h3 { color: #bb99ff; font-size: 18px; margin-bottom: 6px; }
+#gacha-odds { display: flex; gap: 8px; flex-wrap: wrap; margin: 12px 0; }
+.gacha-odd {
+  background: #1c1c34; border: 1px solid #3a3a5c; border-radius: 8px;
+  padding: 6px 12px; font-size: 13px;
+}
+.gacha-odd b { margin-left: 8px; }
+#gacha-have { margin-top: 8px; }
+
+@keyframes gacha-idle { to { transform: rotate(360deg); } }
+
+/* ---- 演出 ---- */
+
+#gacha-fx {
+  position: fixed; inset: 0; z-index: 60;
+  display: flex; align-items: center; justify-content: center;
+  background: #05050ceb;
+  /* 演出中に下の画面を触らせない。飛ばす操作だけを受ける */
+  cursor: pointer; overflow: hidden;
+}
+#gacha-fx.hidden { display: none; }
+
+#gacha-circle-outer, #gacha-circle-inner {
+  position: absolute; background-size: contain; background-repeat: no-repeat;
+  opacity: 0;
+}
+#gacha-circle-outer {
+  width: 420px; height: 420px; background-image: url('/img/fx/circle.png');
+}
+#gacha-circle-inner {
+  width: 300px; height: 300px; background-image: url('/img/fx/circle_inner.png');
+}
+/* 外側と内側を逆に回す。同じ向きだと1枚の絵に見えて動きが出ない */
+#gacha-circle-outer.spin { animation: gacha-in 1.5s ease-in forwards; }
+#gacha-circle-inner.spin { animation: gacha-in-rev 1.5s ease-in forwards; }
+
+@keyframes gacha-in {
+  0%   { opacity: 0; transform: rotate(0deg) scale(0.55); }
+  100% { opacity: 1; transform: rotate(540deg) scale(1); }
+}
+@keyframes gacha-in-rev {
+  0%   { opacity: 0; transform: rotate(0deg) scale(0.75); }
+  100% { opacity: 1; transform: rotate(-720deg) scale(1); }
+}
+
+/* 品質の色で立ち上がる光の柱。色が付いた時点で当たりと分かる */
+#gacha-pillar {
+  position: absolute; width: 90px; height: 100%; opacity: 0;
+  background: linear-gradient(to top,
+    transparent, var(--pillar, #ddddee) 35%, #ffffff 60%,
+    var(--pillar, #ddddee) 80%, transparent);
+  filter: blur(6px);
+}
+#gacha-pillar.rise { animation: gacha-pillar 0.8s ease-out forwards; }
+@keyframes gacha-pillar {
+  0%   { opacity: 0; transform: scaleY(0.1) scaleX(0.4); }
+  60%  { opacity: 0.95; transform: scaleY(1) scaleX(1); }
+  100% { opacity: 0.8; transform: scaleY(1) scaleX(1.3); }
+}
+
+#gacha-flash {
+  position: absolute; inset: 0; background: #ffffff; opacity: 0;
+  pointer-events: none;
+}
+#gacha-fx.opening #gacha-flash { animation: gacha-flash 0.6s ease-out forwards; }
+@keyframes gacha-flash {
+  0% { opacity: 0; } 12% { opacity: 0.9; } 100% { opacity: 0; }
+}
+/* 弾ける瞬間に魔法陣と柱を吹き飛ばす */
+#gacha-fx.opening #gacha-circle-outer,
+#gacha-fx.opening #gacha-circle-inner,
+#gacha-fx.opening #gacha-pillar {
+  animation: gacha-burst 0.45s ease-out forwards;
+}
+@keyframes gacha-burst {
+  0%   { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(2.2); }
+}
+
+#gacha-result {
+  position: relative; z-index: 1; text-align: center; cursor: auto;
+  background: #1c1c34; border: 1px solid #5533aa; border-radius: 12px;
+  padding: 24px 36px; min-width: 300px;
+  animation: gacha-pop 0.35s ease-out;
+}
+#gacha-result.hidden { display: none; }
+#gacha-result-rarity { font-size: 15px; font-weight: bold; letter-spacing: 2px; }
+#gacha-result-name { font-size: 24px; font-weight: bold; margin: 6px 0 10px; }
+#gacha-result button { margin-top: 14px; }
+@keyframes gacha-pop {
+  0% { opacity: 0; transform: scale(0.85); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+/* 動きを減らす設定の端末では、回転や閃光を出さずに結果だけ見せる */
+@media (prefers-reduced-motion: reduce) {
+  #gacha-art img { animation: none; }
+  #gacha-circle-outer.spin, #gacha-circle-inner.spin {
+    animation: none; opacity: 1;
+  }
+  #gacha-pillar.rise { animation: none; opacity: 0.8; }
+  #gacha-fx.opening #gacha-flash { animation: none; }
+  #gacha-fx.opening #gacha-circle-outer,
+  #gacha-fx.opening #gacha-circle-inner,
+  #gacha-fx.opening #gacha-pillar { animation: none; opacity: 0; }
+  #gacha-result { animation: none; }
+}
+
 /* 狭い画面(スマホ)では縦積み */
 @media (max-width: 900px) {
   #lab-screen { flex-direction: column; }

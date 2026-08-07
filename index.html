@@ -40,8 +40,7 @@
         <button id="tab-lab" class="tab active">研究室</button>
         <button id="tab-book" class="tab">発見図鑑</button>
         <button id="tab-battle" class="tab">戦闘</button>
-        <!-- 未実装。押せない状態で場所だけ確保しておく -->
-        <button id="tab-shop" class="tab" disabled title="準備中">ショップ</button>
+        <button id="tab-shop" class="tab">ショップ</button>
         <button id="tab-manual" class="tab">説明書</button>
         <button id="tab-settings" class="tab" title="引き継ぎ・初期化">⚙ 設定</button>
       </nav>
@@ -198,6 +197,41 @@
         <div id="support-box" class="hidden"></div>
       </section>
     </main>
+
+    <!-- ===== ショップ ===== -->
+    <main id="shop-screen" class="hidden">
+      <section class="panel">
+        <h2>🛒 ショップ <small>ガチャチケットを使う</small></h2>
+        <div id="gacha-box">
+          <div id="gacha-art"></div>
+          <div id="gacha-side">
+            <h3>魔導の抽選</h3>
+            <p class="note">
+              チケット1枚で魔法を1本引く。系統は運任せで、その系統で作れる
+              いちばん強い構成で生まれる。調合では滅多に出ない上位品質に、
+              潜らずに手が届く唯一の道。
+            </p>
+            <div id="gacha-odds"></div>
+            <button id="gacha-draw" class="primary">引く(チケット1枚)</button>
+            <div id="gacha-have" class="note"></div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- ガチャ演出。全画面をかぶせるので、画面の外に置く -->
+    <div id="gacha-fx" class="hidden" aria-hidden="true">
+      <div id="gacha-pillar"></div>
+      <div id="gacha-circle-outer"></div>
+      <div id="gacha-circle-inner"></div>
+      <div id="gacha-flash"></div>
+      <div id="gacha-result" class="hidden">
+        <div id="gacha-result-rarity"></div>
+        <div id="gacha-result-name"></div>
+        <div id="gacha-result-note" class="note"></div>
+        <button id="gacha-close" class="primary">受け取る</button>
+      </div>
+    </div>
 
     <!-- ===== 説明書 ===== -->
     <main id="manual-screen" class="hidden">

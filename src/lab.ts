@@ -11,7 +11,7 @@ import {
   TRANSMUTE_COST, transmuteResult,
 } from '../shared/data';
 import {
-  bestCompositionFor, computeSpell, ENHANCE_MAX, finalStats, spellDisplayName,
+  computeSpell, ENHANCE_MAX, finalStats, randomComposition, spellDisplayName,
   spellMagicValue, spellNameFor, statsSummary,
 } from '../shared/spellcraft';
 import {
@@ -873,9 +873,11 @@ export function grantBossReward(stage: number): void {
   // 古い端末と行き来しても二重取得にならないよう、旧い形式にも書いておく
   if (stage === LEGEND_BOSS_STAGE) state.legendRewarded = true;
 
-  const def = RECIPES[Math.floor(Math.random() * RECIPES.length)];
-  const counts = bestCompositionFor(def.id, Math.max(3, state.slots));
-  if (!counts) { save(); return; }
+  // 系統を1つ選ぶだけでは駄目。素材の数が足りない系統を引くと構成が作れず、
+  // 条件を満たしたのに何も授からずに終わる(ガチャを作った時に表面化した)。
+  const picked = randomComposition(Math.max(3, state.slots));
+  if (!picked) { save(); return; }
+  const counts = picked.counts;
 
   const { matched } = computeSpell(counts);
   const rewardName = spellNameFor(counts, reward.rarity); // カタカナの真名
@@ -905,9 +907,11 @@ function grantCodexRewardIfDue(): void {
 
   state.codexRewarded = true; // 先に立てて二重取得を防ぐ
 
-  const def = RECIPES[Math.floor(Math.random() * RECIPES.length)];
-  const counts = bestCompositionFor(def.id, Math.max(3, state.slots));
-  if (!counts) { save(); return; }
+  // 系統を1つ選ぶだけでは駄目。素材の数が足りない系統を引くと構成が作れず、
+  // 条件を満たしたのに何も授からずに終わる(ガチャを作った時に表面化した)。
+  const picked = randomComposition(Math.max(3, state.slots));
+  if (!picked) { save(); return; }
+  const counts = picked.counts;
 
   const { matched } = computeSpell(counts);
   const rewardName = spellNameFor(counts, 'epic'); // カタカナの真名

@@ -14,6 +14,7 @@ import {
 } from './cloudsave';
 import { initWelcome, waitForServer, watchVersion } from './boot';
 import { watchDailyBonus } from './daily';
+import { enterShop, initShop } from './gacha';
 import { renderTips } from './tips';
 import { initShare } from './share';
 import { loadArtwork } from './artwork';
@@ -34,7 +35,7 @@ let lastStage = 1;
 
 // ===== タブ切替 =====
 
-type Tab = 'lab' | 'book' | 'battle' | 'manual' | 'settings';
+type Tab = 'lab' | 'book' | 'battle' | 'shop' | 'manual' | 'settings';
 
 // 戦闘中(ソロ・共闘・決闘)はタブを移動させない。
 // 移動できると、進行中の戦闘が見えないまま進んでしまう。
@@ -42,10 +43,9 @@ function battleInProgress(): boolean {
   return battle.isActive() || inBattleView();
 }
 
-// ショップ(#tab-shop)はまだ実装していないので、ここには入れない。
-// 入れると戦闘が終わった時に押せるようになってしまう。
 const TAB_BUTTONS = [
-  '#tab-lab', '#tab-book', '#tab-battle', '#tab-manual', '#tab-settings',
+  '#tab-lab', '#tab-book', '#tab-battle', '#tab-shop', '#tab-manual',
+  '#tab-settings',
 ];
 
 // 戦闘中は、今表示しているタブ以外を押せなくする
@@ -59,6 +59,9 @@ function updateTabLock(): void {
   }
 }
 
+// 今どのタブを見ているか。ショップから出た時に曲を戻すために覚えておく。
+let curTab: Tab = 'lab';
+
 function switchTab(tab: Tab): void {
   // 戦闘中の移動を止める(ボタンを無効にしているが、念のためここでも弾く)
   if (battleInProgress()) {
@@ -66,16 +69,23 @@ function switchTab(tab: Tab): void {
     return;
   }
   playSfx('click');
+  const prev = curTab;
+  curTab = tab;
   $('#lab-screen').classList.toggle('hidden', tab !== 'lab');
   $('#book-screen').classList.toggle('hidden', tab !== 'book');
   $('#battle-screen').classList.toggle('hidden', tab !== 'battle');
+  $('#shop-screen').classList.toggle('hidden', tab !== 'shop');
   $('#manual-screen').classList.toggle('hidden', tab !== 'manual');
   $('#settings-screen').classList.toggle('hidden', tab !== 'settings');
   $('#tab-lab').classList.toggle('active', tab === 'lab');
   $('#tab-book').classList.toggle('active', tab === 'book');
   $('#tab-battle').classList.toggle('active', tab === 'battle');
+  $('#tab-shop').classList.toggle('active', tab === 'shop');
   $('#tab-manual').classList.toggle('active', tab === 'manual');
   $('#tab-settings').classList.toggle('active', tab === 'settings');
+  if (tab === 'shop') enterShop();
+  // ショップから出たらロビーの曲に戻す(専用BGMを引きずらない)
+  else if (prev === 'shop') playBgm('lobby');
   if (tab === 'manual') renderManual();
   if (tab === 'settings') {
     renderCloudStatus();
@@ -254,11 +264,13 @@ function main(): void {
   watchVersion();
   // 1日1枚のログインボーナス(日付が変わっていれば配る)
   watchDailyBonus();
+  initShop();
 
   $('#tab-lab').addEventListener('click', () => switchTab('lab'));
   $('#tab-book').addEventListener('click', () => switchTab('book'));
   $('#tab-manual').addEventListener('click', () => switchTab('manual'));
   $('#tab-battle').addEventListener('click', () => switchTab('battle'));
+  $('#tab-shop').addEventListener('click', () => switchTab('shop'));
   $('#tab-settings').addEventListener('click', () => switchTab('settings'));
 
   $('#btn-solo-go').addEventListener('click', () => {

@@ -64,6 +64,21 @@
         "C": "jazzy duel theme, walking upright bass, brushed drums, sly muted trumpet melody, playful tension, cat and mouse"
       },
       "_採用": "案B"
+    },
+    {
+      "out": "gacha.mp3",
+      "name": "ガチャ(魔導の抽選)",
+      "seconds": 40,
+      "bpm": 112,
+      "seed": 2081,
+      "keyscale": "C major",
+      "tags": "gacha lottery theme, sparkling celesta and glockenspiel lead, harp glissando, light hand percussion, expectant and glittering, magical and hopeful, short loop",
+      "variants": {
+        "A": "gacha lottery theme, sparkling celesta and glockenspiel lead, harp glissando, light hand percussion, expectant and glittering, magical and hopeful, short loop",
+        "B": "mysterious ritual theme, low choir pad, ticking clock percussion, rising tension, suspenseful build up, anticipation",
+        "C": "cheerful shop theme, bouncy marimba and pizzicato melody, light bells, playful and inviting, upbeat"
+      },
+      "_採用": "案A(きらめき系)。B(緊張系)とC(店内BGM系)は _preview に残してある"
     }
   ],
   "_採用済み": "tags と seed は採用した案のもの。再生成すれば同じ曲が出る。"

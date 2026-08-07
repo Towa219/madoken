@@ -5,7 +5,8 @@
     "boss1": "bgm/5-10_Battle01.mp3",
     "boss2": "bgm/15-20_Flame-Titan.mp3",
     "boss3": "bgm/25_Battle03_2loop.mp3",
-    "duel": "bgm/duel.mp3"
+    "duel": "bgm/duel.mp3",
+    "gacha": "bgm/gacha.mp3"
   },
   "_bgmGain": "曲ごとの音量差を埋める倍率。test/bgm_loudness.ts の実測に合わせる。ボスの3曲だけ他より約4dB小さく録音されていて、音量つまみを上げても差はそのまま残るため。",
   "bgmGain": {
@@ -14,7 +15,8 @@
     "boss1": 1.56,
     "boss2": 1.56,
     "boss3": 1.63,
-    "duel": 1.1
+    "duel": 1.1,
+    "gacha": 1.07
   },
   "sfx": {
     "buff": "sfx/buff.wav",
@@ -31,6 +33,9 @@
     "discover": "sfx/discover.wav",
     "enemyCast": "sfx/enemyCast.wav",
     "escape": "sfx/escape.wav",
+    "gachaCharge": "sfx/gachaCharge.wav",
+    "gachaOpen": "sfx/gachaOpen.wav",
+    "gachaRare": "sfx/gachaRare.wav",
     "gather": "sfx/gather.wav",
     "gathering": "sfx/gathering.wav",
     "heal": "sfx/heal.wav",

@@ -19,7 +19,8 @@ const BASE = 'sound/';
 const PREF_KEY = 'madoken_sound_v4';
 
 // ボス戦は深さで3曲に分かれる(bossBgmFor が選ぶ)
-export type BgmId = 'lobby' | 'battle' | 'boss1' | 'boss2' | 'boss3' | 'duel';
+export type BgmId =
+  'lobby' | 'battle' | 'boss1' | 'boss2' | 'boss3' | 'duel' | 'gacha';
 
 interface Manifest {
   bgm?: Partial<Record<BgmId, string>>;

@@ -511,6 +511,53 @@ def sfx_win_c():
     return reverb(x, 1.2, 0.36, 23), 0.65
 
 
+# ===== ガチャ =====
+# 3段階の演出に1つずつ。溜め → 開封 → (レアなら)確定音。
+
+def sfx_gacha_charge():
+    """魔法陣が回り出して力が溜まっていく音。だんだん大きく高くなる。
+
+    他の音と違って減衰させない。終わりに向かって上がりきった所で
+    開封音に切り替わるので、途中で減ると勢いが途切れる。
+    """
+    d = 1.8
+    t = t_axis(d)
+    up = (t / d) ** 1.6                       # 終わりに向かって上げる
+    low = sine(sweep(55, 165, d, 1.8), d) * up * 0.9
+    body = tone(220, d, (1.0, 0.5, 0.3, 0.15), 0.004) * up * 0.5
+    air = highpass(noise(d, 31), 3000) * up * 0.35
+    air *= 0.6 + 0.4 * np.sin(2 * np.pi * (3 + 9 * (t / d)) * t)  # 回転が速まる
+    return lowpass(mix(low, body, air), 9000), 0.5
+
+
+def sfx_gacha_open():
+    """魔法陣が弾けて中身が出る瞬間。"""
+    d = 1.1
+    flash = highpass(noise(d, 37), 1800) * env_decay(d, 5.0) * 0.6
+    hit = sine(sweep(320, 70, 0.35, 2.2), 0.35) * env_decay(0.35, 3.0)
+    chime = mix(*[at(bell(f, d - 0.05) * g, 0.05, d) for f, g in
+                  ((783.99, 1.0), (1046.5, 0.7), (1567.98, 0.45))])
+    return reverb(mix(flash, at(hit, 0.0, d), chime), 1.0, 0.30, 41), 0.62
+
+
+def sfx_gacha_rare():
+    """上位品質が出た時だけ鳴らす。滅多に鳴らないので豪華に。
+
+    discover(発見音)より一段派手にしたいが、同じ上がり方だと
+    区別が付かない。こちらは和音を積み上げてから最後に高音を足す。
+    """
+    total = 2.4
+    parts = []
+    for i, f in enumerate((523.25, 659.25, 783.99, 1046.5)):   # C E G C
+        s = 0.10 * i
+        parts.append(at(bell(f, total - s) * (1 - i * 0.08), s, total))
+    top = at(bell(2093.0, 1.4) * 0.8, 0.55, total)             # 最後の一撃
+    shimmer = highpass(noise(total, 43), 6000) * env_decay(total, 1.2) * 0.14
+    swell = sine(sweep(110, 220, 0.7, 1.5), 0.7) * env_ad(0.7, 0.2, 1.5) * 0.5
+    x = mix(*parts, top, shimmer, at(swell, 0.0, total))
+    return reverb(x, 1.4, 0.38, 47), 0.72
+
+
 ALL = {
     'select': sfx_select, 'unselect': sfx_unselect, 'click': sfx_click,
     'crafting': sfx_crafting, 'craft': sfx_craft, 'craftFail': sfx_craft_fail,
@@ -524,6 +571,8 @@ ALL = {
     # 勝利音は C 勝鬨 を採用(2026-08-02)。
     # 旧版の sfx_win() も残してあるので、ここを戻せば元の音に復帰できる。
     'win': sfx_win_c, 'lose': sfx_lose, 'escape': sfx_escape,
+    'gachaCharge': sfx_gacha_charge, 'gachaOpen': sfx_gacha_open,
+    'gachaRare': sfx_gacha_rare,
 }
 
 

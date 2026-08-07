@@ -708,6 +708,33 @@ export function bossRewardFor(stage: number): { stage: number; rarity: Rarity } 
   return BOSS_REWARDS.find(r => r.stage === stage);
 }
 
+// ---- ガチャ ----
+//
+// チケット1枚で魔法を1本引く。系統は運任せで、その系統が成立する構成の
+// うち最も魔導値が高いものを作る(最深部の報酬と同じ作り方)。
+//
+// 確率は上から順に判定する。合計は必ず100%にすること。
+// 調合の rollRarity とは別物で、こちらは素材構成に左右されない。
+// 調合でレジェンドを出すのは現実的でない確率なので、ガチャを
+// 「潜らずに上位品質へ手が届く唯一の道」にしてある。
+export const GACHA_COST = 1;   // 1回に使うチケット枚数
+
+export const GACHA_ODDS: { rarity: Rarity; pct: number }[] = [
+  { rarity: 'legend', pct: 1 },
+  { rarity: 'epic', pct: 7 },
+  { rarity: 'rare', pct: 22 },
+  { rarity: 'normal', pct: 70 },
+];
+
+export function rollGachaRarity(roll = Math.random()): Rarity {
+  let acc = 0;
+  for (const o of GACHA_ODDS) {
+    acc += o.pct / 100;
+    if (roll < acc) return o.rarity;
+  }
+  return 'normal';   // 端数で漏れた時の受け皿
+}
+
 export const SLOT4_BOSS_STAGE = 10;  // 第4スロットに必要なボス撃破ステージ
 export const SLOT5_BOSS_STAGE = 20;
 export const SLOT6_BOSS_STAGE = 35;

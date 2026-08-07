@@ -2,7 +2,7 @@
 //
 // 見るのは
 //   ・上のメニューが「戦闘」だけになり、「オンライン」が消えているか
-//   ・「戦闘」の右に「ショップ」があり、押せない状態か(未実装)
+//   ・「戦闘」の右に「ショップ」があり、押すと開くか
 //   ・戦闘タブに、出撃準備とオンラインの両方が出ているか
 //   ・ステージを選んでも、すぐには始まらないか(選ぶ=挑むではない)
 //   ・選んだステージが、ソロと共闘部屋の両方に使われるか
@@ -164,13 +164,19 @@ async function main(): Promise<void> {
     check('★「ショップ」がある', iShop >= 0);
     check('★「ショップ」は戦闘のすぐ右', iShop === iBattle + 1,
       `戦闘=${iBattle} / ショップ=${iShop}`);
-    check('★「ショップ」は押せない(未実装)', tabs[iShop]?.disabled === true);
+    check('★「ショップ」が押せる', tabs[iShop]?.disabled === false);
 
-    // 押しても何も起きない(画面が切り替わらない)
+    // 押すとショップが開き、研究室は引っ込む
     await cdp.evaluate("document.querySelector('#tab-shop').click()");
-    await sleep(500);
-    check('押しても画面が変わらない',
-      await cdp.evaluate<boolean>(visible('#lab-screen')), '研究室のまま');
+    await sleep(600);
+    check('★押すとショップが開く',
+      await cdp.evaluate<boolean>(visible('#shop-screen')));
+    check('研究室は引っ込む',
+      !await cdp.evaluate<boolean>(visible('#lab-screen')));
+
+    // 元の画面に戻しておく(この後の手順は研究室から始まる前提)
+    await cdp.evaluate("document.querySelector('#tab-lab').click()");
+    await sleep(400);
 
     // ---- 2. 戦闘タブに両方が出ている ----
     await cdp.evaluate("document.querySelector('#tab-battle').click()");

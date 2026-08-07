@@ -227,6 +227,28 @@ export function bestCompositionFor(
   return best;
 }
 
+// 授ける魔法の中身をくじで決める。系統は運任せ。
+//
+// 系統をただ1つ選んで bestCompositionFor に渡すだけでは駄目で、
+// 素材の数が足りない系統を引くと null が返り、何も授からずに終わる
+// (ガチャでチケットだけ減る不具合になった)。作れる系統に当たるまで
+// 順に試す。作れるものが1つも無いことは、素材2個で成立する系統が
+// ある限り起こらない。
+export function randomComposition(
+  maxElements: number, rnd: () => number = Math.random,
+): { recipeId: string; counts: ElementCounts } | null {
+  const order = RECIPES.map(r => r.id);
+  for (let i = order.length - 1; i > 0; i--) {   // 偏りの出ない混ぜ方
+    const j = Math.floor(rnd() * (i + 1));
+    [order[i], order[j]] = [order[j], order[i]];
+  }
+  for (const recipeId of order) {
+    const counts = bestCompositionFor(recipeId, maxElements);
+    if (counts) return { recipeId, counts };
+  }
+  return null;
+}
+
 // ===== 強化(同一レシピの再調合) =====
 
 export const ENHANCE_MAX = 9;

@@ -209,15 +209,32 @@ def gen_variants(conf, quality, only=None):
 # ===== manifest =====
 
 def write_manifest(conf):
-    """実際に置かれている音だけを manifest.json に登録する。"""
+    """実際に置かれている音だけを manifest.json に登録する。
+
+    今ある manifest.json を土台にする。まっさらから作り直してはいけない。
+    ボスの3曲(boss1〜3)は bgm.json に無い手置きのファイルで、音量補正
+    (bgmGain)も test/bgm_loudness.ts の実測から手で入れたものなので、
+    作り直すと両方とも消える。実際に一度消して、ボス戦が無音になった。
+
+    ただしファイルごと消えた曲は登録から外す。残しておくと、既に開いて
+    いる画面が古い manifest を握ったまま鳴らせない曲を探しに行く。
+    """
+    path = os.path.join(SOUND_DIR, 'manifest.json')
     m = {}
-    bgm = {}
+    if os.path.exists(path):
+        with open(path, encoding='utf-8') as f:
+            m = json.load(f)
+
+    bgm = {k: v for k, v in (m.get('bgm') or {}).items()
+           if os.path.exists(os.path.join(SOUND_DIR, str(v).replace('/', os.sep)))}
     for t in conf['tracks']:
         key = os.path.splitext(t['out'])[0]
         if os.path.exists(os.path.join(BGM_DIR, t['out'])):
             bgm[key] = f"bgm/{t['out']}"
     if bgm:
         m['bgm'] = bgm
+    elif 'bgm' in m:
+        del m['bgm']
 
     sfx = {}
     if os.path.isdir(SFX_DIR):
