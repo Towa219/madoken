@@ -11,7 +11,7 @@
 // 開くたびに GPU の確保が走って重い。回転・拡大・発光は CSS の方が素直。
 
 import {
-  GACHA_COST, GACHA_LIVE, GACHA_ODDS, RARITIES, rollGachaRarity,
+  GACHA_COST, GACHA_LIVE, GACHA_PRIZES, RARITIES, rollGachaPrize,
 } from '../shared/data';
 import {
   computeSpell, ENHANCE_MAX, finalStats, randomComposition,
@@ -29,6 +29,10 @@ const $ = <T extends HTMLElement = HTMLElement>(sel: string) =>
 
 // 品質ごとの光の色。予告の柱にこの色を使い、出る前に期待させる。
 // 通常だけは白のままにして、色が付いた時点で「当たり」と分かるようにする。
+// 研究Pの色。上のバー(#rp-display)と同じ色にして、何が増えるか分かるようにする。
+// 光の柱には使わない ― レジェンドの金色と近く、見分けが付かないため。
+const RP_COLOR = '#ffdd66';
+
 const PILLAR: Record<Rarity, string> = {
   normal: '#ddddee',
   rare: '#66aaff',
@@ -65,16 +69,18 @@ function newSpellOf(counts: ElementCounts, rarity: Rarity): Spell {
 // 引いた結果。まだ持ち物には反映しない(演出の後で入れる)。
 // 新規か強化かの判断そのものは shared/gacha.ts に置いてある。
 function rollOutcome(): GachaOutcome | null {
-  const rarity = rollGachaRarity();
+  const prize = rollGachaPrize();
+  if (prize.kind === 'rp') return { kind: 'rp', amount: prize.amount };
   // 素材の数は今の調合スロットに合わせる(最深部の報酬と同じ扱い)。
   // 系統を1つ選ぶだけでは、素材が足りない系統を引いた時に何も出ない。
   const picked = randomComposition(Math.max(3, state.slots));
   if (!picked) return null;
-  return gachaOutcomeFor(state.spells, picked.counts, rarity);
+  return gachaOutcomeFor(state.spells, picked.counts, prize);
 }
 
 // 引いたものを実際に持ち物へ反映する。お試し中は呼ばない。
 function applyOutcome(o: GachaOutcome): void {
+  if (o.kind === 'rp') { state.researchP += o.amount; return; }
   if (o.kind === 'new') { addSpell(newSpellOf(o.counts, o.rarity)); return; }
   if (o.kind === 'max') return;
   const sp = o.owned;
@@ -154,11 +160,12 @@ function closeFx(): void {
 // ===== 画面 =====
 
 export function renderShop(): void {
-  const rows = GACHA_ODDS.map(o => {
-    const r = RARITIES[o.rarity];
-    const name = r.name || '通常';
-    return `<div class="gacha-odd"><span style="color:${r.cssColor}">${name}</span>`
-      + `<b>${o.pct}%</b></div>`;
+  const rows = GACHA_PRIZES.map(p => {
+    const color = p.kind === 'rp' ? RP_COLOR : RARITIES[p.rarity].cssColor;
+    const name = p.kind === 'rp'
+      ? `研究P+${p.amount}` : (RARITIES[p.rarity].name || '通常の魔法');
+    return `<div class="gacha-odd"><span style="color:${color}">${name}</span>`
+      + `<b>${p.pct}%</b></div>`;
   }).join('');
   $('#gacha-odds').innerHTML = rows;
   // 本番前は、押す前に分かる場所へ断りを出す。
@@ -205,7 +212,7 @@ async function draw(): Promise<void> {
 
   // 光の柱の色は「引いた品質」で出す。重複で強化になる時も、
   // 何を引いたのかは同じように見せる(色だけ地味にすると当たりが分からない)。
-  await runFx(outcome.rarity);
+  await runFx(pillarRarity(outcome));
 
   // 受け取りは演出の後。先に入れると、結果を見る前に魔導書が動いて見える
   if (GACHA_LIVE) {
@@ -217,8 +224,26 @@ async function draw(): Promise<void> {
   renderShop();
 }
 
+// 光の柱の色に使う品質。研究Pは通常と同じ白にする。
+// 色が付いたら上位品質、という見分け方を崩さないため。
+function pillarRarity(o: GachaOutcome): Rarity {
+  return o.kind === 'rp' ? 'normal' : o.rarity;
+}
+
 // 結果カードの中身。重複した時は「+1」であることを一目で分かるようにする。
 function showResult(o: GachaOutcome): void {
+  if (o.kind === 'rp') {
+    $('#gacha-result-rarity').textContent = '研究P';
+    $('#gacha-result-rarity').style.color = RP_COLOR;
+    $('#gacha-result-name').textContent = `研究P +${o.amount}`;
+    $('#gacha-result-name').style.color = RP_COLOR;
+    $('#gacha-result-note').textContent = GACHA_LIVE
+      ? `所持 ${state.researchP} → ${state.researchP + o.amount}`
+        + ` / 残りチケット ${state.tickets}枚`
+      : `所持 ${state.researchP}`
+        + ' ※お試し中。実際には増えず、チケットも減っていない。';
+    return;
+  }
   const r = RARITIES[o.rarity];
   const trial = GACHA_LIVE ? ''
     : ' ※お試し中。実際には反映されず、チケットも減っていない。';

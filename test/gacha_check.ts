@@ -2,6 +2,7 @@
 //
 // 見るのは
 //   ・確率表が 100% になっているか(表と実装がずれていないか)
+//   ・研究Pの当たりが確率どおりに出るか
 //   ・同じ構成を持っていたら、増やさずに +1 強化になるか
 //   ・引いた品質のほうが高ければ、品質も上がるか
 //   ・すでに+9で品質も上がらない時は何も変わらないか
@@ -21,7 +22,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { ENHANCE_MAX } from '../shared/spellcraft';
-import { GACHA_LIVE, GACHA_ODDS, rollGachaRarity } from '../shared/data';
+import { GACHA_LIVE, GACHA_PRIZES, rollGachaPrize } from '../shared/data';
 import { gachaOutcomeFor } from '../shared/gacha';
 import type { Spell } from '../shared/types';
 
@@ -130,15 +131,25 @@ async function main(): Promise<void> {
   console.log(`対象: ${HTTP}`);
 
   // ---- 0. 確率表(ブラウザを立ち上げずに確かめられる分) ----
-  const sum = GACHA_ODDS.reduce((a, o) => a + o.pct, 0);
+  const sum = GACHA_PRIZES.reduce((a, p) => a + p.pct, 0);
   check('★確率の合計が100%', sum === 100, `${sum}%`);
-  const edge = [
-    [0, 'legend'], [0.0099, 'legend'], [0.011, 'epic'], [0.079, 'epic'],
-    [0.081, 'rare'], [0.299, 'rare'], [0.301, 'normal'], [0.9999, 'normal'],
-  ] as const;
-  const bad = edge.filter(([r, want]) => rollGachaRarity(r) !== want);
+
+  // 賞品を一言で表す(境目の突き合わせ用)
+  const tag = (r: number): string => {
+    const p = rollGachaPrize(r);
+    return p.kind === 'rp' ? `rp${p.amount}` : p.rarity;
+  };
+  const edge: [number, string][] = [
+    [0, 'legend'], [0.0099, 'legend'],
+    [0.011, 'epic'], [0.039, 'epic'],
+    [0.041, 'rare'], [0.139, 'rare'],
+    [0.141, 'normal'], [0.339, 'normal'],
+    [0.341, 'rp200'], [0.639, 'rp200'],
+    [0.641, 'rp100'], [0.9999, 'rp100'],
+  ];
+  const bad = edge.filter(([r, want]) => tag(r) !== want);
   check('★確率の境目が表のとおり', bad.length === 0,
-    bad.map(([r, w]) => `${r}→${w}のはず`).join(' / '));
+    bad.map(([r, w]) => `${r}は${w}のはず(実際は${tag(r)})`).join(' / '));
 
   // ---- 0b. 重複した時の扱い(ブラウザ不要) ----
   const mk = (level: number, rarity: string): Spell => ({
@@ -148,28 +159,35 @@ async function main(): Promise<void> {
   const same = { fire: 2, wind: 1 };
   const other = { fire: 3 };
 
-  const nw = gachaOutcomeFor([mk(0, 'normal')], other, 'normal');
+  const P = (rarity: string) =>
+    ({ kind: 'spell', rarity, pct: 1 }) as never;
+
+  const rp = gachaOutcomeFor([], same, { kind: 'rp', amount: 200, pct: 30 });
+  check('★研究Pの当たりは持ち物を見ない',
+    rp.kind === 'rp' && rp.amount === 200, `${rp.kind}`);
+
+  const nw = gachaOutcomeFor([mk(0, 'normal')], other, P('normal'));
   check('★持っていない構成なら新しく1本', nw.kind === 'new', nw.kind);
 
-  const en = gachaOutcomeFor([mk(2, 'normal')], same, 'normal');
+  const en = gachaOutcomeFor([mk(2, 'normal')], same, P('normal'));
   check('★同じ構成なら増やさずに+1', en.kind === 'enhance'
     && en.level === 3, `${en.kind} / +${(en as { level?: number }).level}`);
 
-  const up = gachaOutcomeFor([mk(2, 'normal')], same, 'legend');
+  const up = gachaOutcomeFor([mk(2, 'normal')], same, P('legend'));
   check('★引いた品質が上なら品質も上がる',
     up.kind === 'enhance' && up.rarityUp === true && up.level === 3,
     `${up.kind} / 品質上昇=${(up as { rarityUp?: boolean }).rarityUp}`);
 
-  const down = gachaOutcomeFor([mk(2, 'legend')], same, 'normal');
+  const down = gachaOutcomeFor([mk(2, 'legend')], same, P('normal'));
   check('★引いた品質が下なら品質は据え置き',
     down.kind === 'enhance' && down.rarityUp === false,
     `品質上昇=${(down as { rarityUp?: boolean }).rarityUp}`);
 
-  const cap = gachaOutcomeFor([mk(ENHANCE_MAX, 'legend')], same, 'normal');
+  const cap = gachaOutcomeFor([mk(ENHANCE_MAX, 'legend')], same, P('normal'));
   check(`★+${ENHANCE_MAX}で品質も上がらないなら何も変わらない`,
     cap.kind === 'max', cap.kind);
 
-  const capUp = gachaOutcomeFor([mk(ENHANCE_MAX, 'normal')], same, 'legend');
+  const capUp = gachaOutcomeFor([mk(ENHANCE_MAX, 'normal')], same, P('legend'));
   check(`★+${ENHANCE_MAX}でも品質が上がるなら反映する`,
     capUp.kind === 'enhance' && capUp.level === ENHANCE_MAX,
     `${capUp.kind} / +${(capUp as { level?: number }).level}`);
@@ -231,7 +249,7 @@ async function main(): Promise<void> {
     check('★ショップのタブが開く', opened);
     const odds = await cdp.evaluate<number>(
       'document.querySelectorAll("#gacha-odds .gacha-odd").length');
-    check('確率表が出ている', odds === GACHA_ODDS.length, `${odds}件`);
+    check('確率表が出ている', odds === GACHA_PRIZES.length, `${odds}件`);
 
     // ---- 2. 引くとチケットが減り、魔法が増える ----
     const before = await cdp.evaluate<Snap>(snap());
@@ -256,9 +274,9 @@ async function main(): Promise<void> {
     check(GACHA_LIVE ? '★魔法が1本増える' : '★お試し中は魔法が増えない',
       after.spells === before.spells + (GACHA_LIVE ? 1 : 0),
       `${before.spells}→${after.spells}本`);
-    check('結果カードに品質が出る',
-      Object.values(RARITY_JA).some(v => after.rarityText.includes(v)),
-      after.rarityText);
+    check('結果カードに当たりの種類が出る',
+      [...Object.values(RARITY_JA), '研究P']
+        .some(v => after.rarityText.includes(v)), after.rarityText);
     check('結果カードに魔法名が出る', after.nameText.length > 0, after.nameText);
     if (GACHA_LIVE) {
       check('★出た品質と表示が一致する',

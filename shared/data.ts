@@ -710,8 +710,8 @@ export function bossRewardFor(stage: number): { stage: number; rarity: Rarity } 
 
 // ---- ガチャ ----
 //
-// チケット1枚で魔法を1本引く。系統は運任せで、その系統が成立する構成の
-// うち最も魔導値が高いものを作る(最深部の報酬と同じ作り方)。
+// チケット1枚で1回引く。魔法が出た時の系統は運任せで、その系統が成立する
+// 構成のうち最も魔導値が高いものを作る(最深部の報酬と同じ作り方)。
 //
 // 確率は上から順に判定する。合計は必ず100%にすること。
 // 調合の rollRarity とは別物で、こちらは素材構成に左右されない。
@@ -726,21 +726,33 @@ export const GACHA_COST = 1;   // 1回に使うチケット枚数
 // ここを true にすればそのまま本番になる(他は何も変えなくてよい)。
 export const GACHA_LIVE = false;
 
-export const GACHA_ODDS: { rarity: Rarity; pct: number }[] = [
-  { rarity: 'legend', pct: 1 },
-  { rarity: 'epic', pct: 7 },
-  { rarity: 'rare', pct: 22 },
-  { rarity: 'normal', pct: 70 },
+// 当たりの表。上から順に判定する。合計は必ず100%にすること。
+//
+// 魔法は上位品質ほど渋くし、外れの受け皿に研究Pを置いた。
+// 「何も無し」を作らないためで、研究Pなら採取にも調合にも回せる。
+// 調合の rollRarity とは別物で、こちらは素材構成に左右されない。
+export type GachaPrize =
+  | { kind: 'spell'; rarity: Rarity; pct: number }
+  | { kind: 'rp'; amount: number; pct: number };
+
+export const GACHA_PRIZES: GachaPrize[] = [
+  { kind: 'spell', rarity: 'legend', pct: 1 },
+  { kind: 'spell', rarity: 'epic', pct: 3 },
+  { kind: 'spell', rarity: 'rare', pct: 10 },
+  { kind: 'spell', rarity: 'normal', pct: 20 },
+  { kind: 'rp', amount: 200, pct: 30 },
+  { kind: 'rp', amount: 100, pct: 36 },
 ];
 
-export function rollGachaRarity(roll = Math.random()): Rarity {
+export function rollGachaPrize(roll = Math.random()): GachaPrize {
   let acc = 0;
-  for (const o of GACHA_ODDS) {
-    acc += o.pct / 100;
-    if (roll < acc) return o.rarity;
+  for (const p of GACHA_PRIZES) {
+    acc += p.pct / 100;
+    if (roll < acc) return p;
   }
-  return 'normal';   // 端数で漏れた時の受け皿
+  return GACHA_PRIZES[GACHA_PRIZES.length - 1];   // 端数で漏れた時の受け皿
 }
+
 
 export const SLOT4_BOSS_STAGE = 10;  // 第4スロットに必要なボス撃破ステージ
 export const SLOT5_BOSS_STAGE = 20;

@@ -6,7 +6,7 @@
 import {
   battleRP, DEFEAT_RP_RATE,
   DISASSEMBLE_RATE, DISCOVERY_BONUS_RP, ELEMENTS, ELEMENT_ORDER, ENEMIES,
-  ENEMY_HP_MUL, BOSSES, DUEL_MAX_HP, GACHA_LIVE, GACHA_ODDS, GATHER_COST,
+  ENEMY_HP_MUL, BOSSES, DUEL_MAX_HP, GACHA_LIVE, GACHA_PRIZES, GATHER_COST,
   GATHER_COUNT,
   SLOT6_BOSS_STAGE, SLOT6_COST,
   BOSS_REWARDS, LIBRARY_BONUS_FULL_KINDS, LIBRARY_BONUS_MAX, LIBRARY_BONUS_PER_KIND,
@@ -183,11 +183,16 @@ export function renderManual(): void {
   <h3>ショップ(ガチャ)</h3>
   <p><b>ガチャチケット</b>は1日1枚、その日に初めて開いた時に配られます。
   枚数は上のバーに出ます。</p>
-  <p>チケット1枚で魔法を1本引けます。系統は運任せで、その系統で作れる
-  いちばん強い構成で生まれます。素材の数は今の調合スロットに合わせます。</p>
+  <p>チケット1枚で1回引けます。魔法が出た時の系統は運任せで、その系統で
+  作れるいちばん強い構成で生まれます。素材の数は今の調合スロットに合わせます。</p>
   <ul>
-    ${GACHA_ODDS.map(o => `<li>${RARITIES[o.rarity].name || '通常'}: <b>${o.pct}%</b></li>`).join('')}
+    ${GACHA_PRIZES.map(p => {
+    const name = p.kind === 'rp'
+      ? `研究P +${p.amount}` : `${RARITIES[p.rarity].name || '通常'}の魔法`;
+    return `<li>${name}: <b>${p.pct}%</b></li>`;
+  }).join('')}
   </ul>
+  <p class="man-note">外れの回は研究Pになります。何も無い回は作っていません。</p>
   <p><b>すでに持っている魔法が出た場合は、増えずに +1 強化されます</b>
   (調合で同じ構成をもう一度作った時と同じ扱い。最大+${ENHANCE_MAX})。
   引いた品質のほうが高ければ、<b>その場で品質も上がります</b> ―

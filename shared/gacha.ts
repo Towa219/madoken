@@ -5,9 +5,12 @@
 
 import { ENHANCE_MAX, recipesEqual } from './spellcraft';
 import { RARITIES } from './data';
+import type { GachaPrize } from './data';
 import type { ElementCounts, Rarity, Spell } from './types';
 
 export type GachaOutcome =
+  // 研究P … 外れの受け皿。何も無い回を作らないために置いてある
+  | { kind: 'rp'; amount: number }
   // 持っていない構成 … 新しく1本もらう
   | { kind: 'new'; counts: ElementCounts; rarity: Rarity }
   // 持っている構成 … 増やさずに +1 強化する
@@ -29,8 +32,10 @@ function rankOf(r: Rarity): number { return RARITIES[r].mul; }
 // 品質は上書きしない。ただし引いた方が上等なら、そこだけ引き上げる ―
 // レジェンドを引いたのに手持ちの通常が +1 されて終わりでは報われない。
 export function gachaOutcomeFor(
-  owned: readonly Spell[], counts: ElementCounts, rarity: Rarity,
+  owned: readonly Spell[], counts: ElementCounts, prize: GachaPrize,
 ): GachaOutcome {
+  if (prize.kind === 'rp') return { kind: 'rp', amount: prize.amount };
+  const rarity = prize.rarity;
   const same = owned.find(sp => recipesEqual(sp.recipe, counts));
   if (!same) return { kind: 'new', counts, rarity };
 
