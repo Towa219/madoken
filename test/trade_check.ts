@@ -1,7 +1,7 @@
 // エレメント取引(プレイヤー同士の個人取引)の検証
 //   npx tsx test/trade_check.ts
 //
-// ① 相場が指定どおりか(基本6種は等価 / 基本6種と光闇は4:1 / 光と闇は等価)
+// ① 相場が指定どおりか(基本6種は等価 / 基本6種と光闇はRARE_VALUE:1 / 光と闇は等価)
 // ② 卓の動き(誘う→受ける→出す→二人とも準備完了で成立)
 // ③ 承諾のすり替えを塞げているか(出し物を変えると準備完了が外れる)
 // ④ 割り込み・切断・時間切れの後始末
@@ -10,8 +10,9 @@
 
 import { ELEMENT_ORDER } from '../shared/data';
 import {
-  canAfford, checkTrade, countsValue, ELEMENT_VALUE, isRareElement,
-  sanitizeCounts, TRADE_INVITE_MS, TRADE_MAX_PER_KIND,
+  BASIC_ELEMENTS, canAfford, checkTrade, countsValue, ELEMENT_VALUE,
+  isRareElement, RARE_ELEMENTS, RARE_VALUE, sanitizeCounts, TRADE_INVITE_MS,
+  TRADE_MAX_PER_KIND,
 } from '../shared/trade';
 import { TradeTables } from '../server/tradeTable';
 import type { ElementCounts, ElementId } from '../shared/types';
@@ -39,12 +40,22 @@ function tradable(a: ElementId, an: number, b: ElementId, bn: number): boolean {
 
 console.log('=== ① 相場 ===');
 
+// ここだけが相場の「指定そのもの」。他は全部この数から導く。
+// 相場を変えた時に直すのはこの1行で、他が落ちたら追随漏れがある。
+const WANT_RARE = 5;
+
+check(`★光・闇は基本6種の${WANT_RARE}個ぶん(相場の指定)`,
+  RARE_VALUE === WANT_RARE, `いまは${RARE_VALUE}`);
 check('基本6種はすべて価値1',
   BASIC.every(id => ELEMENT_VALUE[id] === 1));
-check('光・闇は価値4(基本6種の4個ぶん)',
-  RARE.every(id => ELEMENT_VALUE[id] === 4));
+check(`光・闇は価値${RARE_VALUE}`,
+  RARE.every(id => ELEMENT_VALUE[id] === RARE_VALUE));
 check('希少判定は光・闇だけ',
   ELEMENT_ORDER.every(id => isRareElement(id) === RARE.includes(id)));
+// 種類の振り分けも shared 側と食い違っていないこと
+check('基本6種・光闇の振り分けが共通の定義と一致',
+  BASIC.join() === BASIC_ELEMENTS.join() && RARE.join() === RARE_ELEMENTS.join(),
+  `${BASIC_ELEMENTS.join('/')} : ${RARE_ELEMENTS.join('/')}`);
 
 {
   // 基本6種どうしは1:1
@@ -62,23 +73,32 @@ check('希少判定は光・闇だけ',
 }
 
 {
-  // 基本6種 ↔ 光・闇 は 4:1
+  // 基本6種 ↔ 光・闇 は RARE_VALUE:1。ちょうどの数以外は1つも通さない。
   let okAll = true;
   const bad: string[] = [];
   for (const a of BASIC) {
     for (const r of RARE) {
-      if (!tradable(a, 4, r, 1)) { okAll = false; bad.push(`${NAMES[a]}4↔${NAMES[r]}1`); }
-      if (!tradable(r, 1, a, 4)) { okAll = false; bad.push(`${NAMES[r]}1↔${NAMES[a]}4`); }
-      for (const n of [1, 2, 3, 5, 6, 8]) {
+      if (!tradable(a, RARE_VALUE, r, 1)) {
+        okAll = false; bad.push(`${NAMES[a]}${RARE_VALUE}↔${NAMES[r]}1`);
+      }
+      if (!tradable(r, 1, a, RARE_VALUE)) {
+        okAll = false; bad.push(`${NAMES[r]}1↔${NAMES[a]}${RARE_VALUE}`);
+      }
+      // ちょうどの数の前後を総当たりで潰す(1個ずれても通ってはいけない)
+      for (let n = 1; n <= RARE_VALUE * 2 + 2; n++) {
+        if (n === RARE_VALUE) continue;
         if (tradable(a, n, r, 1)) {
           okAll = false; bad.push(`${NAMES[a]}${n}↔${NAMES[r]}1が通った`);
         }
       }
       // 口数を重ねても比は保たれる
-      if (!tradable(a, 8, r, 2)) { okAll = false; bad.push(`${NAMES[a]}8↔${NAMES[r]}2`); }
+      if (!tradable(a, RARE_VALUE * 2, r, 2)) {
+        okAll = false; bad.push(`${NAMES[a]}${RARE_VALUE * 2}↔${NAMES[r]}2`);
+      }
     }
   }
-  check('基本6種と光・闇は4:1のみ成立(12通り)', okAll, bad.slice(0, 3).join(' / '));
+  check(`基本${BASIC.length}種と光・闇は${RARE_VALUE}:1のみ成立`
+    + `(${BASIC.length * RARE.length}通り)`, okAll, bad.slice(0, 3).join(' / '));
 }
 
 check('光1 ↔ 闇1 は成立', tradable('light', 1, 'dark', 1));
@@ -86,12 +106,19 @@ check('闇1 ↔ 光1 は成立', tradable('dark', 1, 'light', 1));
 check('光1 ↔ 闇2 は成立しない', !tradable('light', 1, 'dark', 2));
 
 // まとめ買いも混ぜ物も、価値が合っていれば成立する
-check('火2+水2 ↔ 光1 は成立(価値4=4)',
-  checkTrade({ fire: 2, water: 2 }, { light: 1 }) === null);
-check('火2+水1 ↔ 光1 は成立しない(価値3≠4)',
-  checkTrade({ fire: 2, water: 1 }, { light: 1 }) !== null);
-check('光1+火4 ↔ 闇2 は成立(価値8=8)',
-  checkTrade({ light: 1, fire: 4 }, { dark: 2 }) === null);
+{
+  const mix: ElementCounts = { fire: RARE_VALUE - 1, water: 1 };   // 価値 RARE_VALUE
+  const short: ElementCounts = { fire: RARE_VALUE - 1 };           // 1足りない
+  check(`火${RARE_VALUE - 1}+水1 ↔ 光1 は成立`
+    + `(価値${RARE_VALUE}=${RARE_VALUE})`,
+    checkTrade(mix, { light: 1 }) === null);
+  check(`火${RARE_VALUE - 1} ↔ 光1 は成立しない`
+    + `(価値${RARE_VALUE - 1}≠${RARE_VALUE})`,
+    checkTrade(short, { light: 1 }) !== null);
+  check(`光1+火${RARE_VALUE} ↔ 闇2 は成立`
+    + `(価値${RARE_VALUE * 2}=${RARE_VALUE * 2})`,
+    checkTrade({ light: 1, fire: RARE_VALUE }, { dark: 2 }) === null);
+}
 
 check('片方が空だと成立しない(贈り物にはできない)',
   checkTrade({}, { fire: 1 }) !== null && checkTrade({ fire: 1 }, {}) !== null);
@@ -163,10 +190,10 @@ function newTable(members: Record<string, string>) {
     t.last('A', 'trade:begin')?.name === 'ベニ'
     && t.last('B', 'trade:begin')?.name === 'アオイ');
 
-  // 火4 ⇔ 光1
-  t.tables.setOffer('A', { fire: 4 });
+  // 火(光1ぶん) ⇔ 光1
+  t.tables.setOffer('A', { fire: RARE_VALUE });
   check('出したものが相手にも見える',
-    JSON.stringify(t.last('B', 'trade:view')?.theirs) === JSON.stringify({ fire: 4 }));
+    JSON.stringify(t.last('B', 'trade:view')?.theirs) === JSON.stringify({ fire: RARE_VALUE }));
 
   t.tables.setReady('A', true);
   check('釣り合う前は準備完了にできない',
@@ -185,10 +212,10 @@ function newTable(members: Record<string, string>) {
   const doneB = t.last('B', 'trade:done');
   check('二人とも準備完了で成立', doneA !== undefined && doneB !== undefined);
   check('渡すものと受け取るものが入れ替わっている',
-    JSON.stringify(doneA?.give) === JSON.stringify({ fire: 4 })
+    JSON.stringify(doneA?.give) === JSON.stringify({ fire: RARE_VALUE })
     && JSON.stringify(doneA?.get) === JSON.stringify({ light: 1 })
     && JSON.stringify(doneB?.give) === JSON.stringify({ light: 1 })
-    && JSON.stringify(doneB?.get) === JSON.stringify({ fire: 4 }));
+    && JSON.stringify(doneB?.get) === JSON.stringify({ fire: RARE_VALUE }));
   check('成立したら卓は畳まれる',
     !t.tables.isTrading('A') && !t.tables.isTrading('B'));
 }
@@ -200,7 +227,7 @@ console.log('\n=== ③ 承諾のすり替え ===');
   const t = newTable({ A: 'アオイ', B: 'ベニ' });
   t.tables.invite('A', 'B');
   t.tables.answer('B', true);
-  t.tables.setOffer('A', { fire: 4 });
+  t.tables.setOffer('A', { fire: RARE_VALUE });
   t.tables.setOffer('B', { light: 1 });
   t.tables.setReady('B', true);
   check('相手が先に準備完了できる', t.last('B', 'trade:view')?.myReady === true);
@@ -278,7 +305,8 @@ console.log('\n=== ⑥ 総量 ===');
   // 増えるようなら、取引を繰り返すだけで無限に増やせることになる。
   const t = newTable({ A: 'アオイ', B: 'ベニ' });
   const invA: Record<ElementId, number> = {
-    fire: 10, water: 0, wind: 0, earth: 0, thunder: 0, ice: 0, light: 0, dark: 0,
+    fire: RARE_VALUE * 2 + 2, water: 0, wind: 0, earth: 0,
+    thunder: 0, ice: 0, light: 0, dark: 0,
   };
   const invB: Record<ElementId, number> = {
     fire: 0, water: 0, wind: 0, earth: 0, thunder: 0, ice: 0, light: 3, dark: 0,
@@ -291,7 +319,7 @@ console.log('\n=== ⑥ 総量 ===');
 
   t.tables.invite('A', 'B');
   t.tables.answer('B', true);
-  t.tables.setOffer('A', { fire: 8 });
+  t.tables.setOffer('A', { fire: RARE_VALUE * 2 });
   t.tables.setOffer('B', { light: 2 });
   t.tables.setReady('A', true);
   t.tables.setReady('B', true);
@@ -307,14 +335,16 @@ console.log('\n=== ⑥ 総量 ===');
   apply(invA, t.last('A', 'trade:done'));
   apply(invB, t.last('B', 'trade:done'));
 
-  check('受け取ったものが手持ちに入る', invA.light === 2 && invB.fire === 8);
+  check('受け取ったものが手持ちに入る',
+    invA.light === 2 && invB.fire === RARE_VALUE * 2,
+    `光${invA.light} / 火${invB.fire}`);
   check('出したものが手持ちから出る', invA.fire === 2 && invB.light === 1);
   check('マイナスの持ち物が生まれない',
     ELEMENT_ORDER.every(id => invA[id] >= 0 && invB[id] >= 0));
   check('総個数は変わらない', total() === before.n, `${before.n} → ${total()}`);
   check('総価値も変わらない', value() === before.v, `${before.v} → ${value()}`);
   check('価値の合計は釣り合っている',
-    countsValue({ fire: 8 }) === countsValue({ light: 2 }));
+    countsValue({ fire: RARE_VALUE * 2 }) === countsValue({ light: 2 }));
 }
 
 console.log(ng === 0 ? '\nすべて合格' : `\n${ng}件 不合格`);

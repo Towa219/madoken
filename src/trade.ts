@@ -12,7 +12,8 @@
 
 import { ELEMENT_ORDER, ELEMENTS } from '../shared/data';
 import {
-  canAfford, checkTrade, countsValue, isEmptyCounts, TRADE_MAX_PER_KIND,
+  BASIC_ELEMENTS, canAfford, checkTrade, countsValue, isEmptyCounts,
+  RARE_ELEMENTS, RARE_VALUE, TRADE_MAX_PER_KIND,
 } from '../shared/trade';
 import { lobbyMembers, lobbyRoomRef, myLobbyId, onLobbyUpdate } from './lobby';
 import { notify, state } from './state';
@@ -236,18 +237,34 @@ function quit(): void {
 
 // ---- 画面(交易所の欄) ----
 
-// 相場の早見表。決まりを文章だけで書くと必ず読み違えられる。
+// 相場の早見表と断り書き。決まりを文章だけで書くと必ず読み違えられる。
+//
+// 数字も種類の並びも shared/trade.ts から作る。ここに直に書くと、
+// 相場を変えた時に画面だけ古いまま残る(実際に起きうる壊れ方なので、
+// 見た目に出る数字はすべて RARE_VALUE から引いている)。
 function renderRates(): void {
   const chip = (id: ElementId, n: number) =>
     `<span style="color:${ELEMENTS[id].cssColor}">`
     + `${ELEMENTS[id].emoji}${ELEMENTS[id].name}×${n}</span>`;
+  const nameOf = (id: ElementId) =>
+    `<b style="color:${ELEMENTS[id].cssColor}">${ELEMENTS[id].name}</b>`;
+  const basics = BASIC_ELEMENTS.map(id => ELEMENTS[id].name).join('・');
+  const rares = RARE_ELEMENTS.map(id => ELEMENTS[id].name).join('と');
+  const [b1, b2] = BASIC_ELEMENTS;
+  const [r1, r2] = RARE_ELEMENTS;
+
+  $('#trade-rule').innerHTML =
+    `相場は決まっている。${BASIC_ELEMENTS.map(nameOf).join('・')}`
+    + `はどれも同じ価値で、${RARE_ELEMENTS.map(nameOf).join('と')}`
+    + `はその<b>${RARE_VALUE}個ぶん</b>。釣り合っていない取引は成立しない。`;
+
   $('#trade-rates').innerHTML =
-    `<div class="trade-rate">${chip('fire', 1)} ⇔ ${chip('water', 1)}`
-    + '<small>火・水・風・土・雷・氷はどれも等価</small></div>'
-    + `<div class="trade-rate">${chip('fire', 4)} ⇔ ${chip('light', 1)}`
-    + '<small>基本6種と光・闇は4対1</small></div>'
-    + `<div class="trade-rate">${chip('light', 1)} ⇔ ${chip('dark', 1)}`
-    + '<small>光と闇は等価</small></div>';
+    `<div class="trade-rate">${chip(b1, 1)} ⇔ ${chip(b2, 1)}`
+    + `<small>${basics}はどれも等価</small></div>`
+    + `<div class="trade-rate">${chip(b1, RARE_VALUE)} ⇔ ${chip(r1, 1)}`
+    + `<small>基本${BASIC_ELEMENTS.length}種と${rares}は${RARE_VALUE}対1</small></div>`
+    + `<div class="trade-rate">${chip(r1, 1)} ⇔ ${chip(r2, 1)}`
+    + `<small>${rares}は等価</small></div>`;
 }
 
 export function renderTradePanel(): void {

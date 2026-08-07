@@ -4,32 +4,44 @@
 // 二人が卓に出したものの価値が釣り合った時だけ取引が成立する。
 //
 //   火・水・風・土・雷・氷 …… 価値 1
-//   光・闇 ………………………… 価値 4
+//   光・闇 ………………………… 価値 5
 //
 // この1本の物差しで、決めたい3つの相場がすべて表せる。
 //   基本6種どうし    1 : 1   (1 = 1)
-//   基本6種 ↔ 光・闇  4 : 1   (4 = 4)
-//   光 ↔ 闇          1 : 1   (4 = 4)
+//   基本6種 ↔ 光・闇  5 : 1   (5 = 5)
+//   光 ↔ 闇          1 : 1   (5 = 5)
 //
 // 組み合わせごとの表を持つと、種類を足した時に片方だけ直して食い違う。
 // 価値だけを持ち、比は毎回そこから割り出す。
 //
 // 判定はこのファイルだけに置き、画面とサーバーの両方が同じ関数を通す。
 // 画面側だけで見ていると、通信を書き換えられた時に釣り合わない取引が通る。
+//
+// ★ 相場を変える時は RARE_VALUE の数字だけを書き換えること。
+//   画面の早見表も説明書も断り書きも、すべてここから作っている。
+//   文言に数字を直接書くと、相場を変えた時に片方だけ古いまま残る
+//   (キャラの得意エレメントで実際にやった)。
 
 import { ELEMENT_ORDER } from './data';
 import type { ElementCounts, ElementId } from './types';
 
-// 1個あたりの価値。光・闇は基本6種の4個ぶん。
+// 光・闇が基本6種の何個ぶんか。相場を変えるならここだけ。
+export const RARE_VALUE = 5;
+
+// 1個あたりの価値
 export const ELEMENT_VALUE: Record<ElementId, number> = {
   fire: 1, water: 1, wind: 1, earth: 1, thunder: 1, ice: 1,
-  light: 4, dark: 4,
+  light: RARE_VALUE, dark: RARE_VALUE,
 };
 
-// 希少なエレメント(価値が基本の4倍)かどうか
+// 希少なエレメント(価値が基本より高い)かどうか
 export function isRareElement(id: ElementId): boolean {
   return ELEMENT_VALUE[id] > 1;
 }
+
+// 価値1のエレメント(基本6種)と、それより高いもの(光・闇)
+export const BASIC_ELEMENTS = ELEMENT_ORDER.filter(id => !isRareElement(id));
+export const RARE_ELEMENTS = ELEMENT_ORDER.filter(id => isRareElement(id));
 
 export const TRADE_MAX_PER_KIND = 99;   // 1種類あたり卓に出せる上限
 export const TRADE_INVITE_MS = 60_000;  // 誘いの有効時間(1分)
@@ -89,7 +101,7 @@ export function checkTrade(a: ElementCounts, b: ElementCounts): string | null {
   const va = countsValue(a);
   const vb = countsValue(b);
   if (va !== vb) {
-    return `釣り合っていない(${va} 対 ${vb})。光と闇は基本6種4個ぶん。`;
+    return `釣り合っていない(${va} 対 ${vb})。光と闇は基本6種${RARE_VALUE}個ぶん。`;
   }
   return null;
 }

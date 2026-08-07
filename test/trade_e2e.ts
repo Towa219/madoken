@@ -7,7 +7,7 @@
 // という壊れ方はここでしか捕まらない。
 
 import { Client } from 'colyseus.js';
-import { countsValue } from '../shared/trade';
+import { countsValue, RARE_VALUE } from '../shared/trade';
 import type { Room } from 'colyseus.js';
 import type { ElementCounts } from '../shared/types';
 
@@ -121,11 +121,11 @@ async function main(): Promise<void> {
     }, '在室者リストが取引中になる', 5000);
     check('一覧に「取引中」が出る', true);
 
-    // ---- 火4 ⇔ 光1 ----
-    a.send('trade:offer', { counts: { fire: 4 } });
-    if (!await waitFor(() => (seenB.view?.theirs as ElementCounts)?.fire === 4,
+    // ---- 火(光1ぶん) ⇔ 光1 ----
+    a.send('trade:offer', { counts: { fire: RARE_VALUE } });
+    if (!await waitFor(() => (seenB.view?.theirs as ElementCounts)?.fire === RARE_VALUE,
       '出したものが相手に見える')) return;
-    check('出したものが相手に見える', seenB.view?.theirs.fire === 4);
+    check('出したものが相手に見える', seenB.view?.theirs.fire === RARE_VALUE);
 
     // 釣り合う前は準備完了にできない
     seenA.error = undefined;
@@ -146,11 +146,11 @@ async function main(): Promise<void> {
     if (!await waitFor(() => seenA.done !== undefined && seenB.done !== undefined,
       '取引の成立')) return;
     check('取引が成立した', true);
-    check('Aは火4を渡して光1を受け取る',
-      seenA.done?.give.fire === 4 && seenA.done?.get.light === 1,
+    check(`Aは火${RARE_VALUE}を渡して光1を受け取る`,
+      seenA.done?.give.fire === RARE_VALUE && seenA.done?.get.light === 1,
       JSON.stringify(seenA.done));
-    check('Bは光1を渡して火4を受け取る',
-      seenB.done?.give.light === 1 && seenB.done?.get.fire === 4,
+    check(`Bは光1を渡して火${RARE_VALUE}を受け取る`,
+      seenB.done?.give.light === 1 && seenB.done?.get.fire === RARE_VALUE,
       JSON.stringify(seenB.done));
     check('渡した価値と受け取った価値が等しい',
       countsValue(seenA.done!.give) === countsValue(seenA.done!.get));

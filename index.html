@@ -227,10 +227,9 @@
 
       <section class="panel" id="trade-panel">
         <h2>🤝 エレメント取引 <small>ロビーに居る人と1対1で交換する</small></h2>
-        <p class="note">
-          相場は決まっている。火・水・風・土・雷・氷はどれも同じ価値で、
-          光と闇はその4個ぶん。釣り合っていない取引は成立しない。
-        </p>
+        <!-- 相場の文言は src/trade.ts が shared/trade.ts の数字から作る。
+             ここに直に書くと、相場を変えた時に画面だけ古いまま残る。 -->
+        <p class="note" id="trade-rule"></p>
         <div id="trade-rates"></div>
         <h3>取引を申し込む</h3>
         <div id="trade-partners"></div>

@@ -10,6 +10,7 @@
 //
 //   npx tsx test/trade_browser_check.ts
 
+import { RARE_VALUE } from '../shared/trade';
 import { spawn } from 'node:child_process';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -198,12 +199,12 @@ async function releaseNames(): Promise<void> {
 
 async function main(): Promise<void> {
   console.log('=== 交易所の個人取引(ブラウザ2台) ===');
-  console.log(`対象: ${HTTP}  ${NAME_A}(火8) ⇔ ${NAME_B}(光3)`);
+  console.log(`対象: ${HTTP}  ${NAME_A}(火${RARE_VALUE * 2}) ⇔ ${NAME_B}(光3)`);
 
   let a: { cdp: Cdp; kill: () => void } | null = null;
   let b: { cdp: Cdp; kill: () => void } | null = null;
   try {
-    a = await launch(9411, 'trA', NAME_A, { fire: 8 });
+    a = await launch(9411, 'trA', NAME_A, { fire: RARE_VALUE * 2 });
     b = await launch(9412, 'trB', NAME_B, { light: 3 });
     const A = a.cdp;
     const B = b.cdp;
@@ -241,8 +242,8 @@ async function main(): Promise<void> {
     if (!await B.waitFor(atTable, 'Bの卓が開く')) return;
     check('二人とも卓に着いた', true);
 
-    // ---- 火4 ⇔ 光1 ----
-    for (let i = 0; i < 4; i++) {
+    // ---- 火(光1ぶん) ⇔ 光1 ----
+    for (let i = 0; i < RARE_VALUE; i++) {
       if (!await A.click('#trade-mine [data-elem="fire"] [data-act="plus"]')) {
         check(`火を${i + 1}個目まで置ける`, false);
         break;
@@ -251,12 +252,13 @@ async function main(): Promise<void> {
     check('出した数が卓に出る',
       (await A.evaluate<string>(
         'document.querySelector(\'#trade-mine [data-elem="fire"] .trade-num\').textContent ?? ""'))
-        === '4');
+        === String(RARE_VALUE));
     check('手元に残る数が出る',
       (await A.evaluate<string>(
         'document.querySelector(\'#trade-mine [data-elem="fire"] .trade-rest\').textContent ?? ""'))
-        === '残り4');
-    check('置いただけでは素材庫は減らない', (await A.inventory()).fire === 8);
+        === `残り${RARE_VALUE}`);
+    check('置いただけでは素材庫は減らない',
+      (await A.inventory()).fire === RARE_VALUE * 2);
 
     if (!await B.waitFor(
       '!!document.querySelector(\'#trade-theirs [data-elem="fire"]\')',
@@ -273,7 +275,7 @@ async function main(): Promise<void> {
       await B.click('#trade-mine [data-elem="light"] [data-act="plus"]'));
     if (!await A.waitFor('document.querySelector("#trade-balance").className === "ok"',
       '釣り合う')) return;
-    check('火4と光1で釣り合う', true);
+    check(`火${RARE_VALUE}と光1で釣り合う`, true);
     check('釣り合えば準備完了を押せる',
       await A.evaluate<boolean>('document.querySelector("#btn-trade-ready").disabled === false'));
     await A.shot('trade_table');
@@ -298,12 +300,12 @@ async function main(): Promise<void> {
     // ---- 持ち物 ----
     const invA = await A.inventory();
     const invB = await B.inventory();
-    check('Aは火が4減って光が1増えた',
-      invA.fire === 4 && invA.light === 1, `火${invA.fire} 光${invA.light}`);
-    check('Bは光が1減って火が4増えた',
-      invB.light === 2 && invB.fire === 4, `火${invB.fire} 光${invB.light}`);
-    check('総数は変わらない(8+3 → 5+6)',
-      invA.fire + invA.light + invB.fire + invB.light === 11);
+    check(`Aは火が${RARE_VALUE}減って光が1増えた`,
+      invA.fire === RARE_VALUE && invA.light === 1, `火${invA.fire} 光${invA.light}`);
+    check(`Bは光が1減って火が${RARE_VALUE}増えた`,
+      invB.light === 2 && invB.fire === RARE_VALUE, `火${invB.fire} 光${invB.light}`);
+    check(`総数は変わらない(${RARE_VALUE * 2}+3 のまま)`,
+      invA.fire + invA.light + invB.fire + invB.light === RARE_VALUE * 2 + 3);
 
     check('成立したことが画面に出る',
       (await A.evaluate<string>('document.querySelector("#trade-msg").textContent ?? ""'))
