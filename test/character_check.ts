@@ -41,6 +41,23 @@ async function main(): Promise<void> {
     want.every(e => elems.filter(g => g === e).length === 1),
     elems.join(' / '));
 
+  // 一言(note)と得意エレメントが食い違っていないか。
+  //
+  // 得意エレメントを差し替える時、note の書き換えを忘れるのがいちばん起きやすい
+  // (選択画面には「💧水の使い手」と note の両方が並ぶので、片方だけ古いと
+  //  その場で嘘になる)。実際に白銀と翠緑を入れ替えた時に必要になった見張り。
+  // 火を「炎」、土を「大地」と書くなど言い換えがあるので、呼び名は表で持つ。
+  const CALLED: Record<string, string[]> = {
+    fire: ['火', '炎'], water: ['水'], wind: ['風'], earth: ['土', '大地'],
+    thunder: ['雷'], ice: ['氷'],
+  };
+  const mismatched = CHARACTERS.filter(
+    c => !(CALLED[c.element] ?? []).some(word => c.note.includes(word)));
+  check('★一言の説明が得意エレメントと合っている',
+    mismatched.length === 0,
+    mismatched.map(c => `${c.name}(${c.element}) 「${c.note}」`).join(' / ')
+      || CHARACTERS.map(c => `${c.name}=${c.element}`).join(' / '));
+
   // 得意エレメントを含む魔法だけ威力が上がる
   const fireGirl = CHARACTERS.findIndex(c => c.element === 'fire');
   const base = finalStats({ fire: 2 }, 0, 'normal');
