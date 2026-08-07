@@ -13,6 +13,7 @@ import {
   deleteCloudSave, initCloudUI, renderCloudStatus, scheduleCloudSave,
 } from './cloudsave';
 import { initWelcome, waitForServer, watchVersion } from './boot';
+import { watchDailyBonus } from './daily';
 import { renderTips } from './tips';
 import { initShare } from './share';
 import { loadArtwork } from './artwork';
@@ -218,6 +219,7 @@ function onBattleEnd(r: BattleResult): void {
 
 function updateTopbar(): void {
   $('#rp-display').textContent = `研究P: ${state.researchP}`;
+  $('#ticket-display').textContent = `🎟 チケット: ${state.tickets}`;
   $('#power-display').textContent = `⚔ 戦闘力: ${combatPower(equippedSpells())}`;
 }
 
@@ -250,6 +252,8 @@ function main(): void {
   });
   // この画面が古くなっていないか見張る(開きっぱなしだと直しが届かない)
   watchVersion();
+  // 1日1枚のログインボーナス(日付が変わっていれば配る)
+  watchDailyBonus();
 
   $('#tab-lab').addEventListener('click', () => switchTab('lab'));
   $('#tab-book').addEventListener('click', () => switchTab('book'));

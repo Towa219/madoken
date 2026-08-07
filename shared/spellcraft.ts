@@ -38,15 +38,21 @@ export function computeSpell(counts: ElementCounts): CraftResult {
   // 全属性で最低の魔法になっていた。元の威力が10では会心が上がっても意味がない。
   // 雷は「速くて当たれば大きい」、風は「軽くて速い」という役割を保ったまま、
   // 威力の下地を持たせてある。
-  s.power += 8 * c('fire') + 2 * c('water') + 5 * c('earth')
-           + 3 * c('ice') + 3 * c('light') + 12 * c('dark')
+  // 水と氷は威力の下地が低すぎた。単一3個で比べると
+  // 水92・氷110 に対し、闇291・火273 と3倍近い開きがあり、
+  // 「燃費が良い」「遅くする」という持ち味の前に、そもそも選ばれなかった。
+  // 水 +2→+3 / 氷 +3→+4 に上げて底を持ち上げる。
+  // (+4/+5 まで上げると回復と瞑想が魔導値の上限を超えた)
+  // (ELEMENTS の desc も同じ数字にすること。片方だけ直すと説明と食い違う)
+  s.power += 8 * c('fire') + 3 * c('water') + 5 * c('earth')
+           + 4 * c('ice') + 3 * c('light') + 12 * c('dark')
            + 7 * c('thunder') + 3 * c('wind');
   s.manaCost += 6 * c('fire') - 4 * c('water') + 3 * c('earth')
               + 6 * c('dark') + 4 * c('thunder') + 2 * c('light');
   s.castTime -= 0.2 * c('wind');
   s.projSpeed += 70 * c('wind') + 130 * c('thunder');
   s.critRate += 8 * c('thunder');
-  s.slow += 12 * c('ice');
+  s.slow += 14 * c('ice');
   s.lifesteal += 8 * c('light');
   s.selfDamage += 4 * c('dark');
 

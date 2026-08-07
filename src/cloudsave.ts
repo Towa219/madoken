@@ -47,6 +47,8 @@ function toSlim(s: GameState): Record<string, unknown> {
     codexRewarded: s.codexRewarded,
     legendRewarded: s.legendRewarded,
     bossRewarded: s.bossRewarded,
+    tickets: s.tickets,
+    lastBonusDate: s.lastBonusDate,
   };
 }
 

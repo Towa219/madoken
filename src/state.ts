@@ -42,6 +42,8 @@ function initialState(): GameState {
     loadouts: emptyLoadouts(),
     legendRewarded: false,
     bossRewarded: [],
+    tickets: 0,
+    lastBonusDate: '',
     codexRewarded: false,
   };
 }
@@ -120,6 +122,12 @@ function migrate(parsed: Partial<GameState>): GameState {
         };
       });
     }
+    // 古いセーブにはチケットが無い。0枚から始める(次に開いた時に1枚配られる)
+    if (typeof merged.tickets !== 'number' || !Number.isFinite(merged.tickets)) {
+      merged.tickets = 0;
+    }
+    merged.tickets = Math.max(0, Math.floor(merged.tickets));
+    if (typeof merged.lastBonusDate !== 'string') merged.lastBonusDate = '';
     if (typeof merged.codexRewarded !== 'boolean') merged.codexRewarded = false;
     if (typeof merged.legendRewarded !== 'boolean') merged.legendRewarded = false;
     // 最深部の報酬。以前はステージ50の1件だけを真偽値で持っていた。

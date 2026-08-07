@@ -87,6 +87,8 @@ export interface GameState {
   loadouts: Loadout[];     // お気に入りの装備セット(LOADOUT_COUNT個で固定)
   sortByPower?: boolean;   // 旧版の並び順(魔導値順かどうか)。読み込み時の変換にだけ使う
   codexRewarded: boolean;  // 発見図鑑コンプリート報酬(エピック)を受け取ったか
+  tickets: number;         // ガチャチケット(1日1枚のログインボーナス)
+  lastBonusDate: string;   // 最後にボーナスを配った日(YYYY-MM-DD)
   // 最深部の報酬を受け取ったボスステージ(BOSS_REWARDS を参照)
   bossRewarded: number[];
   // 旧い形式。ステージ50の報酬だけを持っていた。

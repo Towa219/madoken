@@ -47,6 +47,8 @@ body {
 }
 #rp-display { color: #ffdd66; font-weight: bold; }
 #power-display { color: #ff9977; font-weight: bold; }
+/* ガチャチケット(1日1枚のログインボーナス)。使い道はショップができてから */
+#ticket-display { color: #88ddff; font-weight: bold; }
 #online-count { font-size: 12px; color: #88ddaa; }
 
 #app-footer {
