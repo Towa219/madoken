@@ -139,13 +139,14 @@ async function main(): Promise<void> {
     const p = rollGachaPrize(r);
     return p.kind === 'rp' ? `rp${p.amount}` : p.rarity;
   };
+  // 累計は 1 / 4 / 12 / 27 / 52 / 100(%)。境目の前後を1つずつ見る
   const edge: [number, string][] = [
     [0, 'legend'], [0.0099, 'legend'],
     [0.011, 'epic'], [0.039, 'epic'],
-    [0.041, 'rare'], [0.139, 'rare'],
-    [0.141, 'normal'], [0.339, 'normal'],
-    [0.341, 'rp200'], [0.639, 'rp200'],
-    [0.641, 'rp100'], [0.9999, 'rp100'],
+    [0.041, 'rare'], [0.119, 'rare'],
+    [0.121, 'normal'], [0.269, 'normal'],
+    [0.271, 'rp200'], [0.519, 'rp200'],
+    [0.521, 'rp100'], [0.9999, 'rp100'],
   ];
   const bad = edge.filter(([r, want]) => tag(r) !== want);
   check('★確率の境目が表のとおり', bad.length === 0,
