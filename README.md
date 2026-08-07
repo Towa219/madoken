@@ -22,10 +22,30 @@ npm run dev            # 別ターミナルで。http://localhost:5173 が開く
 1. このフォルダをGitHubリポジトリにpushする(render.yaml同梱済み)
 2. https://render.com にアカウント登録(GitHub連携)
 3. ダッシュボード → New → Blueprint → リポジトリを選択 → Apply
-4. 数分で `https://<名前>.onrender.com` が発行される。それが皆に配るURL
+4. 数分で `https://<名前>.onrender.com` が発行される
    (クライアント配信もWebSocketも同じURLで動く)
 
 ※無料プランは15分無アクセスでスリープする。最初のアクセスで数十秒待てば起動。
+
+### 皆に配るURLは待機ページのほう
+
+配るのは `https://towa219.github.io/madoken/`(GitHub Pages / `docs/`)で、
+Renderの本体URLを直に配ってはいけない。
+
+眠っている本体を直に開くと、起きるまでの30〜60秒のあいだ Render の
+起動画面が出る。初めて来た人はそれを見て「壊れている」と受け取ってしまう。
+そして**眠っている間、こちらのサーバーは何も動いていない**ので、
+本体の中にどんな案内を書いても配れない。
+
+待機ページは常に即座に開き、事情を伝えながら裏で本体を起こして、
+起きたら自動で送る。中身は `docs/index.html` の1枚だけで、
+サーバーにも外部にも一切依存させていない。
+
+  検証: `npx tsx test/wait_page_check.ts`
+  (本体への通信を塞いで「眠っている状態」を作り、踏みとどまるか見る)
+
+GitHub Pages の設定は main ブランチの `/docs`。
+`shared/links.ts` の `SITE_URL` も待機ページを指している。
 
 ## 遊び方
 

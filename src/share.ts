@@ -26,8 +26,12 @@ export function shareText(): string {
 }
 
 function siteUrl(): string {
-  // 開発中でも共有文は公開URLを指す
-  return location.hostname === 'localhost' ? SITE_URL : location.origin;
+  // 共有文は必ず入口(待機ページ)を指す。
+  //
+  // 以前は location.origin をそのまま載せていたので、本体のURLが配られていた。
+  // 受け取った人が押した時にサーバーが眠っていると、Renderの起動画面に
+  // 行き当たって「壊れている」と思われる。入口を挟めばそれが起きない。
+  return SITE_URL;
 }
 
 export function initShare(): void {
