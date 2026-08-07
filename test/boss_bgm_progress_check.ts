@@ -197,7 +197,11 @@ async function main(): Promise<void> {
     for (let i = 0; i < 220 && reached < TO; i++) {
       await cdp.evaluate(`
         (() => {
-          for (const b of document.querySelectorAll('#coop-bar .spell-btn')) b.click();
+          // 魔法は click ではなく pointerdown で撃つ(拡大よけの都合。src/nozoom.ts)
+          for (const b of document.querySelectorAll('#coop-bar .spell-btn')) {
+            b.dispatchEvent(new PointerEvent('pointerdown',
+              { bubbles: true, cancelable: true, button: 0 }));
+          }
         })()
       `);
       reached = await cdp.evaluate<number>(`

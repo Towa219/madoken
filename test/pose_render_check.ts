@@ -226,7 +226,10 @@ async function main(): Promise<void> {
     //   ・待機と違う姿が出たか
     //   ・その中に互いに違う姿が2つ以上あったか(詠唱と発射・被弾)
     // を見る。何ポーズ出たかを数えれば、1枚しか使っていない状態と区別できる。
-    await cdp.evaluate(`document.querySelector('#spell-bar .spell-btn')?.click()`);
+    // 魔法は click ではなく pointerdown で撃つ(拡大よけの都合。src/nozoom.ts)
+    await cdp.evaluate(`document.querySelector('#spell-bar .spell-btn')
+      ?.dispatchEvent(new PointerEvent('pointerdown',
+        { bubbles: true, cancelable: true, button: 0 }))`);
     const moved: number[][] = [];
     let far = 0;
     const bar = Math.max(calm * 2, 6);

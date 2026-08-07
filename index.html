@@ -2,7 +2,10 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- user-scalable=no は iOS Safari では無視されるが、X・Discord・LINE の
+       アプリ内ブラウザ(WKWebView)では効く。そこから開く人が多いので入れておく。 -->
+  <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>魔導研究記《まどけん》試作版</title>
 
   <!-- SNSにURLを貼った時のカード。

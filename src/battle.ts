@@ -389,7 +389,11 @@ export class BattleManager {
         `<span class="key">${i + 1}</span>${spellDisplayName(sp)}` +
         `<span class="cost">MP${sp.stats.manaCost} / 詠唱${sp.stats.castTime.toFixed(2)}秒</span>` +
         `<div class="cd-overlay"></div>`;
-      b.addEventListener('click', () => this.tryCast(i));
+      // ダブルタップ拡大よけで2回目のタップの click が消えるので、
+      // 魔法は pointerdown で撃つ(src/nozoom.ts と対で見ること)。
+      b.addEventListener('pointerdown', ev => {
+        if (ev.button === 0) this.tryCast(i);
+      });
       bar.appendChild(b);
       this.spellBtns.push(b);
     });

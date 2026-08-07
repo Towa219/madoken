@@ -15,6 +15,7 @@ import {
 import { initWelcome, waitForServer, watchVersion } from './boot';
 import { watchDailyBonus } from './daily';
 import { enterShop, initShop } from './gacha';
+import { installNoZoom } from './nozoom';
 import { renderTips } from './tips';
 import { initShare } from './share';
 import { loadArtwork } from './artwork';
@@ -265,6 +266,7 @@ function main(): void {
   // 1日1枚のログインボーナス(日付が変わっていれば配る)
   watchDailyBonus();
   initShop();
+  installNoZoom();
 
   $('#tab-lab').addEventListener('click', () => switchTab('lab'));
   $('#tab-book').addEventListener('click', () => switchTab('book'));
