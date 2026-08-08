@@ -14,6 +14,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { ALLY_ENABLED, ALLY_MAX_HP } from '../shared/allies';
+import { releaseTestNames } from './testnames';
 
 const BASE = process.env.MADOKEN_ENDPOINT ?? 'http://127.0.0.1:2567';
 const HTTP = BASE.replace(/^ws/, 'http');
@@ -197,6 +198,7 @@ async function main(): Promise<void> {
   } catch (err) {
     check('例外なく通る', false, (err as Error).message);
   } finally {
+    await releaseTestNames(HTTP, [0,1,2,3,4,5].map(i => ({ name: `pw${i}`, token: `tok_pw${i}` })));
     cdp.close();
     chrome.kill();
     await sleep(500);

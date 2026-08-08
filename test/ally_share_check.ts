@@ -17,6 +17,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { ALLY_ENABLED } from '../shared/allies';
+import { releaseTestNames } from './testnames';
 import { finalStats } from '../shared/spellcraft';
 import type { ElementCounts } from '../shared/types';
 
@@ -276,6 +277,7 @@ async function main(): Promise<void> {
   } catch (err) {
     check('例外なく通る', false, (err as Error).message);
   } finally {
+    await releaseTestNames(HTTP, TRIALS.map(t => ({ name: `sh${t.id}`, token: `tok_sh${t.id}` })));
     cdp.close();
     chrome.kill();
     await sleep(500);

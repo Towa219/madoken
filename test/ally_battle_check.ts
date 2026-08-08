@@ -12,6 +12,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { ALLY_ENABLED, ALLY_RP_MUL } from '../shared/allies';
+import { releaseTestNames } from './testnames';
 
 const BASE = process.env.MADOKEN_ENDPOINT ?? 'http://127.0.0.1:2567';
 const HTTP = BASE.replace(/^ws/, 'http');
@@ -317,6 +318,7 @@ async function main(): Promise<void> {
   } catch (err) {
     check('例外なく通る', false, (err as Error).message);
   } finally {
+    await releaseTestNames(HTTP, [{ name: NAME, token: `tok_${NAME}` }]);
     cdp.close();
     chrome.kill();
     await sleep(500);

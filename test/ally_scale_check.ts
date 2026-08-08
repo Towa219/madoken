@@ -12,6 +12,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { ALLY_ENABLED, ALLY_MUL_MAX, ALLY_MUL_MIN } from '../shared/allies';
+import { releaseTestNames } from './testnames';
 import { EQUIP_BASE } from '../shared/data';
 import { finalStats, magicTotal } from '../shared/spellcraft';
 import type { ElementCounts, Rarity } from '../shared/types';
@@ -196,6 +197,8 @@ async function main(): Promise<void> {
   } catch (err) {
     check('例外なく通る', false, (err as Error).message);
   } finally {
+    // 偽の名前を本番のランキングに残さない(test/testnames.ts に経緯)
+    await releaseTestNames(HTTP, ['弱', '強'].map(t => ({ name: `sc${t}`, token: `tok_sc${t}` })));
     cdp.close();
     chrome.kill();
     await sleep(500);
