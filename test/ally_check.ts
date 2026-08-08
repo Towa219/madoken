@@ -9,8 +9,8 @@
 // ⑥ 倒れたら何もしなくなるか
 
 import {
-  ALLIES, ALLY_ENABLED, ALLY_MAX_MP, ALLY_RP_MUL, ALLY_UNLOCK_RP,
-  allyDefFor, chooseAllySpell, recipeMatches, roleWanted,
+  ALLIES, ALLY_ENABLED, ALLY_FREE_NOW, ALLY_MAX_MP, ALLY_RP_MUL, ALLY_UNLOCK_RP,
+  allyDefFor, allyUnlockCost, chooseAllySpell, recipeMatches, roleWanted,
 } from '../shared/allies';
 import { Ally } from '../src/ally';
 import { CHARACTERS } from '../shared/characters';
@@ -88,7 +88,11 @@ const WANT: Record<number, string[]> = {
   check('★得意エレメントを2本以上に含んでいる', bad.length === 0, bad.join(' / '));
 }
 
-check(`解放は研究P${ALLY_UNLOCK_RP}(ステージ条件にしない)`, ALLY_UNLOCK_RP > 0);
+check(`本来の解放は研究P${ALLY_UNLOCK_RP}(ステージ条件にしない)`,
+  ALLY_UNLOCK_RP === 50, `いまは${ALLY_UNLOCK_RP}`);
+check('★体験版の間は無料で解放できる',
+  ALLY_FREE_NOW && allyUnlockCost() === 0,
+  `無料=${ALLY_FREE_NOW} / いまの費用=${allyUnlockCost()}`);
 check(`連れて行くと研究Pは×${ALLY_RP_MUL}`, ALLY_RP_MUL > 0 && ALLY_RP_MUL < 1);
 
 // ===== ③ 状況で選ぶか =====

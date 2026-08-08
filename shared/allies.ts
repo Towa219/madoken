@@ -17,14 +17,26 @@ import type { ElementCounts, ElementId } from './types';
 // 交易所のガチャ(GACHA_LIVE)と同じやり方。
 export const ALLY_ENABLED = true;
 
-// 解放にかかる研究P。
+// 解放にかかる研究P(本来の値)。
 //
 // ★ ステージ到達を条件にしてはいけない。
 //   5の倍数はボスで、ボスは共闘部屋からしか挑めない。つまり
 //   一人で遊んでいる人の maxStage はステージ5で止まる。
 //   「仲間が見つからない人ほど欲しい機能」なのに、仲間が要る条件を
 //   付けては本末転倒になる。研究Pなら一人でも必ず届く。
-export const ALLY_UNLOCK_RP = 250;
+export const ALLY_UNLOCK_RP = 50;
+
+// 体験版の間は無料で解放する。
+//
+// まだ触ってもらう段階なので、研究Pを貯めるところで止めたくない。
+// false にすると ALLY_UNLOCK_RP がかかるようになる ―
+// 直すのはこの1行だけでよく、画面の文言も説明書も追随する。
+export const ALLY_FREE_NOW = true;
+
+// いま解放にいくらかかるか。画面も説明書も検証も、必ずこれを通す。
+export function allyUnlockCost(): number {
+  return ALLY_FREE_NOW ? 0 : ALLY_UNLOCK_RP;
+}
 
 // お供を連れて行った時の研究Pの倍率。
 // 明らかに楽になるので、そのぶん実入りを減らす。

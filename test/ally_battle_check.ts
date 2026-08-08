@@ -11,7 +11,9 @@ import { spawn } from 'node:child_process';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { ALLY_ENABLED, ALLY_RP_MUL, ALLY_UNLOCK_RP } from '../shared/allies';
+import {
+  ALLY_ENABLED, ALLY_RP_MUL, ALLY_UNLOCK_RP, allyUnlockCost,
+} from '../shared/allies';
 
 const BASE = process.env.MADOKEN_ENDPOINT ?? 'http://127.0.0.1:2567';
 const HTTP = BASE.replace(/^ws/, 'http');
@@ -210,11 +212,32 @@ async function main(): Promise<void> {
       await cdp.evaluate<boolean>('!!document.getElementById("btn-ally-unlock")'));
 
     // ---- 解放 ----
+    const cost = allyUnlockCost();
+    // 体験版の間は無料。研究Pが0でも押せることを確かめる。
+    if (cost === 0) {
+      await cdp.evaluate(`
+        (() => {
+          const k='magic_web_game_save_v1';
+          const s=JSON.parse(localStorage.getItem(k)||'{}');
+          s.researchP=0; localStorage.setItem(k, JSON.stringify(s));
+        })()
+      `);
+      await cdp.evaluate('location.reload()');
+      await sleep(4000);
+      await cdp.click('#tab-battle');
+      await sleep(800);
+      check('★研究P0でも解放ボタンが押せる(体験版)',
+        await cdp.evaluate<boolean>(
+          'document.getElementById("btn-ally-unlock").disabled === false'));
+      check('無料だと分かる文言が出ている',
+        (await cdp.evaluate<string>('document.getElementById("ally-box").innerText'))
+          .indexOf('無料') >= 0);
+    }
     const rpBefore = await cdp.evaluate<number>(`${SAVE}.researchP`);
     check('解放を押せる', await cdp.click('#btn-ally-unlock'));
     await sleep(600);
-    check('★研究Pが解放ぶん減る',
-      (await cdp.evaluate<number>(`${SAVE}.researchP`)) === rpBefore - ALLY_UNLOCK_RP,
+    check(`★研究Pが解放ぶん減る(いまの費用 ${cost})`,
+      (await cdp.evaluate<number>(`${SAVE}.researchP`)) === rpBefore - cost,
       `${rpBefore} → ${await cdp.evaluate<number>(`${SAVE}.researchP`)}`);
     check('解放された', await cdp.evaluate<boolean>(`${SAVE}.allyUnlocked === true`));
 

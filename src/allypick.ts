@@ -6,7 +6,8 @@
 // 解放は研究P ― ステージ条件にしていない理由は shared/allies.ts に書いた。
 
 import {
-  ALLIES, ALLY_ENABLED, ALLY_MAX_HP, ALLY_MAX_MP, ALLY_RP_MUL, ALLY_UNLOCK_RP,
+  ALLIES, ALLY_ENABLED, ALLY_FREE_NOW, ALLY_MAX_HP, ALLY_MAX_MP, ALLY_RP_MUL,
+  ALLY_UNLOCK_RP, allyUnlockCost,
 } from '../shared/allies';
 import { CHARACTERS } from '../shared/characters';
 import { ELEMENTS } from '../shared/data';
@@ -44,16 +45,25 @@ export function renderAllyPicker(): void {
   const note = $('#ally-note');
 
   if (!state.allyUnlocked) {
+    const cost = allyUnlockCost();
     picker.innerHTML = '';
     const btn = document.createElement('button');
     btn.id = 'btn-ally-unlock';
-    btn.textContent = `お供を仲間にする(研究P${ALLY_UNLOCK_RP})`;
-    btn.disabled = state.researchP < ALLY_UNLOCK_RP;
+    btn.className = 'primary';
+    btn.textContent = cost === 0
+      ? 'お供を仲間にする(体験版につき無料)'
+      : `お供を仲間にする(研究P${cost})`;
+    btn.disabled = state.researchP < cost;
     btn.addEventListener('click', unlock);
     picker.appendChild(btn);
     note.innerHTML =
       'ソロの出撃に、自分が使っていないキャラを1人だけ連れて行けるようになる。'
-      + `<br>研究P${ALLY_UNLOCK_RP}が必要(いまは${state.researchP})。`;
+      + (cost === 0
+        // 後から有料になることを先に断っておく。黙って値が付くと
+        // 「前は無料だったのに」となる。
+        ? `<br><b>体験版の間は無料</b>で仲間にできる`
+          + `(のちのち研究P${ALLY_UNLOCK_RP}かかる予定)。`
+        : `<br>研究P${cost}が必要(いまは${state.researchP})。`);
     return;
   }
 
@@ -110,17 +120,20 @@ function makeCard(charId: number | null): HTMLElement {
 
 function unlock(): void {
   if (state.allyUnlocked) return;
-  if (state.researchP < ALLY_UNLOCK_RP) {
-    showToast(`研究Pが足りない(あと${ALLY_UNLOCK_RP - state.researchP})。`);
+  const cost = allyUnlockCost();
+  if (state.researchP < cost) {
+    showToast(`研究Pが足りない(あと${cost - state.researchP})。`);
     return;
   }
-  state.researchP -= ALLY_UNLOCK_RP;
+  state.researchP -= cost;
   state.allyUnlocked = true;
   // 最初は連れて行かない状態にしておく。
   // 勝手に誰かが付いてきて、気づかず研究Pが減っていた、では困る。
   state.allyCharId = null;
   playSfx('discover');
-  showToast('お供を連れて行けるようになった。出撃準備で選ぼう。');
+  showToast(ALLY_FREE_NOW
+    ? 'お供を連れて行けるようになった(体験版につき無料)。出撃準備で選ぼう。'
+    : 'お供を連れて行けるようになった。出撃準備で選ぼう。');
   notify();
   renderAllyPicker();
 }

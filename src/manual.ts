@@ -17,7 +17,8 @@ import {
 } from '../shared/data';
 import { ELEMENT_VALUE } from '../shared/trade';
 import {
-  ALLIES, ALLY_ENABLED, ALLY_MAX_HP, ALLY_MAX_MP, ALLY_RP_MUL, ALLY_UNLOCK_RP,
+  ALLIES, ALLY_ENABLED, ALLY_FREE_NOW, ALLY_MAX_HP, ALLY_MAX_MP, ALLY_RP_MUL,
+  ALLY_UNLOCK_RP, allyUnlockCost,
 } from '../shared/allies';
 import { CHARACTERS, characterName } from '../shared/characters';
 import { ENHANCE_MAX } from '../shared/spellcraft';
@@ -132,7 +133,10 @@ ${ALLY_ENABLED ? `
   <p><b>ソロの出撃に、自分が使っていないキャラを1人だけ連れて行けます。</b>
   仲間が見つからない時でも、二人で戦えます。</p>
   <ul>
-    <li><b>解放には研究P${ALLY_UNLOCK_RP}</b>かかります(一度きり)。出撃準備の「お供」欄から</li>
+    <li>${ALLY_FREE_NOW
+      ? `<b>体験版の間は無料</b>で仲間にできます(のちのち研究P${ALLY_UNLOCK_RP}かかる予定)。`
+      : `<b>解放には研究P${allyUnlockCost()}</b>かかります(一度きり)。`}
+    出撃準備の「お供」欄から</li>
     <li>お供は<b>HP${ALLY_MAX_HP} / MP${ALLY_MAX_MP}</b>。あなた(HP${PLAYER_MAX_HP} / MP${PLAYER_MAX_MP})より少し柔らかい</li>
     <li><b>詠唱時間・再使用時間・消費MPはあなたと同じ決まり</b>で動きます。MPが尽きれば息切れします</li>
     <li>敵はお供も狙います。<b>挑発を撃つと、その間は敵の狙いがお供に集まります</b></li>
