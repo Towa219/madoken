@@ -1,4 +1,4 @@
-import { finalStats, spellMagicValue, spellNameFor } from '../shared/spellcraft';
+import { finalStats, magicTotal, spellMagicValue, spellNameFor } from '../shared/spellcraft';
 import {
   ELEMENT_ORDER, equipLimit, LEGEND_BOSS_STAGE, LOADOUT_COUNT, LOADOUT_NAME_MAX,
   START_SLOTS,
@@ -45,7 +45,7 @@ function initialState(): GameState {
     tickets: 0,
     lastBonusDate: '',
     codexRewarded: false,
-    allyUnlocked: false,
+    allyUnlocked: true,     // 解放は廃止(この旗はもう見ていない)
     allyCharId: null,
   };
 }
@@ -131,8 +131,9 @@ function migrate(parsed: Partial<GameState>): GameState {
     merged.tickets = Math.max(0, Math.floor(merged.tickets));
     if (typeof merged.lastBonusDate !== 'string') merged.lastBonusDate = '';
     if (typeof merged.codexRewarded !== 'boolean') merged.codexRewarded = false;
-    // お供AI。古いセーブには無いので、未解放・連れて行かないで補う。
-    if (typeof merged.allyUnlocked !== 'boolean') merged.allyUnlocked = false;
+    // お供AI。解放という仕組みはもう無いので、この旗は常に true にしておく
+    // (古いセーブとの互換のために残しているだけ。読む側はもう見ていない)。
+    merged.allyUnlocked = true;
     if (typeof merged.allyCharId !== 'number'
         || !Number.isFinite(merged.allyCharId)
         || merged.allyCharId < 0 || merged.allyCharId >= CHARACTER_COUNT) {
@@ -321,6 +322,14 @@ export function toggleEquip(id: string): void {
 // 保存時に焼き込んでしまうと、乗り換えても古い魔法だけ前のキャラのままになる。
 export function withCharBonus(sp: Spell): Spell {
   return { ...sp, stats: finalStats(sp.recipe, sp.level, sp.rarity, state.charId) };
+}
+
+// オンラインランキングに出るのと同じ魔導値合計。
+//
+// 持っている魔法すべてから、装備できる本数だけ強い順に合計する
+// (装備中のものだけを見る「戦闘力」とは別)。お供の強さはこれに比例する。
+export function playerMagicTotal(): number {
+  return magicTotal(state.spells.map(withCharBonus), equipSlots());
 }
 
 export function equippedSpells(): Spell[] {

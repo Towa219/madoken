@@ -10,7 +10,7 @@
 
 import {
   ALLY_CD_MUL, ALLY_MAX_HP, ALLY_MAX_MP, ALLY_MP_REGEN, ALLY_TAUNT_SEC,
-  ALLY_THINK_SEC, allyDefFor, chooseAllySpell,
+  ALLY_THINK_SEC, allyDefFor, chooseAllySpell, scaleAllyStats,
 } from '../shared/allies';
 import { computeSpell, finalStats, spellCooldown, spellNameFor } from '../shared/spellcraft';
 import type { AllyDef, AllyRole, AllySight } from '../shared/allies';
@@ -49,7 +49,9 @@ export class Ally {
   private cooldowns: number[] = [];
   private thinkT = 0;
 
-  constructor(charId: number) {
+  // powerMul = あなたの魔導値合計から決まる倍率(shared/allies.ts の allyPowerMul)。
+  // 1 なら今までどおり。戦闘に入る時に一度だけ決まり、途中では変わらない。
+  constructor(charId: number, readonly powerMul = 1) {
     const def = allyDefFor(charId);
     if (!def) throw new Error(`お供の設定が無い: charId=${charId}`);
     this.def = def;
@@ -57,13 +59,14 @@ export class Ally {
 
     // 持ち物を組み立てる。すべてノーマル品質・強化なし。
     // キャラ補正(得意エレメント+10%)は finalStats に charId を渡して効かせる。
+    // そのうえで、あなたの魔導値合計ぶんだけ出す力を伸び縮みさせる。
     this.spells = def.spells.map((s, i) => {
       const { matched } = computeSpell(s.recipe);
       return {
         id: `ally_${charId}_${i}`,
         name: spellNameFor(s.recipe, 'normal'),
         recipe: s.recipe,
-        stats: finalStats(s.recipe, 0, 'normal', charId),
+        stats: scaleAllyStats(finalStats(s.recipe, 0, 'normal', charId), powerMul),
         discoveries: matched.map(r => r.id),
         level: 0,
         rarity: 'normal' as const,

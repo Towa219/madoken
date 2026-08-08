@@ -17,9 +17,8 @@ import {
 } from '../shared/data';
 import { ELEMENT_VALUE } from '../shared/trade';
 import {
-  ALLIES, ALLY_CD_MUL, ALLY_DMG_MUL, ALLY_ENABLED, ALLY_FREE_NOW, ALLY_HEAL_MUL,
-  ALLY_MAX_HP, ALLY_MAX_MP, ALLY_RP_MUL,
-  ALLY_UNLOCK_RP, allyUnlockCost,
+  ALLIES, ALLY_CD_MUL, ALLY_DMG_MUL, ALLY_ENABLED, ALLY_HEAL_MUL,
+  ALLY_MAX_HP, ALLY_MAX_MP, ALLY_MUL_MAX, ALLY_MUL_MIN, ALLY_REF_MAGIC, ALLY_RP_MUL,
 } from '../shared/allies';
 import { CHARACTERS, characterName } from '../shared/characters';
 import { ENHANCE_MAX } from '../shared/spellcraft';
@@ -134,16 +133,21 @@ ${ALLY_ENABLED ? `
   <p><b>ソロの出撃に、自分が使っていないキャラを1人だけ連れて行けます。</b>
   仲間が見つからない時でも、二人で戦えます。</p>
   <ul>
-    <li>${ALLY_FREE_NOW
-      ? `<b>体験版の間は無料</b>で仲間にできます(のちのち研究P${ALLY_UNLOCK_RP}かかる予定)。`
-      : `<b>解放には研究P${allyUnlockCost()}</b>かかります(一度きり)。`}
-    出撃準備の「お供」欄から</li>
+    <li><b>解放は要りません。</b>誰でも最初から、出撃準備の「お供」欄で選べます
+    (連れて行かないことも選べます)</li>
     <li>お供は<b>HP${ALLY_MAX_HP} / MP${ALLY_MAX_MP}</b>。あなた(HP${PLAYER_MAX_HP} / MP${PLAYER_MAX_MP})よりだいぶ柔らかい</li>
     <li><b>詠唱時間・消費MPはあなたと同じ決まり</b>で動きます</li>
     <li>★<b>お供のMPは戦闘中ほとんど回復しません</b>(持って入った${ALLY_MAX_MP}ぶんだけ)。
     序盤に手伝って、あとは息切れします。瞑想を持つ子だけは少し粘れます</li>
     <li>ほかにも<b>手加減しています</b> — 与えるダメージは×${ALLY_DMG_MUL}、癒す量は×${ALLY_HEAL_MUL}、
     再使用時間は${ALLY_CD_MUL}倍。<b>お供だけでは勝てません</b>(手伝いであって、肩代わりではありません)</li>
+    <li>★<b>お供の強さはあなたに比例します</b> —
+    オンラインランキングと同じ<b>魔導値合計</b>(持っている魔法から装備できる本数だけ強い順に合計)を
+    ${ALLY_REF_MAGIC}で割った倍率が、お供の出す力に掛かります。
+    下限×${ALLY_MUL_MIN}・上限×${ALLY_MUL_MAX}。
+    あなたが強くなればお供も強くなり、始めたばかりのうちは控えめです。
+    <b>詠唱時間・再使用時間・消費MP・封印の長さは伸びません</b>(速さではなく力だけ)。
+    今の倍率は出撃準備の「お供」欄に出ています</li>
     <li>敵はお供も狙います。<b>挑発を撃つと、その間は敵の狙いがお供に集まります</b></li>
     <li>★<b>あなたの「全体」魔法はお供にも届きます</b> —
     聖域盾・慈雨・万象護符・鼓舞・戦鼓・魔力共鳴の6系統。

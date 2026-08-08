@@ -19,12 +19,12 @@ import type { Pose } from './artwork';
 import { characterName, characterScale } from '../shared/characters';
 import {
   ALLY_DMG_MUL, ALLY_HATE_SHARE, ALLY_HEAL_MUL, ALLY_SEAL_MUL, ALLY_TAUNT_SHARE,
-  ALLY_MAX_HP, ALLY_MAX_MP,
+  ALLY_MAX_HP, ALLY_MAX_MP, allyPowerMul,
 } from '../shared/allies';
 import { Ally } from './ally';
 import type { AllySight } from '../shared/allies';
 import { sealResistMul, spellCooldown, spellDisplayName } from '../shared/spellcraft';
-import { state } from './state';
+import { playerMagicTotal, state } from './state';
 import { playSfx, startSfxLoop, stopSfxLoop } from './sound';
 import type { BattleResult, ElementId, Spell, SpellStats } from '../shared/types';
 
@@ -71,6 +71,7 @@ interface AllyDebug {
   casted: number; roles: string[];
   hp: number; maxHp: number; alive: boolean;
   shield: number; warded: boolean; atkBoost: number; mpRegenBonus: number;
+  powerMul: number; power0: number;   // 倍率と、1本目の威力(効いているかの証)
 }
 
 const cy = (n: number) => GROUND_Y - n * SPRITE_SCALE;
@@ -217,7 +218,10 @@ export class BattleManager {
     this.spells = spells;
     this.onEnd = onEnd;
     // お供。連れて行かない時は null のまま(今までどおりのソロ)。
-    this.ally = allyCharId === null ? null : new Ally(allyCharId);
+    // お供の強さは、出撃する時のあなたの魔導値合計で決まる(戦闘中は変わらない)
+    this.ally = allyCharId === null
+      ? null
+      : new Ally(allyCharId, allyPowerMul(playerMagicTotal()));
     this.allyPoseT = 0;
 
     this.maxHp = PLAYER_MAX_HP;
@@ -957,6 +961,8 @@ export class BattleManager {
     d.warded = a.ward !== null;
     d.atkBoost = a.atkBoost;
     d.mpRegenBonus = a.mpRegenBonus;
+    d.powerMul = a.powerMul;
+    d.power0 = Math.round(a.spells[0]?.stats.power ?? 0);
   }
 
   private allyDebug(): AllyDebug {
@@ -965,6 +971,7 @@ export class BattleManager {
       w.__allyDebug = {
         casted: 0, roles: [], hp: ALLY_MAX_HP, maxHp: ALLY_MAX_HP, alive: true,
         shield: 0, warded: false, atkBoost: 0, mpRegenBonus: 0,
+        powerMul: 1, power0: 0,
       };
     }
     return w.__allyDebug;

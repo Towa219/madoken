@@ -576,6 +576,24 @@ export function combatPower(spells: { stats: SpellStats }[]): number {
   return spells.reduce((sum, sp) => sum + spellMagicValue(sp.stats), 0);
 }
 
+// オンラインランキングと同じ数え方の魔導値合計。
+//
+// 戦闘力(combatPower)との違いは「どれを数えるか」。
+//   戦闘力     … いま装備している魔法
+//   ランキング … 持っている魔法から、装備できる本数だけ強い順に
+// 装備の入れ替えで順位が動かないよう、ランキング側はこの数え方をしている
+// (server/ranking.ts の magicRankScore と同じ考え方)。
+//
+// お供の強さもこちらに合わせる。「装備を外したらお供まで弱くなった」では
+// 理由が分かりにくいし、順位に出ている数字と一致していたほうが説明しやすい。
+export function magicTotal(spells: { stats: SpellStats }[], topN: number): number {
+  return spells
+    .map(sp => spellMagicValue(sp.stats))
+    .sort((a, b) => b - a)
+    .slice(0, Math.max(1, Math.floor(topN)))
+    .reduce((sum, v) => sum + v, 0);
+}
+
 // 性能の表示用テキスト(研究室・戦闘の両方で使用)
 export function statsSummary(s: SpellStats): string {
   if (s.kind === 'shield') {

@@ -3,18 +3,17 @@
 // 旗(ALLY_ENABLED)が false の間は何も出さない。既存の遊びは変わらない。
 //
 // 選べるのは自分が使っていない5人。連れて行かないことも選べる。
-// 解放は研究P ― ステージ条件にしていない理由は shared/allies.ts に書いた。
+// 解放はしない ― 誰でも最初から選べる(理由は shared/allies.ts に書いた)。
 
 import {
-  ALLIES, ALLY_ENABLED, ALLY_FREE_NOW, ALLY_MAX_HP, ALLY_MAX_MP, ALLY_RP_MUL,
-  ALLY_UNLOCK_RP, allyUnlockCost,
+  ALLIES, ALLY_ENABLED, ALLY_MAX_HP, ALLY_MAX_MP, ALLY_MUL_MAX,
+  ALLY_MUL_MIN, ALLY_REF_MAGIC, ALLY_RP_MUL, allyPowerMul,
 } from '../shared/allies';
 import { CHARACTERS } from '../shared/characters';
 import { ELEMENTS } from '../shared/data';
 import { playerArtUrl } from './artwork';
-import { showToast } from './lab';
 import { playSfx } from './sound';
-import { notify, state } from './state';
+import { notify, playerMagicTotal, state } from './state';
 
 const $ = <T extends HTMLElement = HTMLElement>(sel: string) =>
   document.querySelector(sel) as T;
@@ -24,9 +23,9 @@ function esc(s: string): string {
     .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
-// いま連れて行くお供。連れて行かない・自分自身・未解放なら null。
+// いま連れて行くお供。連れて行かない・自分自身なら null。
 export function currentAllyCharId(): number | null {
-  if (!ALLY_ENABLED || !state.allyUnlocked) return null;
+  if (!ALLY_ENABLED) return null;
   const id = state.allyCharId;
   if (id === null || id === state.charId) return null;
   return ALLIES.some(a => a.charId === id) ? id : null;
@@ -44,29 +43,6 @@ export function renderAllyPicker(): void {
   const picker = $('#ally-picker');
   const note = $('#ally-note');
 
-  if (!state.allyUnlocked) {
-    const cost = allyUnlockCost();
-    picker.innerHTML = '';
-    const btn = document.createElement('button');
-    btn.id = 'btn-ally-unlock';
-    btn.className = 'primary';
-    btn.textContent = cost === 0
-      ? 'お供を仲間にする(体験版につき無料)'
-      : `お供を仲間にする(研究P${cost})`;
-    btn.disabled = state.researchP < cost;
-    btn.addEventListener('click', unlock);
-    picker.appendChild(btn);
-    note.innerHTML =
-      'ソロの出撃に、自分が使っていないキャラを1人だけ連れて行けるようになる。'
-      + (cost === 0
-        // 後から有料になることを先に断っておく。黙って値が付くと
-        // 「前は無料だったのに」となる。
-        ? `<br><b>体験版の間は無料</b>で仲間にできる`
-          + `(のちのち研究P${ALLY_UNLOCK_RP}かかる予定)。`
-        : `<br>研究P${cost}が必要(いまは${state.researchP})。`);
-    return;
-  }
-
   // 「連れて行かない」+ 自分以外の5人
   picker.innerHTML = '';
   picker.appendChild(makeCard(null));
@@ -76,12 +52,21 @@ export function renderAllyPicker(): void {
   }
 
   const id = currentAllyCharId();
+  const total = playerMagicTotal();
+  const mul = allyPowerMul(total);
   note.innerHTML = id === null
     ? '連れて行かない。研究Pは満額もらえる。'
     : `お供はHP${ALLY_MAX_HP} / MP${ALLY_MAX_MP}。`
       + '<b>倒れると復活しない</b>ので、回復も気にかけよう。'
       + `<br>連れて行くと<b>研究Pは×${ALLY_RP_MUL}</b>になる。`
-      + '共闘部屋と決闘には同行しない。';
+      + '共闘部屋と決闘には同行しない。'
+      // 自分が強くなればお供も強くなる、と分かるように今の値を出しておく。
+      // 上限・下限に張り付いている時は、それも書かないと
+      // 「魔導値を上げたのに何も変わらない」と見える。
+      + `<br>お供の強さ <b>×${mul.toFixed(2)}</b>`
+      + `(あなたの魔導値合計 ${total.toLocaleString()} ÷ ${ALLY_REF_MAGIC})`
+      + (mul >= ALLY_MUL_MAX ? '<b>・上限</b>'
+        : mul <= ALLY_MUL_MIN ? '<b>・下限</b>' : '');
 }
 
 function makeCard(charId: number | null): HTMLElement {
@@ -116,24 +101,4 @@ function makeCard(charId: number | null): HTMLElement {
     renderAllyPicker();
   });
   return btn;
-}
-
-function unlock(): void {
-  if (state.allyUnlocked) return;
-  const cost = allyUnlockCost();
-  if (state.researchP < cost) {
-    showToast(`研究Pが足りない(あと${cost - state.researchP})。`);
-    return;
-  }
-  state.researchP -= cost;
-  state.allyUnlocked = true;
-  // 最初は連れて行かない状態にしておく。
-  // 勝手に誰かが付いてきて、気づかず研究Pが減っていた、では困る。
-  state.allyCharId = null;
-  playSfx('discover');
-  showToast(ALLY_FREE_NOW
-    ? 'お供を連れて行けるようになった(体験版につき無料)。出撃準備で選ぼう。'
-    : 'お供を連れて行けるようになった。出撃準備で選ぼう。');
-  notify();
-  renderAllyPicker();
 }

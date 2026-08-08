@@ -11,9 +11,7 @@ import { spawn } from 'node:child_process';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import {
-  ALLY_ENABLED, ALLY_RP_MUL, ALLY_UNLOCK_RP, allyUnlockCost,
-} from '../shared/allies';
+import { ALLY_ENABLED, ALLY_RP_MUL } from '../shared/allies';
 
 const BASE = process.env.MADOKEN_ENDPOINT ?? 'http://127.0.0.1:2567';
 const HTTP = BASE.replace(/^ws/, 'http');
@@ -112,11 +110,11 @@ const PICK_ID: Record<string, number> = {
   黒金: 0, 白銀: 1, 紅蓮: 2, 翠緑: 3, 紫紺: 4, 蒼氷: 5,
 };
 
-// 研究Pは解放ぶんを持たせておく。装備も1本入れておく。
+// 研究Pは持たせておく(解放には要らないが、画面の表示に使う)。装備も1本。
 function seedSave() {
   return {
     version: 1, nickname: NAME, nickToken: `tok_${NAME}`, charId: 0,
-    researchP: ALLY_UNLOCK_RP + 50,
+    researchP: 100,
     inventory: { fire: 9, water: 9, wind: 9, earth: 9, thunder: 9, ice: 9, light: 9, dark: 9 },
     spells: [{
       id: 's1', name: '水流弾', recipe: { water: 2, wind: 1 },
@@ -126,7 +124,7 @@ function seedSave() {
     discovered: [], slots: 3, maxStage: 3, bestStage: 2,
     bossCleared: [], codexRewarded: false, tickets: 0,
     lastBonusDate: new Date().toISOString().slice(0, 10),
-    allyUnlocked: false, allyCharId: null,
+    allyUnlocked: false, allyCharId: null,   // 古いセーブのつもりで false から
   };
 }
 
@@ -191,9 +189,9 @@ async function main(): Promise<void> {
       check('★旗が false なのでお供の欄は出ない',
         await cdp.evaluate<boolean>(
           'document.getElementById("ally-box").classList.contains("hidden")'));
-      check('解放ボタンも出ない',
+      check('選択画面も出ない',
         !await cdp.evaluate<boolean>(
-          '!!document.getElementById("btn-ally-unlock")'));
+          '!!document.querySelector("#ally-picker .ally-card")'));
       check('出撃準備は今までどおり押せる',
         await cdp.evaluate<boolean>(
           'document.getElementById("btn-solo-go").disabled === false'));
@@ -208,38 +206,36 @@ async function main(): Promise<void> {
     check('★お供の欄が出ている',
       await cdp.evaluate<boolean>(
         '!document.getElementById("ally-box").classList.contains("hidden")'));
-    check('未解放のうちは解放ボタンが出る',
-      await cdp.evaluate<boolean>('!!document.getElementById("btn-ally-unlock")'));
 
-    // ---- 解放 ----
-    const cost = allyUnlockCost();
-    // 体験版の間は無料。研究Pが0でも押せることを確かめる。
-    if (cost === 0) {
-      await cdp.evaluate(`
-        (() => {
-          const k='magic_web_game_save_v1';
-          const s=JSON.parse(localStorage.getItem(k)||'{}');
-          s.researchP=0; localStorage.setItem(k, JSON.stringify(s));
-        })()
-      `);
-      await cdp.evaluate('location.reload()');
-      await sleep(4000);
-      await cdp.click('#tab-battle');
-      await sleep(800);
-      check('★研究P0でも解放ボタンが押せる(体験版)',
-        await cdp.evaluate<boolean>(
-          'document.getElementById("btn-ally-unlock").disabled === false'));
-      check('無料だと分かる文言が出ている',
-        (await cdp.evaluate<string>('document.getElementById("ally-box").innerText'))
-          .indexOf('無料') >= 0);
-    }
+    // ---- 解放は無い ----
+    //
+    // v0.101.0 で「お供を仲間にする」をやめた。研究Pを払う手順ごと
+    // 消えているので、ボタンが残っていないこと・研究P0でもいきなり
+    // 選べることを見る(ここが戻ると、また入口で待たされる)。
+    await cdp.evaluate(`
+      (() => {
+        const k='magic_web_game_save_v1';
+        const s=JSON.parse(localStorage.getItem(k)||'{}');
+        s.researchP=0; s.allyUnlocked=false; localStorage.setItem(k, JSON.stringify(s));
+      })()
+    `);
+    await cdp.evaluate('location.reload()');
+    await sleep(4000);
+    await cdp.click('#tab-battle');
+    await sleep(800);
+    check('★「お供を仲間にする」ボタンは無い',
+      !await cdp.evaluate<boolean>('!!document.getElementById("btn-ally-unlock")'));
+    check('★研究P0でも、いきなり選択画面が出ている',
+      (await cdp.evaluate<number>(
+        'document.querySelectorAll("#ally-picker .ally-card").length')) === 6,
+      `${await cdp.evaluate<number>('document.querySelectorAll("#ally-picker .ally-card").length')}枚`);
+    // 選ぶだけでは研究Pが動かないこと。
+    // (0固定では見られない ― 日々のボーナスやクラウドの記録で
+    //  読み込み時に増えることがあるため、前後の差で見る)
     const rpBefore = await cdp.evaluate<number>(`${SAVE}.researchP`);
-    check('解放を押せる', await cdp.click('#btn-ally-unlock'));
-    await sleep(600);
-    check(`★研究Pが解放ぶん減る(いまの費用 ${cost})`,
-      (await cdp.evaluate<number>(`${SAVE}.researchP`)) === rpBefore - cost,
-      `${rpBefore} → ${await cdp.evaluate<number>(`${SAVE}.researchP`)}`);
-    check('解放された', await cdp.evaluate<boolean>(`${SAVE}.allyUnlocked === true`));
+    check('解放という文言も出ていない',
+      !(await cdp.evaluate<string>('document.getElementById("ally-box").innerText'))
+        .includes('仲間にする'));
 
     const cards = await cdp.evaluate<number>(
       'document.querySelectorAll("#ally-picker .ally-card").length');
@@ -267,6 +263,9 @@ async function main(): Promise<void> {
     check('★選んだお供がセーブに残る',
       (await cdp.evaluate<number | null>(`${SAVE}.allyCharId`)) === PICK_ID[PICK],
       String(await cdp.evaluate<number | null>(`${SAVE}.allyCharId`)));
+    check('★選んでも研究Pは減らない(解放費用は無い)',
+      (await cdp.evaluate<number>(`${SAVE}.researchP`)) === rpBefore,
+      `${rpBefore} → ${await cdp.evaluate<number>(`${SAVE}.researchP`)}`);
 
     // ---- 出撃 ----
     check('ソロで出撃できる', await cdp.click('#btn-solo-go'));

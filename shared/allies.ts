@@ -9,7 +9,7 @@
 //   (test/ally_check.ts が状況を作って選ばせている)。
 
 import { RECIPES } from './data';
-import type { ElementCounts, ElementId } from './types';
+import type { ElementCounts, ElementId, SpellStats } from './types';
 
 // ---- 出すかどうかの旗 ----
 //
@@ -17,26 +17,16 @@ import type { ElementCounts, ElementId } from './types';
 // 交易所のガチャ(GACHA_LIVE)と同じやり方。
 export const ALLY_ENABLED = true;
 
-// 解放にかかる研究P(本来の値)。
+// ---- 解放は無い ----
 //
-// ★ ステージ到達を条件にしてはいけない。
+// 以前は研究Pを払って「仲間にする」ひと手間を置いていたが、やめた。
+// 仲間が見つからない人ほど欲しい機能なのに、入口で待たせる意味が無い。
+// いまは誰でも最初から出撃準備で選べる(選ばないことも選べる)。
+// 費用は「連れて行った回の研究Pが減る(ALLY_RP_MUL)」だけに一本化した。
+//
+// ★ 代わりに、ステージ到達を条件に戻してはいけない。
 //   5の倍数はボスで、ボスは共闘部屋からしか挑めない。つまり
 //   一人で遊んでいる人の maxStage はステージ5で止まる。
-//   「仲間が見つからない人ほど欲しい機能」なのに、仲間が要る条件を
-//   付けては本末転倒になる。研究Pなら一人でも必ず届く。
-export const ALLY_UNLOCK_RP = 50;
-
-// 体験版の間は無料で解放する。
-//
-// まだ触ってもらう段階なので、研究Pを貯めるところで止めたくない。
-// false にすると ALLY_UNLOCK_RP がかかるようになる ―
-// 直すのはこの1行だけでよく、画面の文言も説明書も追随する。
-export const ALLY_FREE_NOW = true;
-
-// いま解放にいくらかかるか。画面も説明書も検証も、必ずこれを通す。
-export function allyUnlockCost(): number {
-  return ALLY_FREE_NOW ? 0 : ALLY_UNLOCK_RP;
-}
 
 // お供を連れて行った時の研究Pの倍率。
 // 明らかに楽になるので、そのぶん実入りを減らす。
@@ -77,6 +67,50 @@ export const ALLY_SEAL_MUL = 0.5;   // 封印の長さ。敵を止め続けさ�
 export const ALLY_HATE_SHARE = 0.4;
 export const ALLY_TAUNT_SHARE = 0.85;
 export const ALLY_TAUNT_SEC = 6;
+
+// ---- あなたに合わせて伸び縮みする ----
+//
+// お供の持ち物は「ノーマル品質・強化なし」で固定してある。そのままだと
+// 始めたばかりの人には強すぎ、深く進んだ人には居ないのと同じになる。
+// (お供の4本を魔導値にすると合計およそ1400 ― ちょうど中盤の人の手持ちぶん。
+//  初心者はおよそ370、終盤の人は7000を超える。20倍近い開きがある。)
+//
+// そこで、お供が出す力をあなたの魔導値合計に比例させる。
+// 数え方はオンラインランキングと同じ ―「持っている魔法から、装備できる
+// 本数だけ強い順に合計」。装備を外してもお供は弱くならない。
+export const ALLY_REF_MAGIC = 1400;   // ここで等倍(=お供の持ち物と釣り合う値)
+export const ALLY_MUL_MIN = 0.5;      // これ以下には落とさない(居る意味を残す)
+export const ALLY_MUL_MAX = 2.0;      // これ以上は伸ばさない(主役を食わせない)
+
+export function allyPowerMul(magicTotal: number): number {
+  const raw = (Number.isFinite(magicTotal) ? magicTotal : 0) / ALLY_REF_MAGIC;
+  const m = Math.min(ALLY_MUL_MAX, Math.max(ALLY_MUL_MIN, raw));
+  return Math.round(m * 100) / 100;
+}
+
+// 倍率を持ち物に効かせる。
+//
+// ★ 伸ばすのは〈出す力の大きさ〉だけ。詠唱時間・再使用時間・消費MPは触らない。
+//   速さまで伸ばすと手数が増えて、手加減(ALLY_CD_MUL・MPの天井)が
+//   まるごと崩れる。強くなるのであって、忙しくなるのではない。
+//
+// ★ 封印の長さも伸ばさない。時間を伸ばすと敵が動けなくなる ―
+//   「強い」ではなく「相手に何もさせない」になってしまう。
+export function scaleAllyStats(s: SpellStats, mul: number): SpellStats {
+  if (mul === 1) return s;
+  const cap = (v: number, max: number) => Math.min(max, Math.round(v * mul));
+  return {
+    ...s,
+    power: Math.round(s.power * mul),
+    dotDps: Math.round(s.dotDps * mul * 10) / 10,
+    healPower: Math.round(s.healPower * mul),
+    barrier: Math.round(s.barrier * mul),
+    hpBoost: Math.round(s.hpBoost * mul),
+    mpRegenBonus: Math.round(s.mpRegenBonus * mul * 10) / 10,
+    atkBoost: cap(s.atkBoost, 60),    // 上限は人の魔法と同じ
+    wardPct: cap(s.wardPct, 70),
+  };
+}
 
 // 判断の間合い(秒)。毎フレーム考える必要はないし、
 // 間を置いたほうが「考えてから動いた」ように見える。

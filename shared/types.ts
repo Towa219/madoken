@@ -87,7 +87,7 @@ export interface GameState {
   loadouts: Loadout[];     // お気に入りの装備セット(LOADOUT_COUNT個で固定)
   sortByPower?: boolean;   // 旧版の並び順(魔導値順かどうか)。読み込み時の変換にだけ使う
   codexRewarded: boolean;  // 発見図鑑コンプリート報酬(エピック)を受け取ったか
-  allyUnlocked: boolean;   // お供AIを連れて行けるようになったか(研究Pで解放)
+  allyUnlocked: boolean;   // 使っていない(解放は廃止。古いセーブとの互換で残置)
   allyCharId: number | null; // 連れて行くお供。null は連れて行かない
   tickets: number;         // ガチャチケット(1日1枚のログインボーナス)
   lastBonusDate: string;   // 最後にボーナスを配った日(YYYY-MM-DD)

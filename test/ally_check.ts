@@ -9,9 +9,11 @@
 // ⑥ 倒れたら何もしなくなるか
 
 import {
-  ALLIES, ALLY_CD_MUL, ALLY_DMG_MUL, ALLY_ENABLED, ALLY_FREE_NOW, ALLY_HEAL_MUL,
-  ALLY_MAX_HP, ALLY_MAX_MP, ALLY_MP_REGEN, ALLY_RP_MUL, ALLY_UNLOCK_RP,
-  allyDefFor, allyUnlockCost, chooseAllySpell, recipeMatches, roleWanted,
+  ALLIES, ALLY_CD_MUL, ALLY_DMG_MUL, ALLY_ENABLED, ALLY_HEAL_MUL,
+  ALLY_MAX_HP, ALLY_MAX_MP, ALLY_MP_REGEN, ALLY_MUL_MAX, ALLY_MUL_MIN,
+  ALLY_REF_MAGIC, ALLY_RP_MUL,
+  allyDefFor, allyPowerMul, chooseAllySpell, recipeMatches,
+  roleWanted, scaleAllyStats,
 } from '../shared/allies';
 import { Ally } from '../src/ally';
 import { CHARACTERS } from '../shared/characters';
@@ -90,11 +92,6 @@ const WANT: Record<number, string[]> = {
   check('★得意エレメントを2本以上に含んでいる', bad.length === 0, bad.join(' / '));
 }
 
-check(`本来の解放は研究P${ALLY_UNLOCK_RP}(ステージ条件にしない)`,
-  ALLY_UNLOCK_RP === 50, `いまは${ALLY_UNLOCK_RP}`);
-check('★体験版の間は無料で解放できる',
-  ALLY_FREE_NOW && allyUnlockCost() === 0,
-  `無料=${ALLY_FREE_NOW} / いまの費用=${allyUnlockCost()}`);
 check(`連れて行くと研究Pは×${ALLY_RP_MUL}`, ALLY_RP_MUL > 0 && ALLY_RP_MUL < 1);
 
 // ★ 役どころ 'empower' の持ち物が、本当に与ダメ上昇の魔法か。
@@ -114,6 +111,48 @@ check(`連れて行くと研究Pは×${ALLY_RP_MUL}`, ALLY_RP_MUL > 0 && ALLY_RP
     }
   }
   check('★鼓舞役の持ち物が本当に与ダメ上昇である', bad.length === 0, bad.join(' / '));
+}
+
+// ---- あなたの魔導値合計に比例するか ----
+{
+  check(`魔導値${ALLY_REF_MAGIC}でちょうど等倍`,
+    allyPowerMul(ALLY_REF_MAGIC) === 1, `${allyPowerMul(ALLY_REF_MAGIC)}`);
+  check('半分の魔導値なら半分の強さ',
+    Math.abs(allyPowerMul(ALLY_REF_MAGIC / 2) - 0.5) < 0.01);
+  check(`始めたばかり(魔導値0)でも下限×${ALLY_MUL_MIN}で止まる`,
+    allyPowerMul(0) === ALLY_MUL_MIN, `${allyPowerMul(0)}`);
+  check(`どれだけ強くても上限×${ALLY_MUL_MAX}で止まる`,
+    allyPowerMul(999999) === ALLY_MUL_MAX, `${allyPowerMul(999999)}`);
+  check('壊れた値が来ても落ちない',
+    allyPowerMul(NaN) === ALLY_MUL_MIN && allyPowerMul(-100) === ALLY_MUL_MIN);
+
+  // ★ 伸ばすのは力だけ。速さと燃費は変えない ―
+  //   ここが崩れると、手数まで増えて手加減がまるごと効かなくなる。
+  const base = finalStats({ fire: 3, earth: 1 }, 0, 'normal', 2);
+  const big = scaleAllyStats(base, 2);
+  const small = scaleAllyStats(base, 0.5);
+  check('★倍率で威力が伸びる',
+    big.power === Math.round(base.power * 2)
+    && small.power === Math.round(base.power * 0.5),
+    `${small.power} / ${base.power} / ${big.power}`);
+  check('★詠唱時間・消費MPは変わらない',
+    big.castTime === base.castTime && big.manaCost === base.manaCost);
+  check('★封印の長さは伸びない(敵を止め続けさせない)',
+    scaleAllyStats(finalStats({ dark: 3, ice: 1 }, 0, 'normal', 5), 2).sealTime
+      === finalStats({ dark: 3, ice: 1 }, 0, 'normal', 5).sealTime);
+  check('与ダメ上昇・耐性は人の魔法と同じ上限で頭打ち',
+    scaleAllyStats({ ...base, atkBoost: 40, wardPct: 50 }, 2).atkBoost === 60
+    && scaleAllyStats({ ...base, atkBoost: 40, wardPct: 50 }, 2).wardPct === 70);
+
+  // 実際に持たせた時に効いているか(Ally 経由)
+  const weak = new Ally(2, allyPowerMul(0));
+  const strong = new Ally(2, allyPowerMul(999999));
+  check('★お供の持ち物にも効いている',
+    strong.spells[0].stats.power > weak.spells[0].stats.power * 3.5,
+    `弱${weak.spells[0].stats.power} → 強${strong.spells[0].stats.power}`);
+  check('倍率を渡さなければ今までどおり',
+    new Ally(2).spells[0].stats.power
+      === finalStats({ fire: 3, earth: 1 }, 0, 'normal', 2).power);
 }
 
 // 手加減の値。人より弱いことを数字で固定しておく
