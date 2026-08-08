@@ -16,6 +16,7 @@
 import base64
 import io
 import os
+import re
 import sys
 
 from PIL import Image
@@ -35,6 +36,20 @@ URL_SHOW = 'towa219.github.io/madoken/'
 CARD_W, CARD_H = 91, 55       # mm
 MARGIN_X, MARGIN_Y = 14, 11   # mm
 COLS, ROWS = 2, 5
+
+
+def copyright_text() -> str:
+    """著作権表記は shared/version.ts から拾う。
+
+    名刺に手で書き写すと、本体を直した時にここだけ古い年号が残る。
+    画面の隅とゲーム内と紙で表記が食い違うのがいちばん恰好がつかない。
+    """
+    path = os.path.join(ROOT, 'shared', 'version.ts')
+    with io.open(path, encoding='utf-8') as f:
+        m = re.search(r"COPYRIGHT\s*=\s*'([^']+)'", f.read())
+    if not m:
+        raise SystemExit('shared/version.ts から COPYRIGHT を読めない')
+    return m.group(1)
 
 
 def data_uri(img: Image.Image) -> str:
@@ -89,7 +104,7 @@ def cut_svg() -> str:
             + ''.join(lines) + '</g></svg>')
 
 
-def card_html(art: str, qr: str) -> str:
+def card_html(art: str, qr: str, cr: str) -> str:
     return f'''
   <div class="card">
     <div class="inner">
@@ -135,6 +150,7 @@ def card_html(art: str, qr: str) -> str:
         <span class="url">
           <b>{URL_SHOW}</b>
           <i>QRを読むか、このアドレスへ</i>
+          <small>{cr}</small>
         </span>
       </div>
 
@@ -147,7 +163,8 @@ def card_html(art: str, qr: str) -> str:
 def build(cut: bool = False) -> None:
     art = char_art()
     qr = qr_svg()
-    cards = ''.join(card_html(art, qr) for _ in range(COLS * ROWS))
+    cr = copyright_text()
+    cards = ''.join(card_html(art, qr, cr) for _ in range(COLS * ROWS))
     out = OUT_CUT if cut else OUT
     kind = 'ハサミ線あり(普通紙用)' if cut else 'エーワン 51861(A4 10面)'
 
@@ -236,6 +253,10 @@ def build(cut: bool = False) -> None:
   .url i {{
     display: block; font-style: normal; font-size: 2.1mm;
     color: #8a80a5; margin-top: 0.6mm;
+  }}
+  /* 著作権表記。読ませる文字ではないので、いちばん小さく淡く */
+  .url small {{
+    display: block; font-size: 1.9mm; color: #a49cba; margin-top: 1.1mm;
   }}
 
   /* 右上の空きに、いちばん言いたいことを置く */

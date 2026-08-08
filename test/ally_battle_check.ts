@@ -181,7 +181,10 @@ async function main(): Promise<void> {
     await sleep(2500);
 
     // ---- 出撃準備を開く ----
-    await cdp.click('#tab-battle');
+    // ★ タブの切り替えは JS の click で。実マウスの座標だと、読み込み直後に
+    //   上の帯(更新の知らせ・Tips・接続人数)が出てレイアウトが動き、
+    //   狙った位置がタブから外れることがある(それで一度誤検出した)。
+    await cdp.evaluate('document.getElementById("tab-battle").click()');
     await sleep(800);
 
     // 旗が false の時は、何も出ないことだけを確かめて終わる。
@@ -204,9 +207,16 @@ async function main(): Promise<void> {
       process.exit(failures === 0 ? 0 : 1);
     }
 
-    check('★お供の欄が出ている',
-      await cdp.evaluate<boolean>(
-        '!document.getElementById("ally-box").classList.contains("hidden")'));
+    // 欄が出るまで待つ。決め打ちの待ち時間だと、サーバーを起動した直後など
+    // 最初の読み込みが遅い時に「まだ描けていない」を不具合と誤って報告する
+    // (実際に一度そう出た。画面は正しく、待ち方が短かっただけだった)。
+    let allyBoxShown = false;
+    for (let i = 0; i < 40 && !allyBoxShown; i++) {
+      allyBoxShown = await cdp.evaluate<boolean>(
+        '!document.getElementById("ally-box").classList.contains("hidden")');
+      if (!allyBoxShown) await sleep(250);
+    }
+    check('★お供の欄が出ている', allyBoxShown);
 
     // ---- 解放は無い ----
     //
@@ -222,7 +232,10 @@ async function main(): Promise<void> {
     `);
     await cdp.evaluate('location.reload()');
     await sleep(4000);
-    await cdp.click('#tab-battle');
+    // ★ タブの切り替えは JS の click で。実マウスの座標だと、読み込み直後に
+    //   上の帯(更新の知らせ・Tips・接続人数)が出てレイアウトが動き、
+    //   狙った位置がタブから外れることがある(それで一度誤検出した)。
+    await cdp.evaluate('document.getElementById("tab-battle").click()');
     await sleep(800);
     check('★「お供を仲間にする」ボタンは無い',
       !await cdp.evaluate<boolean>('!!document.getElementById("btn-ally-unlock")'));

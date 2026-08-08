@@ -11,14 +11,15 @@ import {
   SLOT6_BOSS_STAGE, SLOT6_COST,
   BOSS_REWARDS, LIBRARY_BONUS_FULL_KINDS, LIBRARY_BONUS_MAX, LIBRARY_BONUS_PER_KIND,
   LIBRARY_BONUS_START, libraryBonus,
-  PLAYER_MAX_HP, PLAYER_MAX_MP, RARITIES, RECIPES,
+  PLAYER_MAX_HP, PLAYER_MAX_MP, PLAYER_MP_REGEN, RARITIES, RECIPES,
   SLOT3_COST, SLOT4_BOSS_STAGE, SLOT4_COST, SLOT5_BOSS_STAGE, SLOT5_COST,
   START_SLOTS, TRANSMUTE_COST,
 } from '../shared/data';
 import { ELEMENT_VALUE } from '../shared/trade';
 import {
   ALLIES, ALLY_CD_MUL, ALLY_DMG_MUL, ALLY_ENABLED, ALLY_HEAL_MUL,
-  ALLY_MAX_HP, ALLY_MAX_MP, ALLY_MUL_MAX, ALLY_MUL_MIN, ALLY_REF_MAGIC, ALLY_RP_MUL,
+  ALLY_MAX_HP, ALLY_MAX_MP, ALLY_MP_REGEN, ALLY_MUL_MAX, ALLY_MUL_MIN,
+  ALLY_REF_MAGIC, ALLY_RP_MUL, ALLY_SEAL_MUL,
 } from '../shared/allies';
 import { CHARACTERS, characterName } from '../shared/characters';
 import { ENHANCE_MAX } from '../shared/spellcraft';
@@ -137,10 +138,12 @@ ${ALLY_ENABLED ? `
     (連れて行かないことも選べます)</li>
     <li>お供は<b>HP${ALLY_MAX_HP} / MP${ALLY_MAX_MP}</b>。あなた(HP${PLAYER_MAX_HP} / MP${PLAYER_MAX_MP})よりだいぶ柔らかい</li>
     <li><b>詠唱時間・消費MPはあなたと同じ決まり</b>で動きます</li>
-    <li>★<b>お供のMPは戦闘中ほとんど回復しません</b>(持って入った${ALLY_MAX_MP}ぶんだけ)。
+    <li>★<b>お供のMPは戦闘中ほとんど回復しません</b>(毎秒${ALLY_MP_REGEN}。
+    あなたは毎秒${PLAYER_MP_REGEN})。持って入った${ALLY_MAX_MP}ぶんが実質の持ち玉で、
     序盤に手伝って、あとは息切れします。瞑想を持つ子だけは少し粘れます</li>
     <li>ほかにも<b>手加減しています</b> — 与えるダメージは×${ALLY_DMG_MUL}、癒す量は×${ALLY_HEAL_MUL}、
-    再使用時間は${ALLY_CD_MUL}倍。<b>お供だけでは勝てません</b>(手伝いであって、肩代わりではありません)</li>
+    封印の長さは×${ALLY_SEAL_MUL}、再使用時間は${ALLY_CD_MUL}倍。
+    <b>お供だけでは勝てません</b>(手伝いであって、肩代わりではありません)</li>
     <li>★<b>お供の強さはあなたに比例します</b> —
     オンラインランキングと同じ<b>魔導値合計</b>(持っている魔法から装備できる本数だけ強い順に合計)を
     ${ALLY_REF_MAGIC}で割った倍率が、お供の出す力に掛かります。

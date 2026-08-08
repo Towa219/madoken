@@ -223,6 +223,10 @@ export class BattleManager {
       ? null
       : new Ally(allyCharId, allyPowerMul(playerMagicTotal()));
     this.allyPoseT = 0;
+    // 前の戦いの控えを消す。残しておくと、お供を連れて行かなかった回に
+    // 前回のお供の値が居座り、検証が「居ないはずのお供」を見てしまう。
+    delete (window as unknown as { __allyDebug?: unknown }).__allyDebug;
+    if (this.ally) this.noteAllyState();
 
     this.maxHp = PLAYER_MAX_HP;
     this.vigorBonus = 0;
@@ -916,13 +920,20 @@ export class BattleManager {
   private stepAlly(dt: number): void {
     const a = this.ally;
     if (!a) return;
+
+    // ★ 倒れていても控えは書き出す。
+    //   ここを早期returnの後ろに置いていた時は、お供が倒れた瞬間から
+    //   控えが止まり、alive=true と死ぬ直前のHPが残り続けた。
+    //   強さの測定(ally_power_check)が「お供HP 7」と報告していたのは
+    //   その値で、本当は0(倒れている)だった。
+    this.noteAllyState();
+
     if (!a.alive) {
       if (this.allyCont) this.allyCont.alpha = 0.3;
       return;
     }
 
     const fired = a.step(dt, () => this.allySight());
-    this.noteAllyState();
 
     // 姿。プレイヤーと同じ決まり(一瞬の姿は残り時間で上書き)。
     if (this.allyPoseT > 0) {
