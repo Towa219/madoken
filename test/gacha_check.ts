@@ -134,21 +134,23 @@ async function main(): Promise<void> {
 
   // ---- 0. 確率表(ブラウザを立ち上げずに確かめられる分) ----
   const sum = GACHA_PRIZES.reduce((a, p) => a + p.pct, 0);
-  check('★確率の合計が100%', sum === 100, `${sum}%`);
+  // 0.1% のような小数が入るので、ぴったり100とは限らない
+  // (0.1+1+5+20+30+43.9 は浮動小数だと 100.00000000000001 になる)。
+  check('★確率の合計が100%', Math.abs(sum - 100) < 1e-9, `${sum}%`);
 
   // 賞品を一言で表す(境目の突き合わせ用)
   const tag = (r: number): string => {
     const p = rollGachaPrize(r);
     return p.kind === 'rp' ? `rp${p.amount}` : p.rarity;
   };
-  // 累計は 1 / 4 / 12 / 27 / 52 / 100(%)。境目の前後を1つずつ見る
+  // 累計は 0.1 / 1.1 / 6.1 / 26.1 / 56.1 / 100(%)。境目の前後を1つずつ見る
   const edge: [number, string][] = [
-    [0, 'legend'], [0.0099, 'legend'],
-    [0.011, 'epic'], [0.039, 'epic'],
-    [0.041, 'rare'], [0.119, 'rare'],
-    [0.121, 'normal'], [0.269, 'normal'],
-    [0.271, 'rp200'], [0.519, 'rp200'],
-    [0.521, 'rp100'], [0.9999, 'rp100'],
+    [0, 'legend'], [0.0009, 'legend'],
+    [0.0011, 'epic'], [0.0109, 'epic'],
+    [0.0111, 'rare'], [0.0609, 'rare'],
+    [0.0611, 'normal'], [0.2609, 'normal'],
+    [0.2611, 'rp200'], [0.5609, 'rp200'],
+    [0.5611, 'rp100'], [0.9999, 'rp100'],
   ];
   const bad = edge.filter(([r, want]) => tag(r) !== want);
   check('★確率の境目が表のとおり', bad.length === 0,

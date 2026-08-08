@@ -739,12 +739,12 @@ export type GachaPrize =
   | { kind: 'rp'; amount: number; pct: number };
 
 export const GACHA_PRIZES: GachaPrize[] = [
-  { kind: 'spell', rarity: 'legend', pct: 1 },
-  { kind: 'spell', rarity: 'epic', pct: 3 },
-  { kind: 'spell', rarity: 'rare', pct: 8 },
-  { kind: 'spell', rarity: 'normal', pct: 15 },
-  { kind: 'rp', amount: 200, pct: 25 },
-  { kind: 'rp', amount: 100, pct: 48 },
+  { kind: 'spell', rarity: 'legend', pct: 0.1 },
+  { kind: 'spell', rarity: 'epic', pct: 1 },
+  { kind: 'spell', rarity: 'rare', pct: 5 },
+  { kind: 'spell', rarity: 'normal', pct: 20 },
+  { kind: 'rp', amount: 200, pct: 30 },
+  { kind: 'rp', amount: 100, pct: 43.9 },
 ];
 
 export function rollGachaPrize(roll = Math.random()): GachaPrize {
