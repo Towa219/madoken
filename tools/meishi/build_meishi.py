@@ -71,10 +71,12 @@ def qr_svg() -> str:
     """QRはベクターで入れる。印刷の解像度に左右されないため。
 
     誤り訂正はM(15%)。名刺は指で持つので少し汚れても読めるようにする。
+    静穏帯(border)は規格どおり4マス。3マスでも手元の読み取りは通ったが、
+    規格を下回ると読み取り機によっては渋る ― 紙は刷り直せないので規格に従う。
     """
     q = segno.make(URL, error='m')
     buf = io.BytesIO()   # segno はバイト列で書き出す
-    q.save(buf, kind='svg', scale=1, border=3, dark='#1b1035', light=None,
+    q.save(buf, kind='svg', scale=1, border=4, dark='#1b1035', light=None,
            svgclass=None, lineclass=None, xmldecl=False, svgns=True, omitsize=True)
     return buf.getvalue().decode('utf-8')
 
@@ -244,7 +246,9 @@ def build(cut: bool = False) -> None:
     position: absolute; left: 4.5mm; bottom: 3.4mm;
     display: flex; align-items: center; gap: 2mm;
   }}
-  .qr {{ width: 14mm; height: 14mm; display: block; }}
+  /* 静穏帯を規格の4マスにしたぶん1マスが細るので、QR自体を少し大きくして
+     1マス0.4mm以上を保つ(14mmのままだと0.378mmまで落ちる)。 */
+  .qr {{ width: 15mm; height: 15mm; display: block; }}
   .qr svg {{ width: 100%; height: 100%; display: block; shape-rendering: crispEdges; }}
   .url b {{
     display: block; font-size: 2.9mm; letter-spacing: -0.02mm;
@@ -305,7 +309,12 @@ def build(cut: bool = False) -> None:
   {'<b>ハサミ線あり(普通紙用)</b> — 普通のコピー用紙に刷って、線どおりに切ると名刺(91×55mm)になります。'
    if cut else
    '<b>エーワン 51861(A4 10面・91×55mm)用</b> — このまま印刷すると10枚できます。'}<br>
-  印刷設定は <b>用紙A4／倍率100%(「ページに合わせる」は外す)／余白なし／背景グラフィックを印刷する</b>。<br>
+  印刷設定は <b>用紙サイズ=A4</b>／<b>倍率=100%(「実際のサイズ」。
+  「ページに合わせる」「用紙に合わせて拡大縮小」は必ず外す)</b>／
+  <b>背景グラフィックを印刷する</b>。<br>
+  <b>「フチなし印刷」は使わないでください</b> ― 紙いっぱいに引き伸ばされて面付けがずれます
+  (この版は余白11mm・14mmを見込んで組んであるので、等倍で刷れば端は切れません)。<br>
+  名刺用紙は厚いので<b>手差しトレイ</b>から1枚ずつ。顔料インクは乾くまで擦らないこと。<br>
   {'切った紙の縁に線が残るのが気になる時は、線なしの版(madoken_meishi.html)を使ってください。'
    if cut else
    '1枚目は普通紙に刷って、名刺用紙に重ねて光にかざすと位置を確かめられます。'}<br>
