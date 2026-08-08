@@ -294,8 +294,11 @@ async function main(): Promise<void> {
     await cdp.shot(`ally_battle_${PICK}`);
 
     // ---- 決着まで見る ----
+    // 決着まで最長200秒待つ。この検証はプレイヤーが一切撃たないので、
+    // お供に手加減を入れた v0.98.0 からは決着に2分かかることがある
+    // (120秒で切っていた時に、勝負がついていないのに落ちた)。
     let ended = false;
-    for (let i = 0; i < 240; i++) {
+    for (let i = 0; i < 400; i++) {
       await sleep(500);
       ended = await cdp.evaluate<boolean>(
         '!document.getElementById("battle-overlay").classList.contains("hidden")');
