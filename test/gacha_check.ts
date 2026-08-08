@@ -256,6 +256,17 @@ async function main(): Promise<void> {
       'document.querySelectorAll("#gacha-odds .gacha-odd").length');
     check('確率表が出ている', odds === GACHA_PRIZES.length, `${odds}件`);
 
+    // 残念賞(いちばん出る受け皿)は、確率を出さずに名前だけ見せる。
+    // 当たりの数字だけを並べたいので、ここに % が戻ったら気づけるようにする。
+    const oddsText = await cdp.evaluate<string>(
+      'document.getElementById("gacha-odds").innerText');
+    const consolation = GACHA_PRIZES.find(p => p.consolation);
+    check('★残念賞として出ている', oddsText.includes('残念賞'),
+      oddsText.split('\n').join(' / '));
+    check('★残念賞の確率は出していない',
+      consolation !== undefined && !oddsText.includes(`${consolation.pct}%`),
+      consolation ? `${consolation.pct}% が出ていないこと` : '残念賞の行が無い');
+
     // ---- 2. 引くとチケットが減り、魔法が増える ----
     const before = await cdp.evaluate<Snap>(snap());
     await cdp.evaluate('document.querySelector("#gacha-draw").click()');

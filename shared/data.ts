@@ -734,9 +734,28 @@ export const GACHA_LIVE = true;
 // 魔法は上位品質ほど渋くし、外れの受け皿に研究Pを置いた。
 // 「何も無し」を作らないためで、研究Pなら採取にも調合にも回せる。
 // 調合の rollRarity とは別物で、こちらは素材構成に左右されない。
+// consolation を立てた行は「残念賞」として扱い、確率を出さない。
+// 当たりの確率だけを並べたいので、いちばん出る受け皿の数字は伏せる
+// (抽選そのものは pct をそのまま使う ― 表示だけの話)。
 export type GachaPrize =
-  | { kind: 'spell'; rarity: Rarity; pct: number }
-  | { kind: 'rp'; amount: number; pct: number };
+  | { kind: 'spell'; rarity: Rarity; pct: number; consolation?: boolean }
+  | { kind: 'rp'; amount: number; pct: number; consolation?: boolean };
+
+// 画面と説明書で同じ書き方をするための一言。
+// ここを直せば両方に効く(片方だけ直して食い違うのを防ぐ)。
+export function gachaPrizeLabel(p: GachaPrize): string {
+  if (p.consolation) {
+    return p.kind === 'rp' ? `残念賞(研究P+${p.amount})` : '残念賞';
+  }
+  return p.kind === 'rp'
+    ? `研究P+${p.amount}`
+    : `${RARITIES[p.rarity].name || '通常'}の魔法`;
+}
+
+// 確率を出す行かどうか。残念賞は伏せる。
+export function gachaPrizePct(p: GachaPrize): string {
+  return p.consolation ? '' : `${p.pct}%`;
+}
 
 export const GACHA_PRIZES: GachaPrize[] = [
   { kind: 'spell', rarity: 'legend', pct: 0.1 },
@@ -744,7 +763,8 @@ export const GACHA_PRIZES: GachaPrize[] = [
   { kind: 'spell', rarity: 'rare', pct: 5 },
   { kind: 'spell', rarity: 'normal', pct: 20 },
   { kind: 'rp', amount: 200, pct: 30 },
-  { kind: 'rp', amount: 100, pct: 43.9 },
+  // いちばん出る受け皿。確率は出さず「残念賞」とだけ見せる。
+  { kind: 'rp', amount: 100, pct: 43.9, consolation: true },
 ];
 
 export function rollGachaPrize(roll = Math.random()): GachaPrize {

@@ -6,7 +6,8 @@
 import {
   battleRP, DEFEAT_RP_RATE,
   DISASSEMBLE_RATE, DISCOVERY_BONUS_RP, ELEMENTS, ELEMENT_ORDER, ENEMIES,
-  ENEMY_HP_MUL, BOSSES, DUEL_MAX_HP, GACHA_LIVE, GACHA_PRIZES, GATHER_COST,
+  ENEMY_HP_MUL, BOSSES, DUEL_MAX_HP, GACHA_LIVE, GACHA_PRIZES,
+  gachaPrizeLabel, gachaPrizePct, GATHER_COST,
   GATHER_COUNT,
   SLOT6_BOSS_STAGE, SLOT6_COST,
   BOSS_REWARDS, LIBRARY_BONUS_FULL_KINDS, LIBRARY_BONUS_MAX, LIBRARY_BONUS_PER_KIND,
@@ -237,9 +238,8 @@ ${ALLY_ENABLED ? `
   作れるいちばん強い構成で生まれます。素材の数は今の調合スロットに合わせます。</p>
   <ul>
     ${GACHA_PRIZES.map(p => {
-    const name = p.kind === 'rp'
-      ? `研究P +${p.amount}` : `${RARITIES[p.rarity].name || '通常'}の魔法`;
-    return `<li>${name}: <b>${p.pct}%</b></li>`;
+    const pct = gachaPrizePct(p);
+    return `<li>${gachaPrizeLabel(p)}${pct ? `: <b>${pct}</b>` : ''}</li>`;
   }).join('')}
   </ul>
   <p class="man-note">外れの回は研究Pになります。何も無い回は作っていません。</p>

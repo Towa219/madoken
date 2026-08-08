@@ -11,7 +11,8 @@
 // 開くたびに GPU の確保が走って重い。回転・拡大・発光は CSS の方が素直。
 
 import {
-  GACHA_COST, GACHA_LIVE, GACHA_PRIZES, RARITIES, rollGachaPrize,
+  GACHA_COST, GACHA_LIVE, GACHA_PRIZES, gachaPrizeLabel, gachaPrizePct,
+  RARITIES, rollGachaPrize,
 } from '../shared/data';
 import {
   computeSpell, ENHANCE_MAX, finalStats, randomComposition,
@@ -161,11 +162,10 @@ function closeFx(): void {
 
 export function renderShop(): void {
   const rows = GACHA_PRIZES.map(p => {
-    const color = p.kind === 'rp' ? RP_COLOR : RARITIES[p.rarity].cssColor;
-    const name = p.kind === 'rp'
-      ? `研究P+${p.amount}` : (RARITIES[p.rarity].name || '通常の魔法');
-    return `<div class="gacha-odd"><span style="color:${color}">${name}</span>`
-      + `<b>${p.pct}%</b></div>`;
+    const color = p.consolation ? '#8a86a0'
+      : (p.kind === 'rp' ? RP_COLOR : RARITIES[p.rarity].cssColor);
+    return `<div class="gacha-odd"><span style="color:${color}">`
+      + `${gachaPrizeLabel(p)}</span><b>${gachaPrizePct(p)}</b></div>`;
   }).join('');
   $('#gacha-odds').innerHTML = rows;
   // 本番前は、押す前に分かる場所へ断りを出す。
