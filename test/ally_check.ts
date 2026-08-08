@@ -9,12 +9,14 @@
 // ⑥ 倒れたら何もしなくなるか
 
 import {
-  ALLIES, ALLY_ENABLED, ALLY_FREE_NOW, ALLY_MAX_MP, ALLY_RP_MUL, ALLY_UNLOCK_RP,
+  ALLIES, ALLY_CD_MUL, ALLY_DMG_MUL, ALLY_ENABLED, ALLY_FREE_NOW, ALLY_HEAL_MUL,
+  ALLY_MAX_HP, ALLY_MAX_MP, ALLY_MP_REGEN, ALLY_RP_MUL, ALLY_UNLOCK_RP,
   allyDefFor, allyUnlockCost, chooseAllySpell, recipeMatches, roleWanted,
 } from '../shared/allies';
 import { Ally } from '../src/ally';
 import { CHARACTERS } from '../shared/characters';
-import { spellCooldown } from '../shared/spellcraft';
+import { PLAYER_MAX_HP, PLAYER_MP_REGEN } from '../shared/data';
+import { finalStats, spellCooldown } from '../shared/spellcraft';
 import type { AllySight } from '../shared/allies';
 
 let ng = 0;
@@ -54,11 +56,11 @@ check('全員4本ずつ持っている', ALLIES.every(a => a.spells.length === 4
 // 狙った系統がちゃんと成立しているか。
 // レシピを1つ触っただけで別物になるので、ここで固定しておく。
 const WANT: Record<number, string[]> = {
-  0: ['rensa', 'shippu', '', 'koubu'],
+  0: ['rensa', 'shippu', '', 'senko'],
   1: ['shugo', 'gojun', 'chiyu', 'seisui'],
   2: ['shakunetsu', 'enjou', 'shakunetsu', 'chouhatsu'],
-  3: ['chiyu', 'meisou', 'koubu', 'shippu'],
-  4: ['chouhatsu', 'gojun', 'jishin', 'koubu'],
+  3: ['chiyu', 'meisou', 'senko', 'shippu'],
+  4: ['chouhatsu', 'gojun', 'jishin', 'senko'],
   5: ['fuuin', 'touketsu', 'fushoku', ''],
 };
 {
@@ -94,6 +96,34 @@ check('★体験版の間は無料で解放できる',
   ALLY_FREE_NOW && allyUnlockCost() === 0,
   `無料=${ALLY_FREE_NOW} / いまの費用=${allyUnlockCost()}`);
 check(`連れて行くと研究Pは×${ALLY_RP_MUL}`, ALLY_RP_MUL > 0 && ALLY_RP_MUL < 1);
+
+// ★ 役どころ 'empower' の持ち物が、本当に与ダメ上昇の魔法か。
+//
+//   ここは実際に踏んだ落とし穴 ― 土2+光1+風1 を「鼓舞」のつもりで当てていたが、
+//   系統としては賦活(最大HPが増える)で、お供が撃つたびに上限が伸びていた。
+//   役どころの名前と中身がずれていても誰も文句を言わないので、ここで見張る。
+{
+  const bad: string[] = [];
+  for (const a of ALLIES) {
+    for (const sp of a.spells) {
+      if (sp.role !== 'empower') continue;
+      const st = finalStats(sp.recipe, 0, 'normal', a.charId);
+      if (st.kind !== 'empower' || st.atkBoost <= 0) {
+        bad.push(`${CHARACTERS[a.charId].name}: kind=${st.kind}`);
+      }
+    }
+  }
+  check('★鼓舞役の持ち物が本当に与ダメ上昇である', bad.length === 0, bad.join(' / '));
+}
+
+// 手加減の値。人より弱いことを数字で固定しておく
+// (お供だけでステージを片付けてしまい、あとから足した歯止め)。
+check(`お供の与ダメは×${ALLY_DMG_MUL}`, ALLY_DMG_MUL > 0 && ALLY_DMG_MUL < 1);
+check(`お供の回復は×${ALLY_HEAL_MUL}`, ALLY_HEAL_MUL > 0 && ALLY_HEAL_MUL < 1);
+check(`お供の再使用時間は${ALLY_CD_MUL}倍(人より手数が少ない)`, ALLY_CD_MUL > 1);
+check('お供はプレイヤーより柔らかい',
+  ALLY_MAX_HP < PLAYER_MAX_HP && ALLY_MP_REGEN < PLAYER_MP_REGEN,
+  `HP ${ALLY_MAX_HP}/${PLAYER_MAX_HP} ・ MP回復 ${ALLY_MP_REGEN}/${PLAYER_MP_REGEN}`);
 
 // ===== ③ 状況で選ぶか =====
 
@@ -194,8 +224,9 @@ console.log('\n=== ④ 詠唱と再使用 ===');
     `${t.toFixed(2)}秒 / ${cast}秒`);
 
   const idx = a.spells.indexOf(fired!.spell);
-  const cd = spellCooldown(fired!.spell.stats);
-  check('★撃った直後は再使用時間が入る',
+  // お供の再使用時間は人の ALLY_CD_MUL 倍(手数を落とす手加減)。
+  const cd = spellCooldown(fired!.spell.stats) * ALLY_CD_MUL;
+  check(`★撃った直後は再使用時間が入る(人の${ALLY_CD_MUL}倍)`,
     Math.abs(a.cooldownOf(idx) - cd) < 0.01, `${a.cooldownOf(idx).toFixed(1)}秒 / ${cd}秒`);
 }
 

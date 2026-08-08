@@ -40,13 +40,37 @@ export function allyUnlockCost(): number {
 
 // お供を連れて行った時の研究Pの倍率。
 // 明らかに楽になるので、そのぶん実入りを減らす。
-export const ALLY_RP_MUL = 0.8;
+export const ALLY_RP_MUL = 0.5;
 
-// お供の体力とMP。プレイヤー(HP260 / MP150 / 毎秒6)より少し柔らかい。
+// お供の体力とMP。プレイヤー(HP260 / MP150 / 毎秒6)よりだいぶ柔らかい。
 // 硬いと「連れて行くだけで安全」になり、倒れる緊張感が消える。
-export const ALLY_MAX_HP = 180;
+export const ALLY_MAX_HP = 150;
 export const ALLY_MAX_MP = 130;
-export const ALLY_MP_REGEN = 5;
+
+// ★ お供のMPは戦闘中ほとんど戻らない(プレイヤーは毎秒6)。
+//
+//   これが手加減のいちばん太い柱。数字を削るだけでは足りず、
+//   ×0.4・再使用2倍まで下げてもまだ6人中3人が放置のまま勝った ―
+//   時間さえあれば撃ち続けられるので、削っても遅くなるだけだった。
+//   持って入った130だけ、と決めれば〈1戦で出せる総量〉に天井ができる。
+//   序盤に手伝って、あとは息切れする。瞑想はその天井を少し押し上げる技になる。
+export const ALLY_MP_REGEN = 0.6;
+
+// ---- 手加減 ----
+//
+// お供は人の手より正確に動く ― 迷わず、狙いを外さず、待たない。
+// 同じ持ち物を持たせただけで、放っておいてもステージを片付けてしまった
+// (test/ally_power_check.ts で 6人とも 放置のまま勝った)。
+// お供は「手伝う」ものであって「肩代わりする」ものではないので、
+// 出す力そのものをここで削る。数字を戻したくなったらここだけ触ればよい。
+// 勝ち方は3通りあって、削るところがそれぞれ違った ―
+//   紅蓮 … 一撃が大きい          → 与ダメを半分に
+//   白銀 … 自分と人を癒し続ける  → 癒しを半分に(MPの天井も効く)
+//   蒼氷 … 封印で敵を動かさない  → 封印の長さを半分に
+export const ALLY_DMG_MUL = 0.5;    // 与えるダメージ(継続ダメージも同じ)
+export const ALLY_HEAL_MUL = 0.5;   // 癒す量
+export const ALLY_CD_MUL = 1.6;     // 再使用時間。人より手数を落とす
+export const ALLY_SEAL_MUL = 0.5;   // 封印の長さ。敵を止め続けさせない
 
 // 敵がお供を狙う割合。0.4 なら5発のうち2発ほどがお供へ向かう。
 // 挑発を撃つと、その間だけこの割合が上がる(ALLY_TAUNT_SHARE)。
@@ -56,7 +80,8 @@ export const ALLY_TAUNT_SEC = 6;
 
 // 判断の間合い(秒)。毎フレーム考える必要はないし、
 // 間を置いたほうが「考えてから動いた」ように見える。
-export const ALLY_THINK_SEC = 0.35;
+// 人が画面を見て指を動かすまでの間くらいには鈍くしてある。
+export const ALLY_THINK_SEC = 0.6;
 
 // ---- 役どころ ----
 
@@ -82,6 +107,11 @@ export interface AllyDef {
 // 得意エレメントを必ず含めてあるので、キャラ補正(+10%)も乗る。
 //
 // 並び順は shared/characters.ts と同じ。
+//
+// ★ 支援の「鼓舞」に土2+光1+風1 を当てていたが、あれは系統としては
+//   賦活(最大HPが増える)だった。お供が撃つたびに上限が伸び、
+//   HP180のはずの紫紺が416まで膨らんでいた(測って気づいた)。
+//   与ダメ上昇はこの戦鼓(火2+雷1+風1)が本物。
 export const ALLIES: AllyDef[] = [
   {
     charId: 0, // 黒金の魔女(雷)
@@ -91,7 +121,7 @@ export const ALLIES: AllyDef[] = [
       { recipe: { thunder: 2, wind: 1 }, role: 'attack' },   // 連鎖雷
       { recipe: { wind: 2, thunder: 1 }, role: 'attack' },   // 疾風弾(速い)
       { recipe: { thunder: 2, water: 1 }, role: 'attack' },  // 燃費の良い雷
-      { recipe: { earth: 2, light: 1, wind: 1 }, role: 'empower' }, // 鼓舞
+      { recipe: { fire: 2, thunder: 1, wind: 1 }, role: 'empower' }, // 戦鼓(全員)
     ],
   },
   {
@@ -123,7 +153,7 @@ export const ALLIES: AllyDef[] = [
     spells: [
       { recipe: { light: 3, wind: 1 }, role: 'heal' },           // 治癒光
       { recipe: { ice: 2, light: 1 }, role: 'focus' },           // 瞑想
-      { recipe: { earth: 2, light: 1, wind: 1 }, role: 'empower' }, // 鼓舞
+      { recipe: { fire: 2, thunder: 1, wind: 1 }, role: 'empower' }, // 戦鼓(全員)
       { recipe: { wind: 2 }, role: 'attack' },                   // 疾風弾
     ],
   },
@@ -135,7 +165,7 @@ export const ALLIES: AllyDef[] = [
       { recipe: { earth: 2, fire: 1 }, role: 'taunt' },              // 咆哮
       { recipe: { earth: 2, ice: 1 }, role: 'shield' },              // 護盾
       { recipe: { earth: 3 }, role: 'attack' },                      // 地震(全体)
-      { recipe: { earth: 2, light: 1, wind: 1 }, role: 'empower' },  // 鼓舞
+      { recipe: { fire: 2, thunder: 1, wind: 1 }, role: 'empower' }, // 戦鼓(全員)
     ],
   },
   {

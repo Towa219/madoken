@@ -17,7 +17,8 @@ import {
 } from '../shared/data';
 import { ELEMENT_VALUE } from '../shared/trade';
 import {
-  ALLIES, ALLY_ENABLED, ALLY_FREE_NOW, ALLY_MAX_HP, ALLY_MAX_MP, ALLY_RP_MUL,
+  ALLIES, ALLY_CD_MUL, ALLY_DMG_MUL, ALLY_ENABLED, ALLY_FREE_NOW, ALLY_HEAL_MUL,
+  ALLY_MAX_HP, ALLY_MAX_MP, ALLY_RP_MUL,
   ALLY_UNLOCK_RP, allyUnlockCost,
 } from '../shared/allies';
 import { CHARACTERS, characterName } from '../shared/characters';
@@ -86,7 +87,7 @@ export function renderManual(): void {
 <section class="man-sec">
   <h3>調合のしくみ</h3>
   <ul>
-    <li>スロットにエレメントを置いて「調合する」。バーが100%になると完成します</li>
+    <li>スロットにエレメントを置いて「調合する」。<b>ボタンが「本当に調合する」に変わるので、もう一度押す</b>と始まります(1回目では素材は減りません)</li>
     <li><b>成功率</b>は素材が多いほど、光・闇を使うほど下がります(下限40%)。失敗すると素材の半分を失います</li>
     <li>特定の組み合わせで<b>系統</b>が成立します。初めて出した系統は「発見」となり研究P+${DISCOVERY_BONUS_RP}</li>
     <li><b>同じ構成をもう一度調合すると強化</b>になります(最大+${ENHANCE_MAX}。1段階ごとに威力+8%・詠唱-2%)</li>
@@ -137,15 +138,19 @@ ${ALLY_ENABLED ? `
       ? `<b>体験版の間は無料</b>で仲間にできます(のちのち研究P${ALLY_UNLOCK_RP}かかる予定)。`
       : `<b>解放には研究P${allyUnlockCost()}</b>かかります(一度きり)。`}
     出撃準備の「お供」欄から</li>
-    <li>お供は<b>HP${ALLY_MAX_HP} / MP${ALLY_MAX_MP}</b>。あなた(HP${PLAYER_MAX_HP} / MP${PLAYER_MAX_MP})より少し柔らかい</li>
-    <li><b>詠唱時間・再使用時間・消費MPはあなたと同じ決まり</b>で動きます。MPが尽きれば息切れします</li>
+    <li>お供は<b>HP${ALLY_MAX_HP} / MP${ALLY_MAX_MP}</b>。あなた(HP${PLAYER_MAX_HP} / MP${PLAYER_MAX_MP})よりだいぶ柔らかい</li>
+    <li><b>詠唱時間・消費MPはあなたと同じ決まり</b>で動きます</li>
+    <li>★<b>お供のMPは戦闘中ほとんど回復しません</b>(持って入った${ALLY_MAX_MP}ぶんだけ)。
+    序盤に手伝って、あとは息切れします。瞑想を持つ子だけは少し粘れます</li>
+    <li>ほかにも<b>手加減しています</b> — 与えるダメージは×${ALLY_DMG_MUL}、癒す量は×${ALLY_HEAL_MUL}、
+    再使用時間は${ALLY_CD_MUL}倍。<b>お供だけでは勝てません</b>(手伝いであって、肩代わりではありません)</li>
     <li>敵はお供も狙います。<b>挑発を撃つと、その間は敵の狙いがお供に集まります</b></li>
     <li>🥀 <b>倒れると、その戦闘では復活しません。</b>回復役を連れて行くなら、その子も守ってあげてください</li>
     <li>連れて行った回は<b>研究Pが×${ALLY_RP_MUL}</b>になります(楽になるぶん実入りは減ります)</li>
     <li><b>共闘部屋と決闘には同行しません。</b>ボスもソロでは挑めないので、お供とは戦えません</li>
   </ul>
   <p class="man-note">お供は<b>状況を見て手を選びます</b>。
-  誰かのHPが減れば回復、敵が増えれば護盾や鼓舞、弱点を突ける魔法があればそれを優先します。
+  誰かのHPが減れば回復、敵が増えれば護盾や戦鼓、弱点を突ける魔法があればそれを優先します。
   持っている魔法と考え方はキャラごとに違うので、<b>連れて行く相手で戦い方が変わります</b>。</p>
   <ul>
     ${ALLIES.map(a =>

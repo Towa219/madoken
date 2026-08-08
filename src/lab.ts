@@ -222,6 +222,8 @@ function renderSlots(): void {
 // ---- プレビュー ----
 function renderPreview(): void {
   if (crafting) return; // 調合中はボタン・表示を上書きしない
+  // 中身が変わったら確認待ちは無かったことにする(下でボタンの字も戻る)
+  cancelCraftConfirm();
   const box = $('#preview-box');
   const counts = selCounts();
   const used = Object.values(counts).reduce((a, b) => a + (b ?? 0), 0);
@@ -301,6 +303,22 @@ function rarityLine(counts: ElementCounts): string {
 
 let crafting = false;
 
+// 「調合する」を押した1回目は、押しただけでは何も起きない。
+// ボタンが「本当に調合する」に変わり、もう一度押して初めて素材が減る。
+// 素材は戻ってこない(失敗すれば半分は失う)ので、誤爆を1回ぶん遠ざける。
+let confirming = false;
+let confirmTimer = 0;
+const CONFIRM_SEC = 6;
+
+// 確認待ちをやめる。スロットを触った時にも呼ばれるので、
+// 「別の組み合わせに変えたのに、前の確認がそのまま生きていた」が起きない。
+export function cancelCraftConfirm(): void {
+  if (confirmTimer) { window.clearTimeout(confirmTimer); confirmTimer = 0; }
+  if (!confirming) return;
+  confirming = false;
+  $<HTMLButtonElement>('#btn-craft').classList.remove('confirm');
+}
+
 // 成功率: 素材が多い・光/闇使用・高強化ほど難しい(下限40%)
 export function craftChance(counts: ElementCounts, enhanceLevel: number): number {
   const used = Object.values(counts).reduce((a, b) => a + (b ?? 0), 0);
@@ -331,6 +349,27 @@ function craft(): void {
       return;
     }
   }
+
+  // ★ 1回目の押しはここで折り返す。素材にはまだ触っていない。
+  if (!confirming) {
+    confirming = true;
+    const b = $<HTMLButtonElement>('#btn-craft');
+    b.textContent = same ? '本当に強化する' : '本当に調合する';
+    b.classList.add('confirm');
+    const msg = $('#craft-msg');
+    msg.style.color = '#ffcc66';
+    msg.textContent = `もう一度押すと${same ? '強化' : '調合'}する(素材を使う)。`;
+    // 押しっぱなしで放置された時は元に戻す。赤いボタンが残り続けて、
+    // だいぶ経ってからうっかり押す、というのがいちばん困る。
+    confirmTimer = window.setTimeout(() => {
+      confirmTimer = 0;
+      cancelCraftConfirm();
+      $('#craft-msg').textContent = '';
+      renderPreview();
+    }, CONFIRM_SEC * 1000);
+    return;
+  }
+  cancelCraftConfirm();
 
   crafting = true;
   startSfxLoop('crafting');

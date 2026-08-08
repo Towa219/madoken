@@ -9,8 +9,8 @@
 // そうしておくと、演出を直した時にお供にも自動で効く。
 
 import {
-  ALLY_MAX_HP, ALLY_MAX_MP, ALLY_MP_REGEN, ALLY_TAUNT_SEC, ALLY_THINK_SEC,
-  allyDefFor, chooseAllySpell,
+  ALLY_CD_MUL, ALLY_MAX_HP, ALLY_MAX_MP, ALLY_MP_REGEN, ALLY_TAUNT_SEC,
+  ALLY_THINK_SEC, allyDefFor, chooseAllySpell,
 } from '../shared/allies';
 import { computeSpell, finalStats, spellCooldown, spellNameFor } from '../shared/spellcraft';
 import type { AllyDef, AllyRole, AllySight } from '../shared/allies';
@@ -100,7 +100,9 @@ export class Ally {
         const done = this.casting;
         this.casting = null;
         const i = this.spells.indexOf(done.spell);
-        if (i >= 0) this.cooldowns[i] = spellCooldown(done.spell.stats);
+        // 再使用時間は人より長い(ALLY_CD_MUL)。詠唱そのものは同じ長さなので、
+        // 「同じ手順で戦っているが、手数だけ少ない」という見え方になる。
+        if (i >= 0) this.cooldowns[i] = spellCooldown(done.spell.stats) * ALLY_CD_MUL;
         if (done.role === 'taunt') this.tauntTimer = ALLY_TAUNT_SEC;
         return { spell: done.spell, role: done.role };
       }

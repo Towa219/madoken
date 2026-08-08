@@ -196,6 +196,9 @@ button.tab:disabled { opacity: 0.4; cursor: not-allowed; }
 
 #craft-controls { display: flex; gap: 8px; }
 #btn-craft { flex: 1; background: #5533aa; border-color: #7755cc; font-weight: bold; }
+/* 2度目の押しを待っている状態。素材が消える一歩手前なので色を変える */
+#btn-craft.confirm { background: #aa3355; border-color: #ee6688; color: #ffeef2; }
+#btn-craft.confirm:hover:not(:disabled) { background: #c23c62; }
 #craft-bar, #gather-bar, #transmute-bar {
   height: 10px; background: #101020; border: 1px solid #44446a;
   border-radius: 5px; margin-top: 8px; overflow: hidden;
@@ -945,3 +948,26 @@ button.tab:disabled { opacity: 0.4; cursor: not-allowed; }
   .slot { height: 62px; font-size: 17px; }
   .slot .slabel { font-size: 9px; }
 }
+
+/* ===== 確認の窓(src/confirm.ts) ===== */
+/*
+   取り返しのつかない操作の手前に出す。卓(#trade-modal)と同じ見た目にして、
+   「押したら進む」ではなく「もう一度たずねられている」ことを分からせる。
+*/
+.ask-modal {
+  position: fixed; inset: 0; z-index: 90;
+  display: flex; align-items: center; justify-content: center;
+  background: #05050ceb; padding: 12px;
+}
+.ask-card {
+  background: #1c1c34; border: 1px solid #5533aa; border-radius: 12px;
+  padding: 20px 24px; max-width: 460px; width: 100%;
+}
+.ask-card h3 { font-size: 17px; color: #ccbbee; margin-bottom: 8px; }
+.ask-card .note { margin-bottom: 14px; line-height: 1.7; }
+.ask-actions { display: flex; gap: 8px; }
+.ask-actions button { flex: 1; padding: 9px 14px; font-size: 14px; }
+.ask-actions .danger {
+  background: #5a2030; border-color: #8b3550; color: #ffdde5;
+}
+.ask-actions .danger:hover { background: #74283c; }
