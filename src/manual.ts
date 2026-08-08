@@ -16,6 +16,10 @@ import {
   START_SLOTS, TRANSMUTE_COST,
 } from '../shared/data';
 import { ELEMENT_VALUE } from '../shared/trade';
+import {
+  ALLIES, ALLY_ENABLED, ALLY_MAX_HP, ALLY_MAX_MP, ALLY_RP_MUL, ALLY_UNLOCK_RP,
+} from '../shared/allies';
+import { CHARACTERS, characterName } from '../shared/characters';
 import { ENHANCE_MAX } from '../shared/spellcraft';
 import { NICK_MAX_FULL, NICK_MAX_WIDTH } from '../shared/nickname';
 import { INTRO_LEAD } from './intro';
@@ -121,6 +125,30 @@ export function renderManual(): void {
     <li>素材が尽きて研究Pも足りなくなった場合だけ、<b>採取が1回無料</b>になります(詰み防止)</li>
   </ul>
 </section>
+
+${ALLY_ENABLED ? `
+<section class="man-sec">
+  <h3>お供</h3>
+  <p><b>ソロの出撃に、自分が使っていないキャラを1人だけ連れて行けます。</b>
+  仲間が見つからない時でも、二人で戦えます。</p>
+  <ul>
+    <li><b>解放には研究P${ALLY_UNLOCK_RP}</b>かかります(一度きり)。出撃準備の「お供」欄から</li>
+    <li>お供は<b>HP${ALLY_MAX_HP} / MP${ALLY_MAX_MP}</b>。あなた(HP${PLAYER_MAX_HP} / MP${PLAYER_MAX_MP})より少し柔らかい</li>
+    <li><b>詠唱時間・再使用時間・消費MPはあなたと同じ決まり</b>で動きます。MPが尽きれば息切れします</li>
+    <li>敵はお供も狙います。<b>挑発を撃つと、その間は敵の狙いがお供に集まります</b></li>
+    <li>🥀 <b>倒れると、その戦闘では復活しません。</b>回復役を連れて行くなら、その子も守ってあげてください</li>
+    <li>連れて行った回は<b>研究Pが×${ALLY_RP_MUL}</b>になります(楽になるぶん実入りは減ります)</li>
+    <li><b>共闘部屋と決闘には同行しません。</b>ボスもソロでは挑めないので、お供とは戦えません</li>
+  </ul>
+  <p class="man-note">お供は<b>状況を見て手を選びます</b>。
+  誰かのHPが減れば回復、敵が増えれば護盾や鼓舞、弱点を突ける魔法があればそれを優先します。
+  持っている魔法と考え方はキャラごとに違うので、<b>連れて行く相手で戦い方が変わります</b>。</p>
+  <ul>
+    ${ALLIES.map(a =>
+    `<li><b>${characterName(a.charId)}</b>(${ELEMENTS[CHARACTERS[a.charId].element].emoji}`
+    + `${ELEMENTS[CHARACTERS[a.charId].element].name}) — ${a.note}</li>`).join('')}
+  </ul>
+</section>` : ''}
 
 <section class="man-sec">
   <h3>オンライン</h3>

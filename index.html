@@ -297,6 +297,12 @@
         <h2>出撃準備</h2>
         <h3>挑戦ステージ <small>(5の倍数はボス。ボスは共闘部屋からのみ)</small></h3>
         <div id="stage-select"></div>
+        <!-- お供AI。ALLY_ENABLED が false の間は中身が空のまま出ない。 -->
+        <div id="ally-box" class="hidden">
+          <h3>お供 <small>(ソロにのみ同行する。共闘・決闘には出ない)</small></h3>
+          <div id="ally-picker"></div>
+          <div id="ally-note" class="note"></div>
+        </div>
         <div id="stage-actions">
           <button id="btn-solo-go">ソロで出撃</button>
           <button id="btn-create-room">共闘部屋を作る</button>

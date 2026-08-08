@@ -16,7 +16,12 @@ import {
   playerPoseTexture, projectileArt,
 } from './artwork';
 import type { Pose } from './artwork';
-import { characterScale } from '../shared/characters';
+import { characterName, characterScale } from '../shared/characters';
+import {
+  ALLY_HATE_SHARE, ALLY_TAUNT_SHARE, ALLY_MAX_HP, ALLY_MAX_MP,
+} from '../shared/allies';
+import { Ally } from './ally';
+import type { AllySight } from '../shared/allies';
 import { sealResistMul, spellCooldown, spellDisplayName } from '../shared/spellcraft';
 import { state } from './state';
 import { playSfx, startSfxLoop, stopSfxLoop } from './sound';
@@ -26,6 +31,9 @@ const W = 960;
 const H = 540;
 const GROUND_Y = 460;
 const PLAYER_X = 140;
+// お供はプレイヤーの後ろ斜め。少し奥(小さめ)に見せて前後が分かるようにする。
+const ALLY_X = 74;
+const ALLY_SCALE = 0.86;
 
 // 開始カウントダウンの見た目(ソロ・決闘で共通)。
 //
@@ -81,7 +89,10 @@ interface Proj {
   x: number;
   y: number;
   speed: number;      // 右向き正
-  from: 'player' | 'enemy';
+  from: 'player' | 'enemy' | 'ally';
+  // 敵弾が誰を狙っているか。弾は横に飛ぶので、お供を狙う弾は
+  // 手前のプレイヤーを素通りさせる必要がある。
+  at?: 'player' | 'ally';
   spell?: SpellStats;
   dmg?: number;       // 敵弾用
   attr: ElementId;    // 弾の属性(見た目・軌跡の色)
@@ -147,12 +158,21 @@ export class BattleManager {
   private barsG!: Graphics;
   private stageText!: Text;
   private infoText!: Text;
+  private allyText!: Text;
   private shake = 0;
   private hitFlash = 0;
   private time = 0;
   private defeated: EnemyDef[] = [];
 
   private spellBtns: HTMLButtonElement[] = [];
+
+  // ---- お供AI ----
+  //
+  // 連れて行かない時は null。旗(ALLY_ENABLED)が false の間は
+  // 出撃準備に選択欄が出ないので、ここも常に null のまま。
+  private ally: Ally | null = null;
+  private allyCont: Container | null = null;
+  private allyPoseT = 0;
 
   async ensureApp(mount: HTMLElement): Promise<void> {
     if (this.app) return;
@@ -171,12 +191,15 @@ export class BattleManager {
 
   async start(
     mount: HTMLElement, stage: number, spells: Spell[],
-    onEnd: (r: BattleResult) => void,
+    onEnd: (r: BattleResult) => void, allyCharId: number | null = null,
   ): Promise<void> {
     await this.ensureApp(mount);
     this.stage = stage;
     this.spells = spells;
     this.onEnd = onEnd;
+    // お供。連れて行かない時は null のまま(今までどおりのソロ)。
+    this.ally = allyCharId === null ? null : new Ally(allyCharId);
+    this.allyPoseT = 0;
 
     this.maxHp = PLAYER_MAX_HP;
     this.vigorBonus = 0;
@@ -297,6 +320,18 @@ export class BattleManager {
     this.uiLayer = new Container();
     root.addChild(this.entityLayer, this.projLayer, this.fxLayer, this.uiLayer);
 
+    // お供(居れば)。プレイヤーより先に足すと後ろに描かれる ―
+    // 後ろ斜めに立たせたいので、この順でないと手前に被る。
+    this.allyCont = null;
+    if (this.ally) {
+      const c = makePlayerSprite(this.ally.charId);
+      c.position.set(ALLY_X, GROUND_Y);
+      c.scale.set(ALLY_SCALE);
+      this.entityLayer.addChild(c);
+      this.allyCont = c;
+      setPlayerSpritePose(c, this.ally.charId, 'idle');
+    }
+
     // プレイヤー
     this.playerCont = makePlayerSprite(state.charId);
     this.playerCont.position.set(PLAYER_X, GROUND_Y);
@@ -364,6 +399,15 @@ export class BattleManager {
     });
     this.infoText.position.set(16, 64);
     this.uiLayer.addChild(this.infoText);
+
+    // お供の数字。連れて行かない時は隠す。
+    this.allyText = new Text({
+      text: '',
+      style: { fill: 0x88aa99, fontSize: 11, fontFamily: 'Meiryo, sans-serif' },
+    });
+    this.allyText.position.set(16, 106);
+    this.allyText.visible = false;
+    this.uiLayer.addChild(this.allyText);
 
     this.countText = new Text({ text: '', style: { ...COUNT_STYLE } });
     this.countText.anchor.set(0.5);
@@ -609,6 +653,9 @@ export class BattleManager {
     // 自分の姿(詠唱中・撃った直後・被弾)
     this.stepPlayerPose(dt);
 
+    // お供AI。撃つと決まったら、プレイヤーと同じ経路で効果を出す。
+    this.stepAlly(dt);
+
     // 敵の行動
     for (const e of this.enemies) {
       if (!e.alive) continue;
@@ -686,7 +733,7 @@ export class BattleManager {
         this.fxs.push({ g: tr, life: 0.22, maxLife: 0.22 });
       }
 
-      if (p.from === 'player') {
+      if (p.from === 'player' || p.from === 'ally') {
         for (const e of this.enemies) {
           if (!e.alive || p.hit.has(e)) continue;
           if (Math.abs(p.x - e.x) < 26) {
@@ -696,6 +743,13 @@ export class BattleManager {
           }
         }
         if (p.x > W + 40) p.dead = true;
+      } else if (p.at === 'ally') {
+        // お供を狙う弾。プレイヤーの横を素通りして後ろまで飛ぶ。
+        if (p.x <= ALLY_X + cs(12)) {
+          p.dead = true;
+          this.onAllyHit(p.dmg!, p.attr);
+        }
+        if (p.x < -40) p.dead = true;
       } else {
         if (p.x <= PLAYER_X + cs(12)) {
           p.dead = true;
@@ -759,6 +813,181 @@ export class BattleManager {
   }
 
   // ===== 弾・命中処理 =====
+
+  // ===== お供AI =====
+
+  // いまの状況をお供に見せる。お供はこれだけを見て次の手を決める。
+  private allySight(): AllySight {
+    const a = this.ally!;
+    let weak: ElementId | null = null;
+    // 弱点(◎○)を突ける属性を1つ探す。複数の敵がいる時は最初に見つけたもの。
+    for (const e of this.enemies) {
+      if (!e.alive) continue;
+      for (const [attr, grade] of Object.entries(e.def.affinity)) {
+        if ((grade as number) >= 1) { weak = attr as ElementId; break; }
+      }
+      if (weak) break;
+    }
+    return {
+      myHpPct: a.hp / a.maxHp,
+      playerHpPct: this.hp / this.maxHp,
+      myMpPct: a.mp / a.maxMp,
+      enemiesAlive: this.enemies.filter(e => e.alive).length,
+      shielded: a.shield > 0,
+      warded: a.ward !== null,
+      empowered: a.atkBoost > 0,
+      taunting: a.tauntTimer > 0,
+      weakAttr: weak,
+    };
+  }
+
+  private stepAlly(dt: number): void {
+    const a = this.ally;
+    if (!a) return;
+    if (!a.alive) {
+      if (this.allyCont) this.allyCont.alpha = 0.3;
+      return;
+    }
+
+    const fired = a.step(dt, () => this.allySight());
+
+    // 姿。プレイヤーと同じ決まり(一瞬の姿は残り時間で上書き)。
+    if (this.allyPoseT > 0) {
+      this.allyPoseT -= dt;
+    } else if (this.allyCont) {
+      setPlayerSpritePose(this.allyCont, a.charId, a.casting ? 'cast' : 'idle');
+    }
+
+    if (!fired) return;
+    this.noteAllyCast(fired.role);
+    this.applyAllyCast(fired.spell.stats, fired.role);
+  }
+
+  // お供が何をしたかの控え。外から覗ける所に置いてある ―
+  // Pixi の中身は検証から見えないので、これが唯一の手がかりになる
+  // (test/ally_battle_check.ts が window.__allyDebug を読む)。
+  private noteAllyCast(role: string): void {
+    const w = window as unknown as {
+      __allyDebug?: { casted: number; roles: string[] };
+    };
+    if (!w.__allyDebug) w.__allyDebug = { casted: 0, roles: [] };
+    w.__allyDebug.casted++;
+    w.__allyDebug.roles.push(role);
+  }
+
+  // お供が撃った魔法を効かせる。
+  // 弾・音・ポーズはプレイヤーと同じものを使う(演出を直せば両方に効く)。
+  private applyAllyCast(st: SpellStats, role: string): void {
+    const a = this.ally!;
+    playSfx('cast');
+    this.setAllyPose('release', POSE_RELEASE_SEC);
+
+    if (st.selfDamage > 0) {
+      a.hp = Math.max(1, a.hp - st.selfDamage);   // 自傷では倒れない
+      this.addPopup(ALLY_X, cy(100), `-${st.selfDamage}`, 0xbb77ee);
+    }
+
+    if (role === 'taunt') {
+      // 挑発は敵の狙いをお供へ集める。ソロのプレイヤーとは効き方が違う
+      // (プレイヤーは一人なので護盾に変えているが、お供は本来の意味で働く)。
+      this.addPopup(ALLY_X, cy(115), '咆哮!', 0xffaa66);
+      return;
+    }
+    if (st.kind === 'shield') {
+      playSfx('shield');
+      a.shield = Math.max(a.shield, st.barrier);
+      a.shieldTimer = 10;
+      this.addPopup(ALLY_X, cy(115), `護盾+${st.barrier}`, 0x88ccff);
+      return;
+    }
+    if (st.kind === 'ward') {
+      a.ward = { attr: st.targetAll ? null : st.attr, pct: st.wardPct, timer: 12 };
+      this.addPopup(ALLY_X, cy(115), `耐性${st.wardPct}%`, 0xaaddff);
+      return;
+    }
+    if (st.kind === 'heal') {
+      playSfx('heal');
+      // 減っているほうを癒す。両方減っていればプレイヤーを優先する
+      // (プレイヤーが倒れたらその場で終わるため)。
+      const playerLack = this.maxHp - this.hp;
+      const allyLack = a.maxHp - a.hp;
+      if (playerLack >= allyLack) {
+        const healed = Math.min(playerLack, st.healPower);
+        this.hp += healed;
+        this.addPopup(PLAYER_X, cy(115), `+${healed}`, 0x88ddaa);
+      } else {
+        const healed = a.heal(st.healPower);
+        this.addPopup(ALLY_X, cy(115), `+${healed}`, 0x88ddaa);
+      }
+      return;
+    }
+    if (st.kind === 'empower') {
+      // 鼓舞は二人ぶんに効かせる(共闘でも全員に掛かる)
+      playSfx('buff');
+      this.atkBoost = Math.max(this.atkBoost, st.atkBoost);
+      this.atkBoostTimer = 15;
+      a.atkBoost = Math.max(a.atkBoost, st.atkBoost);
+      a.atkBoostTimer = 15;
+      this.addPopup(ALLY_X, cy(115), `与ダメ+${st.atkBoost}%`, 0xffcc66);
+      return;
+    }
+    if (st.kind === 'focus') {
+      a.mpRegenBonus = Math.max(a.mpRegenBonus, st.mpRegenBonus);
+      a.mpRegenTimer = 15;
+      this.addPopup(ALLY_X, cy(115), `MP回復+${st.mpRegenBonus}`, 0x99ccff);
+      return;
+    }
+    if (st.kind === 'vigor') {
+      a.maxHp += st.hpBoost;
+      a.hp += st.hpBoost;
+      this.addPopup(ALLY_X, cy(115), `最大HP+${st.hpBoost}`, 0xffaacc);
+      return;
+    }
+    if (st.kind === 'seal') {
+      let sealed = 0;
+      for (const e of this.enemies) {
+        if (!e.alive) continue;
+        const g = (e.def.affinity[st.attr] ?? 0) as AffinityGrade;
+        const sec = st.sealTime * sealResistMul(g);
+        if (sec <= 0) continue;
+        e.sealed = Math.max(e.sealed, sec);
+        sealed++;
+      }
+      this.addPopup(ALLY_X, cy(115), sealed > 0 ? `封印 ${sealed}体` : '効かない',
+        sealed > 0 ? 0xcc99ff : 0x888899);
+      return;
+    }
+    if (st.quake) {
+      // 地震は弾を飛ばさず全体を叩く。プレイヤーと同じ扱い。
+      this.shake = 14;
+      playSfx('quake');
+      for (const e of this.enemies) {
+        if (e.alive) this.dealDamage(e, st, 0.75, a.atkBoost);
+      }
+      return;
+    }
+    this.fireAllyProj(st);
+  }
+
+  private fireAllyProj(st: SpellStats): void {
+    const r = 5 + Math.min(10, st.power / 25);
+    const g = makeProjectileGfx(st.attr, st.power);
+    const y = cy(58);
+    g.position.set(ALLY_X + cs(30), y);
+    this.projLayer.addChild(g);
+    this.projs.push({
+      g, x: ALLY_X + cs(30), y, speed: st.projSpeed,
+      from: 'ally', spell: st, attr: st.attr, r, trailT: 0,
+      hit: new Set(), dead: false,
+    });
+  }
+
+  private setAllyPose(pose: Pose, sec: number): void {
+    this.allyPoseT = sec;
+    if (this.allyCont && this.ally) {
+      setPlayerSpritePose(this.allyCont, this.ally.charId, pose);
+    }
+  }
 
   private firePlayerProj(st: SpellStats): void {
     const r = 5 + Math.min(10, st.power / 25);
@@ -837,16 +1066,23 @@ export class BattleManager {
     const dmg = Math.round(
       e.def.atk * ENEMY_ATK_MUL * stageAtkMul(this.stage) * (0.9 + Math.random() * 0.2),
     );
+    // 誰を狙うか。お供が居れば一定の割合で引き受け、
+    // 挑発を撃った直後はその割合が跳ね上がる。
+    const share = this.ally
+      ? this.ally.hateShare(ALLY_HATE_SHARE, ALLY_TAUNT_SHARE) : 0;
+    const at: 'player' | 'ally' = Math.random() < share ? 'ally' : 'player';
     this.projs.push({
       g, x: e.x - 20, y, speed: -230,
-      from: 'enemy', dmg, attr, r: 6, trailT: 0,
+      from: 'enemy', at, dmg, attr, r: 6, trailT: 0,
       hit: new Set(), dead: false,
     });
   }
 
   private onSpellHit(p: Proj, target: EnemyUnit): void {
     const st = p.spell!;
-    this.dealDamage(target, st, 1.0);
+    // 与ダメ上昇は撃った本人のものを使う(プレイヤーとお供で別々に持っている)
+    const boost = p.from === 'ally' ? (this.ally?.atkBoost ?? 0) : this.atkBoost;
+    this.dealDamage(target, st, 1.0, boost);
 
     // 爆発(範囲)
     if (st.radius > 0) {
@@ -859,7 +1095,7 @@ export class BattleManager {
         if (!e.alive || e === target || p.hit.has(e)) continue;
         if (Math.abs(e.x - target.x) <= st.radius) {
           p.hit.add(e);
-          this.dealDamage(e, st, 0.7);
+          this.dealDamage(e, st, 0.7, boost);
         }
       }
     }
@@ -880,17 +1116,21 @@ export class BattleManager {
           .stroke({ width: 3, color: 0xffee66 });
         this.fxLayer.addChild(zap);
         this.fxs.push({ g: zap, life: 0.25, maxLife: 0.25 });
-        this.dealDamage(e, st, 0.6);
+        this.dealDamage(e, st, 0.6, boost);
         fromX = e.x;
       }
     }
   }
 
-  private dealDamage(e: EnemyUnit, st: SpellStats, mul: number): void {
-    let dmg = st.power * mul * (0.9 + Math.random() * 0.2) * (1 + this.atkBoost / 100);
+  // boost は「撃った本人の与ダメ上昇」。省くとプレイヤーのものを使う。
+  // お供の鼓舞とプレイヤーの鼓舞は別々に持っているので、ここで取り違えると
+  // 片方だけ掛かっている時に数字が合わなくなる。
+  private dealDamage(e: EnemyUnit, st: SpellStats, mul: number, boost?: number): void {
+    const bst = boost ?? this.atkBoost;
+    let dmg = st.power * mul * (0.9 + Math.random() * 0.2) * (1 + bst / 100);
     // 継続ダメージを付与(上書き)
     if (st.dotTime > 0 && st.dotDps > 0) {
-      e.dotDps = st.dotDps * (1 + this.atkBoost / 100);
+      e.dotDps = st.dotDps * (1 + bst / 100);
       e.dotT = st.dotTime;
       e.dotTick = 0;
     }
@@ -974,6 +1214,27 @@ export class BattleManager {
     }
   }
 
+  // お供が殴られた時。プレイヤーと同じ見せ方をする。
+  private onAllyHit(dmg: number, attr: ElementId): void {
+    const a = this.ally;
+    if (!a || !a.alive) return;
+    const r = a.takeHit(dmg, attr);
+    if (r.absorbed > 0) {
+      this.addPopup(ALLY_X, cy(115), `盾-${r.absorbed}`, 0x88ccff);
+    }
+    if (r.dealt > 0) {
+      playSfx('damage');
+      this.setAllyPose('hurt', POSE_HURT_SEC);
+      this.addPopup(ALLY_X, cy(100), `-${r.dealt}`, 0xff7755);
+    }
+    if (r.died) {
+      // 倒れたら二度と起き上がらない。守る理由を作るため。
+      playSfx('defeat');
+      this.addPopup(ALLY_X, cy(125), '倒れた…', 0xff9977);
+      if (this.allyCont) this.allyCont.alpha = 0.3;
+    }
+  }
+
   private addPopup(x: number, y: number, text: string, color: number): void {
     const t = new Text({
       text,
@@ -1013,6 +1274,37 @@ export class BattleManager {
       g.circle(PLAYER_X, cy(50), cs(52))
         .stroke({ width: 3, color: 0x88ccff, alpha: 0.35 + 0.15 * Math.sin(this.time * 6) });
     }
+    // お供のHP/MPと詠唱。プレイヤーの数字(y=64)の下に小さく並べる。
+    // ★ 最初 y=56 に置いたら「HP 260/260 MP 150/150」の文字と重なった。
+    //   プレイヤーの表示より下から始めること。
+    const a = this.ally;
+    if (a) {
+      g.rect(16, 84, 150, 10).fill(0x222238);
+      g.rect(16, 84, 150 * (a.hp / a.maxHp), 10)
+        .fill(a.alive ? 0x55cc66 : 0x664444);
+      g.rect(16, 96, 150, 7).fill(0x222238);
+      g.rect(16, 96, 150 * (a.mp / a.maxMp), 7).fill(0x5588ee);
+      if (a.shield > 0) {
+        g.rect(16, 79, 150 * Math.min(1, a.shield / a.maxHp), 3).fill(0x88ccff);
+        g.circle(ALLY_X, cy(46), cs(46))
+          .stroke({ width: 2, color: 0x88ccff, alpha: 0.3 + 0.15 * Math.sin(this.time * 6) });
+      }
+      // 挑発中は光らせる。なぜ敵がお供を狙っているのかが伝わる。
+      if (a.tauntTimer > 0) {
+        g.circle(ALLY_X, cy(46), cs(50))
+          .stroke({ width: 3, color: 0xffaa66, alpha: 0.45 + 0.2 * Math.sin(this.time * 9) });
+      }
+      // お供の詠唱バー。人間の共闘と同じく、何かしているのが見える。
+      if (a.casting) {
+        const ast = a.casting.spell.stats;
+        const ap = Math.min(1, a.casting.t / ast.castTime);
+        g.rect(ALLY_X - cs(32), cy(118), cs(64), 6).fill(0x222238);
+        g.rect(ALLY_X - cs(32), cy(118), cs(64) * ap, 6).fill(0xffdd66);
+        g.circle(ALLY_X + cs(26), cy(60), cs(3 + ap * 8))
+          .fill({ color: ELEMENTS[ast.attr].color, alpha: 0.5 });
+      }
+    }
+
     // 詠唱バー+杖先の属性グロー
     if (this.casting) {
       const st = this.casting.spell.stats;
@@ -1028,6 +1320,19 @@ export class BattleManager {
     }
     this.infoText.text =
       `HP ${Math.ceil(this.hp)}/${this.maxHp}   MP ${Math.floor(this.mp)}/${this.maxMp}`;
+
+    // お供の数字。誰のバーか分かるよう名前を添える。
+    if (this.ally) {
+      const a2 = this.ally;
+      this.allyText.visible = true;
+      this.allyText.text = a2.alive
+        ? `${characterName(a2.charId)}  HP ${Math.ceil(a2.hp)}/${a2.maxHp}`
+          + `  MP ${Math.floor(a2.mp)}/${a2.maxMp}`
+        : `${characterName(a2.charId)}  倒れた`;
+      this.allyText.style.fill = a2.alive ? 0x88aa99 : 0x996666;
+    } else {
+      this.allyText.visible = false;
+    }
   }
 
   // ===== 終了処理 =====

@@ -17,6 +17,8 @@ import { watchDailyBonus } from './daily';
 import { enterShop, initShop } from './gacha';
 import { initTrade, renderTradePanel, tradeInProgress } from './trade';
 import { installNoZoom } from './nozoom';
+import { currentAllyCharId, renderAllyPicker } from './allypick';
+import { ALLY_RP_MUL } from '../shared/allies';
 import { renderTips } from './tips';
 import { initShare } from './share';
 import { loadArtwork } from './artwork';
@@ -161,6 +163,9 @@ function renderSetup(): void {
   $<HTMLButtonElement>('#btn-create-room').textContent =
     `ステージ${stage}の共闘部屋を作る`;
 
+  // お供欄(旗が false の間は中で何もせず、何も出さない)
+  renderAllyPicker();
+
   $('#setup-msg').textContent = spells.length === 0
     ? '魔法を1つ以上装備しないと出撃できない。研究室で調合・装備しよう。'
     : boss
@@ -186,14 +191,25 @@ async function startBattle(stage: number): Promise<void> {
   $('#battle-view').classList.remove('hidden');
   $('#battle-overlay').classList.add('hidden');
   syncLobbyVisibility(); // 戦闘中はロビーも隠す(同じ画面に並んでいるため)
-  await battle.start($('#game-canvas'), stage, spells, onBattleEnd);
+  // お供を連れて行くかは、出撃を押した時点の選択で決まる。
+  // 戦闘が始まった後で入れ替わることはない。
+  allyCameAlong = currentAllyCharId();
+  await battle.start($('#game-canvas'), stage, spells, onBattleEnd, allyCameAlong);
 }
+
+// この戦闘にお供が同行したか。研究Pの倍率に使うので、
+// 戦闘が終わるまで覚えておく(その間に選択欄を触られても影響しない)。
+let allyCameAlong: number | null = null;
 
 // ===== 戦闘結果(ソロ) =====
 
 function onBattleEnd(r: BattleResult): void {
   addElements(r.drops);
-  state.researchP += r.rp;
+  // お供を連れて行った回は研究Pを減らす。
+  // 明らかに楽になるので、そのぶん実入りを下げて釣り合いを取る。
+  const withAlly = allyCameAlong !== null;
+  const rp = withAlly ? Math.round(r.rp * ALLY_RP_MUL) : r.rp;
+  state.researchP += rp;
   if (r.win) {
     state.bestStage = Math.max(state.bestStage, r.stage);
     state.maxStage = Math.max(state.maxStage, r.stage + 1);
@@ -213,8 +229,13 @@ function onBattleEnd(r: BattleResult): void {
     `<h2 class="${titleClass}">${title}</h2>` +
     `<div>ステージ ${r.stage}</div>` +
     `<div class="drops">獲得エレメント: ${dropChips}</div>` +
-    (r.rp > 0
-      ? `<div style="color:#ffdd66">研究P +${r.rp}</div>`
+    (rp > 0
+      ? `<div style="color:#ffdd66">研究P +${rp}`
+        // 減った理由をその場で見せる。黙って少ないと不具合に見える。
+        + (withAlly
+          ? `<small style="color:#aa9966"> (お供と一緒なので ×${ALLY_RP_MUL})</small>`
+          : '')
+        + '</div>'
       : `<div style="color:#8888aa">${r.escaped ? '撤退' : '敗北'}したため研究Pは得られない。</div>`) +
     `<div style="margin-top:16px; display:flex; gap:8px; justify-content:center">` +
     `<button id="btn-again">${r.win ? 'もう一度' : '再挑戦'}</button>` +

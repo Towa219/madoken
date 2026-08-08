@@ -3,7 +3,7 @@ import {
   ELEMENT_ORDER, equipLimit, LEGEND_BOSS_STAGE, LOADOUT_COUNT, LOADOUT_NAME_MAX,
   START_SLOTS,
 } from '../shared/data';
-import { clampCharId } from '../shared/characters';
+import { CHARACTER_COUNT, clampCharId } from '../shared/characters';
 import type { ElementId, GameState, Loadout, Spell } from '../shared/types';
 
 const SAVE_KEY = 'magic_web_game_save_v1';
@@ -45,6 +45,8 @@ function initialState(): GameState {
     tickets: 0,
     lastBonusDate: '',
     codexRewarded: false,
+    allyUnlocked: false,
+    allyCharId: null,
   };
 }
 
@@ -129,6 +131,15 @@ function migrate(parsed: Partial<GameState>): GameState {
     merged.tickets = Math.max(0, Math.floor(merged.tickets));
     if (typeof merged.lastBonusDate !== 'string') merged.lastBonusDate = '';
     if (typeof merged.codexRewarded !== 'boolean') merged.codexRewarded = false;
+    // お供AI。古いセーブには無いので、未解放・連れて行かないで補う。
+    if (typeof merged.allyUnlocked !== 'boolean') merged.allyUnlocked = false;
+    if (typeof merged.allyCharId !== 'number'
+        || !Number.isFinite(merged.allyCharId)
+        || merged.allyCharId < 0 || merged.allyCharId >= CHARACTER_COUNT) {
+      merged.allyCharId = null;
+    }
+    // 自分と同じキャラは連れて行けない(乗り換えた後に残っていることがある)
+    if (merged.allyCharId === merged.charId) merged.allyCharId = null;
     if (typeof merged.legendRewarded !== 'boolean') merged.legendRewarded = false;
     // 最深部の報酬。以前はステージ50の1件だけを真偽値で持っていた。
     // 受け取り済みの人が、作り直した仕組みでもう一度受け取れないよう引き継ぐ。

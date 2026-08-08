@@ -811,6 +811,39 @@ button.tab:disabled { opacity: 0.4; cursor: not-allowed; }
   #gacha-result { animation: none; }
 }
 
+/* ===== お供AI(出撃準備) ===== */
+
+#ally-box { margin-top: 14px; padding-top: 12px; border-top: 1px solid #2a2a44; }
+#ally-box.hidden { display: none; }
+#ally-box h3 {
+  margin: 0 0 8px; font-size: 13px; color: #bb99ff; font-weight: normal;
+}
+#ally-box h3 small { font-size: 11px; color: #777799; }
+#ally-picker { display: flex; gap: 6px; flex-wrap: wrap; }
+#ally-note { margin-top: 8px; }
+
+.ally-card {
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  width: 108px; padding: 6px 4px; border-radius: 8px;
+  background: #1d1d35; border: 1px solid #333355;
+}
+.ally-card:hover { background: #26264a; }
+.ally-card.selected { border-color: #7755cc; background: #2c2450; }
+.ally-art {
+  display: block; width: 56px; height: 62px;
+  background-repeat: no-repeat; background-position: center bottom;
+  background-size: auto 100%;
+}
+.ally-art.none {
+  display: flex; align-items: center; justify-content: center;
+  color: #55557a; font-size: 22px;
+}
+.ally-name { font-size: 12px; color: #ddddee; }
+.ally-elem { font-size: 11px; }
+.ally-note {
+  font-size: 10px; color: #8888aa; line-height: 1.3; text-align: center;
+}
+
 /* ===== エレメント取引(交易所) ===== */
 
 #trade-panel { margin-top: 8px; }
