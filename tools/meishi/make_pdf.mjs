@@ -10,8 +10,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
-const HTML = path.join(HERE, 'madoken_meishi.html');
-const PDF = path.join(HERE, 'madoken_meishi.pdf');
+// 線なし(エーワン 51861用)と、ハサミ線あり(普通紙用)の2種類
+const JOBS = ['madoken_meishi', 'madoken_meishi_cut'];
 const CHROME = process.env.CHROME_PATH
   ?? 'C:/Program Files/Google/Chrome/Application/chrome.exe';
 const PORT = 9458;
@@ -46,20 +46,26 @@ try {
   });
 
   await send('Page.enable');
-  await send('Page.navigate', { url: 'file:///' + HTML.replace(/\\/g, '/') });
-  await sleep(3000);   // 埋め込み画像の展開を待つ
 
-  const r = await send('Page.printToPDF', {
-    printBackground: true,
-    paperWidth: 8.27, paperHeight: 11.69,        // A4
-    marginTop: 0, marginBottom: 0, marginLeft: 0, marginRight: 0,
-    preferCSSPageSize: true,                      // @page size: A4 をそのまま使う
-  });
-  if (!r.result?.data) throw new Error('PDFを作れなかった');
-  fs.writeFileSync(PDF, Buffer.from(r.result.data, 'base64'));
-  console.log('書き出した:', PDF);
-  console.log('  大きさ:', Math.round(fs.statSync(PDF).size / 1024), 'KB');
-  console.log('  刷る時は「実際のサイズ(100%)」で。用紙に合わせて拡大縮小しないこと。');
+  for (const job of JOBS) {
+    const html = path.join(HERE, job + '.html');
+    const pdf = path.join(HERE, job + '.pdf');
+    if (!fs.existsSync(html)) { console.log('無い:', html); continue; }
+
+    await send('Page.navigate', { url: 'file:///' + html.replace(/\\/g, '/') });
+    await sleep(3000);   // 埋め込み画像の展開を待つ
+
+    const r = await send('Page.printToPDF', {
+      printBackground: true,
+      paperWidth: 8.27, paperHeight: 11.69,        // A4
+      marginTop: 0, marginBottom: 0, marginLeft: 0, marginRight: 0,
+      preferCSSPageSize: true,                      // @page size: A4 をそのまま使う
+    });
+    if (!r.result?.data) throw new Error('PDFを作れなかった: ' + job);
+    fs.writeFileSync(pdf, Buffer.from(r.result.data, 'base64'));
+    console.log(`書き出した: ${pdf} (${Math.round(fs.statSync(pdf).size / 1024)} KB)`);
+  }
+  console.log('刷る時は「実際のサイズ(100%)」で。用紙に合わせて拡大縮小しないこと。');
   W.close();
 } finally {
   ch.kill();

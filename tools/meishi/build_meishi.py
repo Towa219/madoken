@@ -23,6 +23,8 @@ import segno
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 OUT = os.path.join(ROOT, 'tools', 'meishi', 'madoken_meishi.html')
+# ハサミ線あり(普通紙に刷って自分で切る用)
+OUT_CUT = os.path.join(ROOT, 'tools', 'meishi', 'madoken_meishi_cut.html')
 
 # 配る先はゲーム本体ではなく入口(待機ページ)。
 # サーバーが寝ていても説明が出るので、初めての人が驚かない。
@@ -60,6 +62,31 @@ def qr_svg() -> str:
     q.save(buf, kind='svg', scale=1, border=3, dark='#1b1035', light=None,
            svgclass=None, lineclass=None, xmldecl=False, svgns=True, omitsize=True)
     return buf.getvalue().decode('utf-8')
+
+
+def cut_svg() -> str:
+    """ハサミ線。普通紙に刷って自分で切る時だけ使う。
+
+    面と面の境目に細い線を通す。マルチカードのミシン目と同じ位置なので、
+    「線どおりに切れば名刺の寸法になる」ことがそのまま確かめられる
+    (エーワン用に刷る時は線なしの版を使うこと ― 切り離した紙の縁に
+     線が残ってしまう)。
+    """
+    w = MARGIN_X * 2 + CARD_W * COLS
+    h = MARGIN_Y * 2 + CARD_H * ROWS
+    lines = []
+    for c in range(COLS + 1):
+        x = MARGIN_X + c * CARD_W
+        lines.append(f'<line x1="{x}" y1="{MARGIN_Y}" '
+                     f'x2="{x}" y2="{MARGIN_Y + CARD_H * ROWS}"/>')
+    for r in range(ROWS + 1):
+        y = MARGIN_Y + r * CARD_H
+        lines.append(f'<line x1="{MARGIN_X}" y1="{y}" '
+                     f'x2="{MARGIN_X + CARD_W * COLS}" y2="{y}"/>')
+    return (f'<svg class="cut" viewBox="0 0 {w} {h}" '
+            f'xmlns="http://www.w3.org/2000/svg">'
+            f'<g stroke="#b9b3c8" stroke-width="0.2" fill="none">'
+            + ''.join(lines) + '</g></svg>')
 
 
 def card_html(art: str, qr: str) -> str:
@@ -100,32 +127,35 @@ def card_html(art: str, qr: str) -> str:
       <ul class="pts">
         <li>レシピは<b>非公開</b>。組み合わせを試して見つけ出す</li>
         <li>隠された系統は<b>28種</b>。仲間と共闘、研究者と決闘</li>
-        <li><b>ブラウザで無料・登録不要</b>(スマホ可)</li>
+        <li>スマホでもパソコンでも、<b>ブラウザだけ</b>で遊べます</li>
       </ul>
 
       <div class="foot">
         <span class="qr">{qr}</span>
         <span class="url">
           <b>{URL_SHOW}</b>
-          <i>QRを読むか、この住所へ</i>
+          <i>QRを読むか、このアドレスへ</i>
         </span>
       </div>
 
+      <span class="badge">無料・登録不要</span>
       <img class="chara" src="{art}" alt="翠緑の薬導士">
     </div>
   </div>'''
 
 
-def build() -> None:
+def build(cut: bool = False) -> None:
     art = char_art()
     qr = qr_svg()
     cards = ''.join(card_html(art, qr) for _ in range(COLS * ROWS))
+    out = OUT_CUT if cut else OUT
+    kind = 'ハサミ線あり(普通紙用)' if cut else 'エーワン 51861(A4 10面)'
 
     html = f'''<!doctype html>
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<title>魔導研究記 名刺(エーワン 51861 / A4 10面)</title>
+<title>魔導研究記 名刺({kind})</title>
 <style>
   /* ===== 用紙 ===== */
   @page {{ size: A4; margin: 0; }}
@@ -162,26 +192,26 @@ def build() -> None:
     color: #241a3d;
   }}
 
-  .head {{ display: flex; align-items: center; gap: 1.8mm; }}
-  .mark {{ width: 8.4mm; height: 8.4mm; flex: 0 0 auto; }}
+  .head {{ display: flex; align-items: center; gap: 2.2mm; }}
+  .mark {{ width: 11mm; height: 11mm; flex: 0 0 auto; }}
   .mark svg {{ width: 100%; height: 100%; display: block; }}
   .title b {{
     display: block; font-family: 'Yu Mincho', 'MS Mincho', serif;
-    font-size: 5.4mm; letter-spacing: 0.4mm; color: #2c1a63; line-height: 1.1;
+    font-size: 6.6mm; letter-spacing: 0.5mm; color: #2c1a63; line-height: 1.08;
   }}
   .title i {{
-    display: block; font-style: normal; font-size: 2.5mm;
-    letter-spacing: 0.3mm; color: #7a5bd0; margin-top: 0.4mm;
+    display: block; font-style: normal; font-size: 2.9mm;
+    letter-spacing: 0.3mm; color: #7a5bd0; margin-top: 0.5mm;
   }}
 
   .lead {{
-    margin-top: 2.4mm; font-size: 2.7mm; font-weight: bold; color: #3a2a70;
+    margin-top: 1.8mm; font-size: 2.7mm; font-weight: bold; color: #3a2a70;
     background: #efe9fb; border-left: 0.8mm solid #7a5bd0;
     padding: 1mm 1.6mm; border-radius: 0 1mm 1mm 0;
-    width: 55mm;
+    width: 53mm;
   }}
 
-  .pts {{ list-style: none; margin-top: 1.8mm; width: 52mm; }}
+  .pts {{ list-style: none; margin-top: 1.8mm; width: 51mm; }}
   .pts li {{
     font-size: 2.35mm; line-height: 1.55; color: #4a4160;
     padding-left: 2.6mm; position: relative;
@@ -208,10 +238,21 @@ def build() -> None:
     color: #8a80a5; margin-top: 0.6mm;
   }}
 
+  /* 右上の空きに、いちばん言いたいことを置く */
+  .badge {{
+    position: absolute; right: 3.6mm; top: 4.4mm;
+    background: #5533aa; color: #fff8e6;
+    font-size: 2.6mm; font-weight: bold; letter-spacing: 0.2mm;
+    padding: 1.1mm 2.4mm; border-radius: 9mm; white-space: nowrap;
+  }}
+
   /* ===== 翠緑の薬導士 ===== */
   .chara {{
-    position: absolute; right: 3.4mm; bottom: 3.2mm;
+    position: absolute; right: 3.2mm; bottom: 3.2mm;
     height: 34mm; width: auto;
+    /* 左右反転。元絵は左を向いているが、名刺では右端に立つので、
+       反転すると視線と体の向きが紙の内側(文字のほう)へ向く。 */
+    transform: scaleX(-1);
     filter: drop-shadow(0 0.6mm 0.8mm rgba(60,40,110,0.22));
   }}
 
@@ -223,6 +264,13 @@ def build() -> None:
   }}
   .guide-note b {{ color: #ffdd66; }}
   .guide-note code {{ color: #88ddaa; }}
+
+  /* ハサミ線。面の上に重ねるだけなので、名刺の中身には触らない */
+  .cut {{
+    position: absolute; left: 0; top: 0; width: 210mm; height: 297mm;
+    pointer-events: none;
+  }}
+
   @media print {{
     body {{ background: #fff; }}
     .guide-note {{ display: none; }}
@@ -233,27 +281,34 @@ def build() -> None:
 <body>
 
 <div class="guide-note">
-  <b>エーワン 51861(A4 10面・91×55mm)用</b> — このまま印刷すると10枚できます。<br>
+  {'<b>ハサミ線あり(普通紙用)</b> — 普通のコピー用紙に刷って、線どおりに切ると名刺(91×55mm)になります。'
+   if cut else
+   '<b>エーワン 51861(A4 10面・91×55mm)用</b> — このまま印刷すると10枚できます。'}<br>
   印刷設定は <b>用紙A4／倍率100%(「ページに合わせる」は外す)／余白なし／背景グラフィックを印刷する</b>。<br>
-  1枚目は普通紙に刷って、名刺用紙に重ねて光にかざすと位置を確かめられます。<br>
-  住所を変えたい時は <code>tools/meishi/build_meishi.py</code> の <code>URL</code> を直して作り直してください(QRも一緒に変わります)。
+  {'切った紙の縁に線が残るのが気になる時は、線なしの版(madoken_meishi.html)を使ってください。'
+   if cut else
+   '1枚目は普通紙に刷って、名刺用紙に重ねて光にかざすと位置を確かめられます。'}<br>
+  アドレスを変えたい時は <code>tools/meishi/build_meishi.py</code> の <code>URL</code> を直して作り直してください(QRも一緒に変わります)。
 </div>
 
 <div class="sheet">{cards}
+{cut_svg() if cut else ''}
 </div>
 
 </body>
 </html>
 '''
-    with io.open(OUT, 'w', encoding='utf-8', newline='\n') as f:
+    with io.open(out, 'w', encoding='utf-8', newline='\n') as f:
         f.write(html)
-    print('書き出した:', OUT)
-    print('  住所 :', URL)
+    print('書き出した:', out)
+    print('  種類  : {}'.format(kind))
+    print('  アドレス: {}'.format(URL))
     print('  面付け: {}×{}面 / 1面 {}×{}mm / 余白 左右{}mm・上下{}mm'.format(
         COLS, ROWS, CARD_W, CARD_H, MARGIN_X, MARGIN_Y))
-    print('  大きさ: {:.0f} KB'.format(os.path.getsize(OUT) / 1024))
+    print('  大きさ: {:.0f} KB'.format(os.path.getsize(out) / 1024))
 
 
 if __name__ == '__main__':
     sys.stdout.reconfigure(encoding='utf-8')
-    build()
+    build(cut=False)   # エーワン 51861 用(線なし)
+    build(cut=True)    # 普通紙用(ハサミ線あり)
