@@ -153,7 +153,8 @@ export const RECIPES: RecipeDef[] = [
   {
     id: 'seiiki', name: '聖域系', spellNoun: '聖域盾',
     hint: '守りの大地に光を灯すと、盾は皆を包む (土×2+氷×1+光×1以上)',
-    desc: 'パーティ全員に護盾を張る(各自に耐久60%・持続10秒)。ソロでは通常の護盾。',
+    desc: 'パーティ全員に護盾を張る(各自に耐久60%・持続10秒)。'
+      + 'ソロでもお供に届く(一人なら満額)。',
     check: c => n(c, 'earth') >= 2 && n(c, 'ice') >= 1 && n(c, 'light') >= 1,
     apply: s => { s.kind = 'shield'; s.targetAll = true; },
   },
@@ -196,7 +197,8 @@ export const RECIPES: RecipeDef[] = [
   {
     id: 'jiu', name: '慈雨系', spellNoun: '慈雨',
     hint: '癒しの光が水を得て、雨となり皆に降り注ぐ (光×3+水×1以上)',
-    desc: 'パーティ全員を回復する(各自に回復量の60%)。ソロでは自分を回復。',
+    desc: 'パーティ全員を回復する(各自に回復量の60%)。'
+      + 'ソロでもお供に届く(一人なら満額)。',
     check: c => n(c, 'light') >= 3 && n(c, 'water') >= 1,
     apply: s => { s.kind = 'heal'; s.targetAll = true; },
   },

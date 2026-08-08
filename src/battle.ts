@@ -66,6 +66,13 @@ export const COUNT_STYLE = {
 
 // プレイヤーまわりの座標は SPRITE_SCALE と一緒に動かす。
 // cy(n) = 地面からn(拡大前)だけ上、cs(n) = 長さnを拡大した値。
+// 検証から覗くための控え(window.__allyDebug)
+interface AllyDebug {
+  casted: number; roles: string[];
+  hp: number; maxHp: number; alive: boolean;
+  shield: number; warded: boolean; atkBoost: number; mpRegenBonus: number;
+}
+
 const cy = (n: number) => GROUND_Y - n * SPRITE_SCALE;
 // お供まわりの高さ。お供は一段奥に立っているので、地面ごと持ち上げる。
 // 数字や光もこれで一緒に上がる ― 片方だけ cy のままだと足元から離れる。
@@ -565,14 +572,27 @@ export class BattleManager {
           this.addPopup(PLAYER_X, cy(115), `咆哮! 護盾+${small}`, 0xffaa66);
         } else if (st.kind === 'shield') {
           playSfx('shield');
-          this.shield = Math.max(this.shield, st.barrier);
+          const buddy = this.sharedAlly(st);
+          // 全体護盾は一人ぶんが6割になる(共闘と同じ勘定)。
+          // 一人で撃つ時は今までどおり満額。
+          const each = buddy ? Math.round(st.barrier * 0.6) : st.barrier;
+          this.shield = Math.max(this.shield, each);
           this.shieldTimer = 10;
-          this.addPopup(PLAYER_X, cy(115), `護盾+${st.barrier}`, 0x88ccff);
+          this.addPopup(PLAYER_X, cy(115), `護盾+${each}`, 0x88ccff);
+          if (buddy) {
+            buddy.shield = Math.max(buddy.shield, each);
+            buddy.shieldTimer = 10;
+            this.addPopup(ALLY_X, ay(115), `護盾+${each}`, 0x88ccff);
+          }
         } else if (st.kind === 'heal') {
           playSfx('heal');
-          const heal = st.healPower;
+          const buddy = this.sharedAlly(st);
+          const heal = buddy ? Math.round(st.healPower * 0.6) : st.healPower;
           this.hp = Math.min(this.maxHp, this.hp + heal);
           this.addPopup(PLAYER_X, cy(115), `+${heal}`, 0x88ddaa);
+          if (buddy) {
+            this.addPopup(ALLY_X, ay(115), `+${buddy.heal(heal)}`, 0x88ddaa);
+          }
         } else if (st.kind === 'seal') {
           // 封印の効きは敵ごとに違う。属性相性がそのまま止まる時間に効く。
           let sealed = 0;
@@ -597,6 +617,12 @@ export class BattleManager {
           this.atkBoost = st.atkBoost;
           this.atkBoostTimer = 20;
           this.addPopup(PLAYER_X, cy(130), `与ダメ+${st.atkBoost}%`, 0xff8844);
+          const buddy = this.sharedAlly(st);
+          if (buddy) {
+            buddy.atkBoost = Math.max(buddy.atkBoost, st.atkBoost);
+            buddy.atkBoostTimer = 20;
+            this.addPopup(ALLY_X, ay(130), `与ダメ+${st.atkBoost}%`, 0xff8844);
+          }
         } else if (st.kind === 'focus') {
           playSfx('buff');
           // 掛け直しは上書き(重ねがけで際限なく伸びないように)
@@ -606,6 +632,14 @@ export class BattleManager {
             PLAYER_X, cy(136),
             `瞑想 MP回復+${st.mpRegenBonus.toFixed(1)}/秒`, 0x88ccff,
           );
+          const buddy = this.sharedAlly(st);
+          if (buddy) {
+            // お供のMPは自力ではほとんど戻らないので、共鳴はここがいちばん効く
+            buddy.mpRegenBonus = st.mpRegenBonus;
+            buddy.mpRegenTimer = 20;
+            this.addPopup(ALLY_X, ay(136),
+              `MP回復+${st.mpRegenBonus.toFixed(1)}/秒`, 0x88ccff);
+          }
         } else if (st.kind === 'vigor') {
           // 掛け直しは上書き(重ねがけで無限に増えないように)
           this.maxHp -= this.vigorBonus;
@@ -615,6 +649,11 @@ export class BattleManager {
           this.maxHp += this.vigorBonus;
           this.hp += this.vigorBonus;
           this.addPopup(PLAYER_X, cy(122), `最大HP+${st.hpBoost}`, 0xffcc66);
+          const buddy = this.sharedAlly(st);
+          if (buddy) {
+            buddy.applyVigor(st.hpBoost, 25);
+            this.addPopup(ALLY_X, ay(122), `最大HP+${st.hpBoost}`, 0xffcc66);
+          }
         } else if (st.kind === 'ward') {
           this.ward = {
             attr: st.targetAll ? null : st.attr,
@@ -626,6 +665,11 @@ export class BattleManager {
             st.targetAll ? `全属性耐性${st.wardPct}%` : `${ELEMENTS[st.attr].name}耐性${st.wardPct}%`,
             0x88ffcc,
           );
+          const buddy = this.sharedAlly(st);
+          if (buddy) {
+            buddy.ward = { attr: null, pct: st.wardPct, timer: 12 };
+            this.addPopup(ALLY_X, ay(115), `全属性耐性${st.wardPct}%`, 0x88ffcc);
+          }
         } else if (st.quake) {
           this.castQuake(st);
         } else {
@@ -828,6 +872,18 @@ export class BattleManager {
 
   // ===== お供AI =====
 
+  // プレイヤーが撃った支援を、お供にも配るか。
+  //
+  // 配るのは〈全体(targetAll)〉と名の付くものだけ ― 聖域盾・慈雨・
+  // 万象護符・鼓舞・戦鼓・魔力共鳴の6系統。単体版は今までどおり自分だけ。
+  // 「全体」と名乗る以上、ソロでも隣に立っている者には届くべき、という線引き。
+  //
+  // お供が倒れていれば誰も居ないのと同じ扱いにする(効果は満額で自分へ)。
+  private sharedAlly(st: SpellStats): Ally | null {
+    if (!st.targetAll) return null;
+    return this.ally && this.ally.alive ? this.ally : null;
+  }
+
   // いまの状況をお供に見せる。お供はこれだけを見て次の手を決める。
   private allySight(): AllySight {
     const a = this.ally!;
@@ -862,6 +918,7 @@ export class BattleManager {
     }
 
     const fired = a.step(dt, () => this.allySight());
+    this.noteAllyState();
 
     // 姿。プレイヤーと同じ決まり(一瞬の姿は残り時間で上書き)。
     if (this.allyPoseT > 0) {
@@ -879,18 +936,38 @@ export class BattleManager {
   // Pixi の中身は検証から見えないので、これが唯一の手がかりになる
   // (test/ally_battle_check.ts が window.__allyDebug を読む)。
   private noteAllyCast(role: string): void {
-    const w = window as unknown as {
-      __allyDebug?: { casted: number; roles: string[]; hp: number; alive: boolean };
-    };
+    const d = this.allyDebug();
+    d.casted++;
+    d.roles.push(role);
+  }
+
+  // お供の今の様子。毎フレーム書き出す。
+  //
+  // 強さの測定(test/ally_power_check.ts)が残りHPを見るのと、
+  // 全体魔法がお供に届いたか(test/ally_share_check.ts)を見るのに使う ―
+  // Pixi の中身は外から覗けないので、これが唯一の手がかりになる。
+  private noteAllyState(): void {
+    const a = this.ally;
+    const d = this.allyDebug();
+    if (!a) return;
+    d.hp = Math.round(a.hp);
+    d.maxHp = Math.round(a.maxHp);
+    d.alive = a.alive;
+    d.shield = Math.round(a.shield);
+    d.warded = a.ward !== null;
+    d.atkBoost = a.atkBoost;
+    d.mpRegenBonus = a.mpRegenBonus;
+  }
+
+  private allyDebug(): AllyDebug {
+    const w = window as unknown as { __allyDebug?: AllyDebug };
     if (!w.__allyDebug) {
-      w.__allyDebug = { casted: 0, roles: [], hp: ALLY_MAX_HP, alive: true };
+      w.__allyDebug = {
+        casted: 0, roles: [], hp: ALLY_MAX_HP, maxHp: ALLY_MAX_HP, alive: true,
+        shield: 0, warded: false, atkBoost: 0, mpRegenBonus: 0,
+      };
     }
-    w.__allyDebug.casted++;
-    w.__allyDebug.roles.push(role);
-    // 残りHPも添える。強さの測定(test/ally_power_check.ts)が
-    // 「勝てたか」だけでなく「どれだけ余裕があったか」を見るのに使う。
-    w.__allyDebug.hp = Math.round(this.ally?.hp ?? 0);
-    w.__allyDebug.alive = this.ally?.alive ?? false;
+    return w.__allyDebug;
   }
 
   // お供が撃った魔法を効かせる。
@@ -957,8 +1034,7 @@ export class BattleManager {
       return;
     }
     if (st.kind === 'vigor') {
-      a.maxHp += st.hpBoost;
-      a.hp += st.hpBoost;
+      a.applyVigor(st.hpBoost, 25);   // 掛け直しは上書き(際限なく伸びない)
       this.addPopup(ALLY_X, ay(115), `最大HP+${st.hpBoost}`, 0xffaacc);
       return;
     }

@@ -41,6 +41,8 @@ export class Ally {
   atkBoostTimer = 0;
   mpRegenBonus = 0;
   mpRegenTimer = 0;
+  vigorBonus = 0;
+  vigorTimer = 0;
   tauntTimer = 0;
 
   casting: { spell: Spell; role: AllyRole; t: number } | null = null;
@@ -144,6 +146,14 @@ export class Ally {
       this.mpRegenTimer -= dt;
       if (this.mpRegenTimer <= 0) this.mpRegenBonus = 0;
     }
+    if (this.vigorTimer > 0) {
+      this.vigorTimer -= dt;
+      if (this.vigorTimer <= 0) {
+        this.maxHp -= this.vigorBonus;
+        this.vigorBonus = 0;
+        this.hp = Math.min(this.hp, this.maxHp);
+      }
+    }
     if (this.tauntTimer > 0) this.tauntTimer -= dt;
   }
 
@@ -171,6 +181,20 @@ export class Ally {
       return { dealt: d, absorbed, died: true };
     }
     return { dealt: d, absorbed, died: false };
+  }
+
+  // 賦活/鼓舞。最大HPを一時的に増やす。
+  //
+  // ★ 掛け直しは必ず上書き。足すだけにしていた頃、お供が自分で撃つたびに
+  //   上限が伸びて、HP150のはずが400を超えていた。
+  applyVigor(amount: number, sec = 25): void {
+    if (!this.alive) return;
+    this.maxHp -= this.vigorBonus;
+    this.hp = Math.min(this.hp, this.maxHp);
+    this.vigorBonus = amount;
+    this.vigorTimer = sec;
+    this.maxHp += amount;
+    this.hp += amount;
   }
 
   heal(amount: number): number {
