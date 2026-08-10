@@ -626,6 +626,22 @@ export const BOSSES: EnemyDef[] = [
 
 export const isBossStage = (stage: number) => stage % 5 === 0;
 
+// ステージに対応する戦闘背景の名前。
+//
+//   S1〜S5 … 通常のステージ。1〜9 / 10〜19 / 20〜29 / 30〜39 / 40〜49
+//   B1〜B10 … ボス面(5の倍数)。ボス1体につき1枚
+//
+// ★ 素材が無い時のために、呼ぶ側は必ず1枚目へ落とせるようにしておくこと。
+//   manifest.json に載っていない名前を引いても落ちないようにする。
+export function backgroundKeyForStage(stage: number): string {
+  if (isBossStage(stage)) {
+    const idx = Math.max(1, Math.min(10, Math.floor(stage / 5)));
+    return `B${idx}`;
+  }
+  const idx = Math.max(1, Math.min(5, Math.floor(stage / 10) + 1));
+  return `S${idx}`;
+}
+
 export function bossForStage(stage: number): EnemyDef {
   const idx = Math.max(0, Math.floor(stage / 5) - 1);
   return BOSSES[Math.min(idx, BOSSES.length - 1)];

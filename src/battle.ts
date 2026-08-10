@@ -324,8 +324,8 @@ export class BattleManager {
     app.stage.addChild(root);
     this.root = root;
 
-    // 背景(画像素材があればそれを敷く)
-    const bgArt = backgroundArt(W, H);
+    // 背景(画像素材があればそれを敷く)。ステージの段階ごとに変わる。
+    const bgArt = backgroundArt(W, H, this.stage);
     if (bgArt) root.addChild(bgArt);
     const bg = new Graphics();
     if (!bgArt) {

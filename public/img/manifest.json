@@ -8,6 +8,23 @@
     "player/6.png"
   ],
   "background": "bg/field.jpg",
+  "backgrounds": {
+    "S1": "bg/S1.jpg",
+    "S2": "bg/S2.jpg",
+    "S3": "bg/S3.jpg",
+    "S4": "bg/S4.jpg",
+    "S5": "bg/S5.jpg",
+    "B1": "bg/B1.jpg",
+    "B2": "bg/B2.jpg",
+    "B3": "bg/B3.jpg",
+    "B4": "bg/B4.jpg",
+    "B5": "bg/B5.jpg",
+    "B6": "bg/B6.jpg",
+    "B7": "bg/B7.jpg",
+    "B8": "bg/B8.jpg",
+    "B9": "bg/B9.jpg",
+    "B10": "bg/B10.jpg"
+  },
   "enemies": {
     "blob": "enemy/blob.png",
     "imp": "enemy/imp.png",

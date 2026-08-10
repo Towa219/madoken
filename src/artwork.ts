@@ -18,6 +18,7 @@
 import { Assets, Sprite, Texture } from 'pixi.js';
 import type { ElementId } from '../shared/types';
 import type { EnemyShape } from '../shared/data';
+import { backgroundKeyForStage } from '../shared/data';
 import { characterScale } from '../shared/characters';
 
 // idle = 待機 / cast = 詠唱中 / release = 撃った・張った / hurt = 被弾
@@ -28,7 +29,8 @@ export type MotionPose = typeof MOTION_POSES[number];
 interface Manifest {
   players?: string[];   // 選択できるキャラクター(並び順が選択番号)
   player?: string;      // 旧形式(1体だけだった頃の素材)
-  background?: string;
+  background?: string;      // 予備。backgrounds に無い時はこれを使う
+  backgrounds?: Record<string, string>;  // ステージ段階ごと(S1〜S5 / B1〜B10)
   enemies?: Partial<Record<EnemyShape, string>>;
   projectiles?: Partial<Record<ElementId, string>>;
   playerPoses?: Partial<Record<MotionPose, string[]>>;
@@ -58,6 +60,7 @@ export async function loadArtwork(): Promise<void> {
   for (const f of manifest.players ?? []) if (f) files.push(f);
   if (manifest.player) files.push(manifest.player);
   if (manifest.background) files.push(manifest.background);
+  for (const f of Object.values(manifest.backgrounds ?? {})) if (f) files.push(f);
   for (const f of Object.values(manifest.enemies ?? {})) if (f) files.push(f);
   for (const f of Object.values(manifest.projectiles ?? {})) if (f) files.push(f);
 
@@ -198,8 +201,16 @@ export function projectileArt(attr: ElementId, size: number): Sprite | null {
 }
 
 // 戦闘背景(無ければ null)
-export function backgroundArt(width: number, height: number): Sprite | null {
-  const sp = make(manifest?.background);
+//
+// stage を渡すとその段階の背景を返す。素材が欠けていても落ちないよう、
+// 「その段階 → 予備の1枚(background)」の順に落ちる。
+// 素材を1枚も置いていない環境(manifest.example.json のまま)でも動くこと。
+export function backgroundArt(
+  width: number, height: number, stage?: number,
+): Sprite | null {
+  const key = stage === undefined ? null : backgroundKeyForStage(stage);
+  const file = (key && manifest?.backgrounds?.[key]) || manifest?.background;
+  const sp = make(file);
   if (!sp) return null;
   sp.width = width;
   sp.height = height;
