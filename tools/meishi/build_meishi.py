@@ -50,9 +50,14 @@ COLS, ROWS = 2, 5
 # 実測の経過(★ 倍率を100%に直してからの値だけが当てになる。
 # それ以前の「右へ2〜3mm」は縮んだ紙の上で見ていたので数えない):
 #   -2.5mm → 左へ行きすぎた
-#   -1.2mm → まだ左。ずれ量は2mm…いや3mmくらい、と見直した
-#   +1.8mm → -1.2 から右へ3mm戻した(いまここ)
-SHIFT_X = float(os.environ.get('MEISHI_SHIFT_X', '1.8'))
+#   -1.2mm → まだ左(2mm…いや3mmくらい)
+#   +1.8mm → まだ左。そこから右へ3mm
+#   +4.8mm → いまここ
+#
+# ★ 刷った紙には、この値が刷り込んである(試し刷り版の上の余白)。
+#   「さっき刷ったPDFはどの値だったか」を紙を見れば確かめられる ―
+#   何度も刷り直すと、どれがどれだか分からなくなるため。
+SHIFT_X = float(os.environ.get('MEISHI_SHIFT_X', '4.8'))
 SHIFT_Y = float(os.environ.get('MEISHI_SHIFT_Y', '0'))
 
 
@@ -182,6 +187,10 @@ def cut_svg() -> str:
         f' font-family="sans-serif">← ここが 100mm。定規で測って100mmなら実寸</text>'
         f'<text x="{MARGIN_X}" y="{ry + 4.6}" font-size="2.8" fill="#77869e"'
         f' font-family="sans-serif">1面の大きさは 91 × 55mm</text>'
+        # ★ この紙がどの補正値で刷られたかを残す。刷り直すたびに
+        #   どれがどれだか分からなくなるので、紙自身に書かせる。
+        f'<text x="{MARGIN_X + 102}" y="{ry + 4.6}" font-size="2.8" fill="#77869e"'
+        f' font-family="sans-serif">ずれ補正 横{SHIFT_X:+.1f}mm / 縦{SHIFT_Y:+.1f}mm</text>'
         '</svg>')
 
 
