@@ -32,12 +32,13 @@ const check = (label, ok, detail = '') => {
 const near = (a, b, tol = 0.15) => Math.abs(a - b) <= tol;
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
-// 生成された HTML から、実際に使われた補正値を読む
+// 生成された HTML から、実際に使われた補正値と倍率を読む
 function shiftFromHtml(file) {
   const s = fs.readFileSync(file, 'utf8');
-  const m = s.match(/transform:\s*translate\((-?[\d.]+)mm,\s*(-?[\d.]+)mm\)/);
-  if (!m) throw new Error('.shift の translate が見つからない');
-  return { x: parseFloat(m[1]), y: parseFloat(m[2]) };
+  const m = s.match(
+    /transform:\s*translate\((-?[\d.]+)mm,\s*(-?[\d.]+)mm\)\s*scale\(([\d.]+)\)/);
+  if (!m) throw new Error('.shift の translate/scale が見つからない');
+  return { x: parseFloat(m[1]), y: parseFloat(m[2]), s: parseFloat(m[3]) };
 }
 
 async function main() {
@@ -48,7 +49,7 @@ async function main() {
   }
   const want = shiftFromHtml(file);
   console.log('=== 名刺の版を実測する ===');
-  console.log(`狙い: ずれ補正 横${want.x}mm / 縦${want.y}mm`);
+  console.log(`狙い: ずれ補正 横${want.x}mm / 縦${want.y}mm / 倍率 ×${want.s}`);
 
   const profile = fs.mkdtempSync(path.join(process.env.TEMP ?? '/tmp', 'meishi-chk-'));
   const ch = spawn(CHROME, [
@@ -118,18 +119,25 @@ async function main() {
 
     check('10面ある', got.cards.length === 10, `${got.cards.length}面`);
     const c0 = got.cards[0];
-    check('1面の大きさが 91×55mm', near(c0.w, CARD_W) && near(c0.h, CARD_H),
+    // 倍率を掛けた版では、版の中の1面は 91×55mm より大きい。
+    // 紙の上で91mmになるのが狙いなので、ここでは倍率込みの値と突き合わせる。
+    check(`1面の大きさが ${(CARD_W * want.s).toFixed(2)}×${(CARD_H * want.s).toFixed(2)}mm`,
+      near(c0.w, CARD_W * want.s) && near(c0.h, CARD_H * want.s),
       `${c0.w} × ${c0.h}mm`);
+    // 紙の中央(105, 148.5)を基準に伸ばしてから、ずれ補正で動かす
+    const wx = 105 + (MARGIN_X - 105) * want.s + want.x;
+    const wy = 148.5 + (MARGIN_Y - 148.5) * want.s + want.y;
     check('★1面目が狙いの位置にある',
-      near(c0.x, MARGIN_X + want.x) && near(c0.y, MARGIN_Y + want.y),
-      `(${c0.x}, ${c0.y})mm / 狙い (${MARGIN_X + want.x}, ${MARGIN_Y + want.y})mm`);
+      near(c0.x, wx, 0.2) && near(c0.y, wy, 0.2),
+      `(${c0.x}, ${c0.y})mm / 狙い (${wx.toFixed(2)}, ${wy.toFixed(2)})mm`);
     // ここが本命。面と線が同じだけ動いていること。
     check('★ハサミ線が名刺の縁と一致する', near(got.line, c0.x),
       `線 ${got.line}mm / 名刺の左 ${c0.x}mm`);
     // 面と面の間隔が用紙どおり(どこか1面だけずれていないか)
     const gapX = got.cards[1].x - got.cards[0].x;
     const gapY = got.cards[2].y - got.cards[0].y;
-    check('面の間隔が 91 / 55mm', near(gapX, CARD_W) && near(gapY, CARD_H),
+    check(`面の間隔が ${(CARD_W * want.s).toFixed(2)} / ${(CARD_H * want.s).toFixed(2)}mm`,
+      near(gapX, CARD_W * want.s, 0.2) && near(gapY, CARD_H * want.s, 0.2),
       `横${gapX} 縦${gapY}mm`);
     check('中身が重なっていない', got.over.length === 0, got.over.join(' / '));
   } finally {

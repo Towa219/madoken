@@ -64,6 +64,17 @@ COLS, ROWS = 2, 5
 SHIFT_X = float(os.environ.get('MEISHI_SHIFT_X', '1.5'))
 SHIFT_Y = float(os.environ.get('MEISHI_SHIFT_Y', '1.0'))
 
+# ---- 大きさの補正 ----
+#
+# プリンタによっては、等倍で刷ったつもりでも1〜3%小さく出る。
+# 版のほうを少し大きく作って、刷り上がりで実寸になるようにする。
+#
+# 決め方: 試し刷り版の上にある100mmのものさしを定規で測る。
+#   98mm なら 100 / 98 = 1.020 を入れる。
+# ★ ここを1.0以外にすると、PDFの中の1面は 91×55mm ではなくなる
+#   (91 × SCALE になる)。紙の上で91mmになれば正しい。
+SCALE = float(os.environ.get('MEISHI_SCALE', '1.02'))
+
 
 # 8つのエレメントの色。ゲーム本体(shared/data.ts の ELEMENTS)と同じ並び・同じ色。
 # 名刺を「青一色」から「遊びの色」に戻すための素。
@@ -194,7 +205,8 @@ def cut_svg() -> str:
         # ★ この紙がどの補正値で刷られたかを残す。刷り直すたびに
         #   どれがどれだか分からなくなるので、紙自身に書かせる。
         f'<text x="{MARGIN_X + 102}" y="{ry + 4.6}" font-size="2.8" fill="#77869e"'
-        f' font-family="sans-serif">ずれ補正 横{SHIFT_X:+.1f}mm / 縦{SHIFT_Y:+.1f}mm</text>'
+        f' font-family="sans-serif">ずれ補正 横{SHIFT_X:+.1f}mm / 縦{SHIFT_Y:+.1f}mm'
+        f' / 倍率 ×{SCALE:.3f}</text>'
         '</svg>')
 
 
@@ -411,7 +423,11 @@ def build(cut: bool = False) -> None:
      (「3mmずらしたのに1cm違う」の正体)。 */
   .shift {{
     position: absolute; left: 0; top: 0; width: 210mm; height: 297mm;
-    transform: translate({SHIFT_X}mm, {SHIFT_Y}mm);
+    /* 紙の中央を基準に伸ばしてから、ずれを補正して動かす。
+       中央基準にするのは、プリンタの縮みが紙の中心に向かって
+       起きるため ― 角を基準にすると、伸ばすほど位置までずれる。 */
+    transform-origin: 105mm 148.5mm;
+    transform: translate({SHIFT_X}mm, {SHIFT_Y}mm) scale({SCALE});
   }}
 
   @media print {{
@@ -466,8 +482,9 @@ def build(cut: bool = False) -> None:
     print('  アドレス: {}'.format(URL))
     print('  面付け: {}×{}面 / 1面 {}×{}mm / 余白 左右{}mm・上下{}mm'.format(
         COLS, ROWS, CARD_W, CARD_H, MARGIN_X, MARGIN_Y))
-    print(f'  ずれ補正: 横 {SHIFT_X}mm / 縦 {SHIFT_Y}mm'
-          f' → 1面目の位置 ({MARGIN_X + SHIFT_X}, {MARGIN_Y + SHIFT_Y})mm')
+    print(f'  ずれ補正: 横 {SHIFT_X}mm / 縦 {SHIFT_Y}mm / 倍率 ×{SCALE}')
+    print(f'  → 版の中の1面は {CARD_W * SCALE:.2f} × {CARD_H * SCALE:.2f}mm'
+          f'(紙の上で {CARD_W} × {CARD_H}mm になれば正しい)')
     print('  大きさ: {:.0f} KB'.format(os.path.getsize(out) / 1024))
 
 

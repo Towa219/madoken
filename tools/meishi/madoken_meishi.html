@@ -142,7 +142,11 @@
      (「3mmずらしたのに1cm違う」の正体)。 */
   .shift {
     position: absolute; left: 0; top: 0; width: 210mm; height: 297mm;
-    transform: translate(1.5mm, 1.0mm);
+    /* 紙の中央を基準に伸ばしてから、ずれを補正して動かす。
+       中央基準にするのは、プリンタの縮みが紙の中心に向かって
+       起きるため ― 角を基準にすると、伸ばすほど位置までずれる。 */
+    transform-origin: 105mm 148.5mm;
+    transform: translate(1.5mm, 1.0mm) scale(1.02);
   }
 
   @media print {
