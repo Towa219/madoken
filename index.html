@@ -382,6 +382,16 @@
 
   <div id="toast" class="hidden"></div>
 
+  <!-- 決闘の呼び出し。誰かが相手を募集すると、どのタブを見ていても出る
+       (戦っている間は出さない。src/lobby.ts の showDuelCall を参照) -->
+  <div id="duel-call" class="hidden" aria-live="polite">
+    <span id="duel-call-text"></span>
+    <span class="duel-call-actions">
+      <button id="duel-call-go" class="primary">受けて立つ</button>
+      <button id="duel-call-close" title="閉じる">×</button>
+    </span>
+  </div>
+
   <!-- 最初の起動: 研究者の名を決める -->
   <div id="welcome-overlay" class="hidden">
     <div class="welcome-box">

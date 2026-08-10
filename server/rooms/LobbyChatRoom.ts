@@ -58,9 +58,15 @@ export class LobbyChatRoom extends Room<LobbyState> {
     this.autoDispose = false; // 誰もいなくてもロビーは維持
     this.setState(new LobbyState());
 
-    // 共闘部屋の作成や決闘の募集をロビーへ流す
-    this.unsubFeed = addLobbySink(text => {
+    // 共闘部屋の作成や決闘の募集をロビーへ流す。
+    //
+    // ★ ロビーの席は、共闘や決闘に入っても抜けない(戦っている間も繋がったまま)。
+    //   つまりここへ流せば、いまオンラインの全員に届く。
+    //   種類の付いたものは 'notice' でも送り、受け取った側が
+    //   チャット欄の外(呼び出しの札)に出せるようにする。
+    this.unsubFeed = addLobbySink((text, kind) => {
       this.broadcast('chat', { name: 'お知らせ', text });
+      if (kind) this.broadcast('notice', { kind, text });
     });
 
     this.onMessage('chat', (client: Client, text: unknown) => {

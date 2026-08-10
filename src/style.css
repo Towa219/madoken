@@ -971,3 +971,36 @@ button.tab:disabled { opacity: 0.4; cursor: not-allowed; }
   background: #5a2030; border-color: #8b3550; color: #ffdde5;
 }
 .ask-actions .danger:hover { background: #74283c; }
+
+/* ===== 決闘の呼び出し(src/lobby.ts) ===== */
+/*
+   誰かが相手を待ち始めると、どのタブを見ていても出る札。
+   トーストと違って消えず、押せる ― 気づいた時に一手で入れるようにする。
+   戦っている間は出さない(相手の一撃を見落とすし、押しても入れない)。
+*/
+#duel-call {
+  position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%);
+  z-index: 120; display: flex; align-items: center; gap: 12px;
+  max-width: calc(100vw - 24px);
+  padding: 12px 14px 12px 18px;
+  background: linear-gradient(135deg, #3a1030, #6b1836);
+  border: 1px solid #ff7799; border-radius: 12px;
+  color: #ffe9ef; font-size: 14px; font-weight: bold;
+  box-shadow: 0 6px 28px rgba(255, 80, 120, 0.35);
+  animation: duel-call-in 0.35s ease;
+}
+#duel-call.hidden { display: none; }
+#duel-call-text { flex: 1 1 auto; min-width: 0; }
+.duel-call-actions { display: flex; gap: 6px; flex: 0 0 auto; }
+#duel-call-go {
+  background: #d13a63; border-color: #ff8fac; color: #fff6f8; font-weight: bold;
+}
+#duel-call-go:hover:not(:disabled) { background: #e64a75; }
+#duel-call-close { padding: 6px 10px; opacity: 0.7; }
+@keyframes duel-call-in {
+  from { opacity: 0; transform: translateX(-50%) translateY(14px); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+@media (max-width: 560px) {
+  #duel-call { flex-wrap: wrap; font-size: 13px; padding: 10px 12px; }
+}

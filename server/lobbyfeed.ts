@@ -3,7 +3,14 @@
 // 共闘部屋や決闘場は別のRoomなので、ロビーへ直接は喋れない。
 // ここに登録された送り口(ロビー)へ、募集情報などを流す。
 
-type Sink = (text: string) => void;
+// お知らせの種類。
+//
+// 'duel' だけは、受け取った側で呼び出しの札を出す(チャット欄に流れて
+// 終わりでは、別のタブを見ている人に気づいてもらえないため)。
+// 種類を付けないものは今までどおりチャット欄に流すだけ。
+export type NoticeKind = 'duel';
+
+type Sink = (text: string, kind?: NoticeKind) => void;
 
 const sinks = new Set<Sink>();
 
@@ -16,7 +23,7 @@ export function addLobbySink(fn: Sink): () => void {
   return () => sinks.delete(fn);
 }
 
-export function announce(text: string): void {
+export function announce(text: string, kind?: NoticeKind): void {
   const now = Date.now();
   const prev = lastSent.get(text);
   if (prev && now - prev < DEDUPE_MS) return; // 連投は無視
@@ -27,7 +34,7 @@ export function announce(text: string): void {
   }
   for (const sink of sinks) {
     try {
-      sink(text);
+      sink(text, kind);
     } catch { /* 1つ失敗しても他へは流す */ }
   }
 }

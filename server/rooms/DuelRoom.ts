@@ -191,7 +191,9 @@ export class DuelRoom extends Room<DuelState> {
 
     // ロビーへ募集を知らせる
     if (this.state.players.size === 1) {
-      announce(`⚔ ${p.name} が決闘を求めている。相手を募集中!`);
+      // 'duel' を付けると、受け取った全員に呼び出しの札が出る。
+      // 一人で待っている時にだけ出す ― 成立後に出しても入れない。
+      announce(`⚔ ${p.name} が決闘を求めている。相手を募集中!`, 'duel');
     } else {
       const names: string[] = [];
       this.state.players.forEach(q => names.push(q.name));

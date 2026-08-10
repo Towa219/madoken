@@ -16,7 +16,7 @@ import { selectedStage } from './stage';
 import {
   cloudNewerThanHere, pullMine, pushCloudSave, submitMagicRanking,
 } from './cloudsave';
-import { playBgm } from './sound';
+import { playBgm, playSfx } from './sound';
 import type { SpellPayload } from '../shared/protocol';
 
 const $ = <T extends HTMLElement = HTMLElement>(sel: string) =>
@@ -308,6 +308,13 @@ function wireLobby(room: Room): void {
   room.onMessage('chat', (msg: { name: string; text: string }) => {
     addChatLine(msg.name, msg.text);
   });
+
+  // 呼び出し(いまは決闘の募集だけ)。
+  // チャット欄にも同じ文が流れるが、別のタブを見ている人には届かないので、
+  // どの画面の上にも出る札を別に出す。
+  room.onMessage('notice', (msg: { kind?: string; text?: string }) => {
+    if (msg?.kind === 'duel') showDuelCall(String(msg.text ?? ''));
+  });
   room.onStateChange(() => {
     renderMembers();
     emitLobbyUpdate();
@@ -585,6 +592,41 @@ async function refreshRooms(): Promise<void> {
   }
 }
 
+// ---- 決闘の呼び出し ----
+//
+// 誰かが「決闘に参加」を押して相手を待ち始めると、いまオンラインの全員に届く。
+// ロビーの席は共闘や決闘に入っても抜けないので、どのタブを見ていても受け取れる。
+//
+// ★ 戦っている間は出さない。相手の一撃を見落とすし、押しても入れない
+//   (募集した本人も決闘場の画面にいるので、自分の札は出ない)。
+// ★ 45秒で自然に消す。先を越されたあとも残っていると、押して空振りする。
+const DUEL_CALL_SEC = 45;
+let duelCallTimer: number | undefined;
+
+function hideDuelCall(): void {
+  if (duelCallTimer) { window.clearTimeout(duelCallTimer); duelCallTimer = undefined; }
+  $('#duel-call').classList.add('hidden');
+}
+
+function showDuelCall(text: string): void {
+  if (inBattleView()) return;
+  const box = $('#duel-call');
+  $('#duel-call-text').textContent = text || '⚔ 誰かが決闘を求めている。';
+  box.classList.remove('hidden');
+  playSfx('gachaRare');   // 気づいてもらうための一音
+  if (duelCallTimer) window.clearTimeout(duelCallTimer);
+  duelCallTimer = window.setTimeout(hideDuelCall, DUEL_CALL_SEC * 1000);
+}
+
+// 札のボタンを繋ぐ(起動時に一度だけ)
+export function initDuelCall(): void {
+  $('#duel-call-close').addEventListener('click', hideDuelCall);
+  $('#duel-call-go').addEventListener('click', () => {
+    hideDuelCall();
+    void joinDuel();
+  });
+}
+
 // ---- 決闘(1対1) ----
 
 async function joinDuel(): Promise<void> {
@@ -599,6 +641,7 @@ async function joinDuel(): Promise<void> {
       name: nick, spells, nickToken: state.nickToken, charId: state.charId,
     });
     $('#lobby-msg').textContent = '';
+    hideDuelCall();          // 自分が入ったら、もう呼び出しは要らない
     $('#duel-view').classList.remove('hidden');
     syncLobbyVisibility();
     playBgm('duel');

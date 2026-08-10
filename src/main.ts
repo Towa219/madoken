@@ -5,8 +5,8 @@ import { ELEMENTS, EQUIP_MAX, isBossStage } from '../shared/data';
 import { initLab, renderLab, showToast } from './lab';
 import { renderManual } from './manual';
 import {
-  initOnline, coopTryCast, duelTryCast, inBattleView, releaseNickname,
-  renderNickField, syncLobbyVisibility,
+  initDuelCall, initOnline, coopTryCast, duelTryCast, inBattleView,
+  releaseNickname, renderNickField, syncLobbyVisibility,
 } from './lobby';
 import { selectedStage, setSelectedStage } from './stage';
 import {
@@ -287,6 +287,7 @@ function main(): void {
     renderNickField();
     if (!onlineReady) {
       onlineReady = true;
+      initDuelCall();   // 決闘の呼び出し札(どのタブにいても出る)
       initOnline();
     }
   };
