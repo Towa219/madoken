@@ -60,35 +60,77 @@ COLS, ROWS = 2, 5
 #   (tools/meishi の scratchpad にある shiftcheck の要領)。
 # 面と線が一緒に動くようになってからの実測:
 #   -2.5mm → まだ1mmほど左。全体に4mm右へ、との申告
-#   +1.5mm → -2.5 から右へ4mm(いまここ)
-# 実測から解いた値(2026-08-10)。
-#   版(PDF)  16.50 〜 201.52mm  ← SHIFT_X=2.5 / SCALE_X=1.0166 で作った紙
-#   紙の上   14.00 〜 198.50mm  ← 左は合っていた / 右が2.5mm外へ出た
-#   ⇒ プリンタは ×0.99719 で刷り、-2.45mm ずれる
-#   ⇒ 紙の上で 14〜196mm に来る版は SHIFT_X=+2.5 / SCALE_X=1.0028
-#     (左が合っている以上、位置は動かさない ― 幅だけを詰める)
-SHIFT_X = float(os.environ.get('MEISHI_SHIFT_X', '2.5'))
+#   +1.5mm → -2.5 から右へ4mm
+#   +2.5mm → 普通紙(OAペーパー)では左が合っていた。倍率もここで確定させた
+#   +2.5mm → ★本番のエーワン 51861 に刷ったら、全体が4mm右へずれた
+#            ⇒ -1.5mm へ(2026-08-10)
+#   -1.5mm → 今度は1.5mm左へ行きすぎた ⇒ 0.0mm へ
+#    0.0mm → 1.5mm動かしたのに紙では0.5mmしか動かなかった。残り1.0mm
+#   +1.0mm → 四隅のトンボを入れた最初の版。ほぼ合ったが0.5mm右寄り
+#   +0.5mm → ★合った(2026-08-11 確定)。位置はこれで完了。
+#            トンボを入れてからは、指示した量がそのまま紙に出ている。
+#
+#   ★ 動かした分がそのまま出ないのは、印刷ダイアログの中央合わせのせい。
+#     あれは「中身の外枠」を見て位置を決める。面付けだけが中身だと、
+#     面付けを右へ動かすと外枠ごと動き、中央合わせが押し戻してしまう。
+#     4mm指示で5.5mm動き、1.5mm指示で0.5mmしか動かない、という
+#     食い違いはこれ。⇒ corner_svg() で四隅に印を打ち、
+#     中身の外枠を紙いっぱいに固定した。以後は指示どおり動くはず。
+#
+#   ★ 用紙が変わると送りが変わる。
+#     普通紙で合わせた位置が、厚口のマルチカードでそのまま出るとは限らない。
+#     位置(SHIFT)は用紙ごとに測り直すこと。
+#     倍率(SCALE)は普通紙で決めた値がそのまま使えた ― 動かさない。
+SHIFT_X = float(os.environ.get('MEISHI_SHIFT_X', '0.5'))
 SHIFT_Y = float(os.environ.get('MEISHI_SHIFT_Y', '1.0'))
 
 # ---- 大きさの補正 ----
 #
-# プリンタによっては、等倍で刷ったつもりでも数%小さく出る。
-# 版のほうを少し大きく作って、刷り上がりで実寸になるようにする。
+# プリンタは等倍で刷ったつもりでも、実際には数%ずれた大きさで出る。
+# 版のほうを逆向きに作っておいて、刷り上がりで実寸になるようにする。
+# このプリンタは少し「伸びる」ので、版は 1 より小さい。
 #
 # ★ 基準は紙の左上。中央ではない。
 #   「上のカット線は合っているのに、下が3mm短い」という出方をした。
 #   これは縮みが上端を起点にして下へ溜まっている、ということ。
 #   中央を基準に伸ばすと上も動いてしまい、合っていた上までずれる。
 #
-# ★ 決め方(縦の例)
-#   5段ぶんの高さは 55 × 5 = 275mm。下が3mm短いなら実際は272mm。
-#   275 / 272 = 1.011 を入れる。
-#   横も同じ。2列ぶんは 91 × 2 = 182mm。右が2mm短いなら実際は180mm。
-#   182 / 180 = 1.011。縦と同じ値になった(このプリンタは縦横とも約1.1%縮む)。
-# 横も縦も 1 より大きい ― このプリンタは刷ると少し縮む。
-# 縮み方が縦横で違う(横0.28% / 縦0.75%)ので、別々に持つ。
-SCALE_X = float(os.environ.get('MEISHI_SCALE_X', '1.0028'))
-SCALE_Y = float(os.environ.get('MEISHI_SCALE_Y', '1.0075'))
+# ★ 決め方
+#   2列ぶんの幅は 91 × 2 = 182mm、5段ぶんの高さは 55 × 5 = 275mm。
+#   刷ったものが右へ2mm出ていたら、刷り上がりは 184mm あったということ。
+#     プリンタの倍率 = 184 / (182 × いまのSCALE_X)
+#     新しいSCALE_X  = 182 / プリンタの倍率 / 182
+#   縦も同じ(275 と 高さ)。左と上は合っているので、位置(SHIFT)は動かさない。
+#
+# ★ 刷り上がりの観測(いずれも左と上は合っていた)
+#   SCALE       →  刷り上がりの過不足(横 / 縦)
+#   1.0166 / 1.0110 → 右へ+2.5mm、下へ+4mm
+#   1.0028 / 1.0075 → 右へ+2.0mm、下へ+3mm
+#   0.9919 / 0.9966 → 右が-1mm、下が-2mm     ← 下げすぎた
+#   0.9974 / 1.0039 → 右へ+1mm、下へ+2mm     ← 今度は上げすぎた
+#   0.9947 / 1.0002 → ★合った(2026-08-10 確定)。上の2つで挟んだ真ん中。
+#
+#   ★ この値は「エーワン 51861タイプ(マルチカード クリアエッジ 厚口・
+#     名刺サイズ 10面)」を、いまのプリンタに Chrome から
+#     「実際のサイズ(100%)」で刷った時のもの。
+#     用紙かプリンタが変わったら、この4つの値は作り直すこと。
+#
+#   ★ 挟んで決める。
+#     横は 0.9919 で 181mm(1mm足りない)、0.9974 で 183mm(1mm多い)。
+#     欲しいのは 182mm ちょうどなので、間の 0.9947。
+#     縦も 0.9966 で 273mm、1.0039 で 277mm、欲しいのは 275mm → 1.0002。
+#
+#   ★ 一度で決まらないのは、刷り上がりを定規で読む時に1〜2mmの幅が
+#     出るため。182mm に対する1mmは0.55%で、この補正そのものより大きい。
+#     行ったり来たりするのが普通なので、毎回この表に足していくこと。
+#
+# ★ ものさしを測るほうが早い。
+#   紙の上端の線は、刷り上がりで 100mm になるよう引いてある。
+#   100mm ちょうどなら横の倍率は当たり。99mm なら 1% 足りない。
+#   カット線を測るより短い距離を読むぶん誤差は乗るが、
+#   「合っているかどうか」の判断はこちらのほうが確か。
+SCALE_X = float(os.environ.get('MEISHI_SCALE_X', '0.9947'))
+SCALE_Y = float(os.environ.get('MEISHI_SCALE_Y', '1.0002'))
 
 
 # 8つのエレメントの色。ゲーム本体(shared/data.ts の ELEMENTS)と同じ並び・同じ色。
@@ -139,6 +181,23 @@ def wind_svg() -> str:
         '<circle cx="90" cy="34" r="2.2" fill="' + g + '" opacity="0.6"/>'
         '<circle cx="26" cy="14" r="2.4" fill="' + g + '" opacity="0.6"/>'
         '</svg></span>')
+
+
+def recipe_count() -> int:
+    """系統の数は shared/data.ts から数える。
+
+    名刺に数字を手で書くと、系統を足した時にここだけ古くなる。
+    実際、蘇生系(光6)を足して29になったのに、名刺は28のままだった。
+    """
+    path = os.path.join(ROOT, 'shared', 'data.ts')
+    with io.open(path, encoding='utf-8') as f:
+        src = f.read()
+    body = src[src.index('export const RECIPES'):]
+    body = body[:body.index('\n];')]
+    ids = re.findall(r"^\s*id: '([a-z0-9_]+)'", body, re.M)
+    if len(ids) < 10:
+        raise SystemExit('shared/data.ts から系統を数えられない')
+    return len(ids)
 
 
 def copyright_text() -> str:
@@ -192,6 +251,64 @@ CHARA_POSE = os.environ.get('MEISHI_POSE', 'idle')
 POSE_FILE = {'idle': '4.png', 'potion': '4_hurt.png'}
 
 
+# ---- 風の渦の置き場所(名刺の左上から測った mm) ----
+# 「手のすぐ左下」。数字の根拠は .wind のCSSに書いてある。
+WIND_X, WIND_Y, WIND_D = 65.2, 37.8, 6.5
+
+# 絵の置き場所。CSSの .chara と同じ値でなければ、下の判定が嘘になる。
+CHARA_RIGHT, CHARA_BOTTOM, CHARA_H = 3.2, 3.2, 34.0
+
+
+def chara_clear() -> None:
+    """風の渦が絵に重なっていないかを、絵の中身で確かめる。
+
+    ★ 四角どうしの重なりでは判定できない。
+      絵の四角(bbox)は肩から靴までを囲むので、手の左下はその中に入る。
+      だが実際にはそこは透けていて、体は 73mm より右にしかない。
+      なので「不透明な点があるか」で見る。
+
+    ★ .chara は scaleX(-1) で左右反転している。
+      絵の中の x をそのまま使うと、左右が逆の場所を調べてしまう。
+    """
+    name = POSE_FILE.get(CHARA_POSE, '4.png')
+    im = Image.open(os.path.join(ROOT, 'public', 'img', 'player', name)).convert('RGBA')
+    box = im.getbbox()
+    if box:
+        im = im.crop(box)
+    w, h = im.size
+    a = im.split()[3]
+
+    # 紙の上での絵の四隅(mm)。高さ34mmから幅を割り出す。
+    card_w = CARD_W * SCALE_X
+    card_h = CARD_H * SCALE_Y
+    art_w = CHARA_H * w / h
+    right = card_w - CHARA_RIGHT
+    left = right - art_w
+    bottom = card_h - CHARA_BOTTOM
+    top = bottom - CHARA_H
+
+    hits = 0
+    step = 0.1   # 0.1mm刻みで見る
+    y = WIND_Y
+    while y <= WIND_Y + WIND_D:
+        x = WIND_X
+        while x <= WIND_X + WIND_D:
+            if left <= x <= right and top <= y <= bottom:
+                # 反転を戻してから絵の中の座標へ
+                px = int((right - x) / art_w * w)
+                py = int((y - top) / CHARA_H * h)
+                if 0 <= px < w and 0 <= py < h and a.getpixel((px, py)) > 40:
+                    hits += 1
+            x += step
+        y += step
+    if hits:
+        raise SystemExit(
+            f'風の渦がキャラに重なっている({hits}点)。'
+            f'WIND_X/WIND_Y を左か下へ動かすこと')
+    print(f'  風の渦: 手のすぐ左下 x{WIND_X}〜{WIND_X + WIND_D:.1f} / '
+          f'y{WIND_Y}〜{WIND_Y + WIND_D:.1f}mm ─ キャラに重なりなし')
+
+
 def char_art() -> str:
     """翠緑の薬導士。余白を切り詰めてから埋め込む(名刺では1mmが大きい)。"""
     name = POSE_FILE.get(CHARA_POSE, '4.png')
@@ -214,6 +331,56 @@ def qr_svg() -> str:
     q.save(buf, kind='svg', scale=1, border=4, dark='#10243f', light=None,
            svgclass=None, lineclass=None, xmldecl=False, svgns=True, omitsize=True)
     return buf.getvalue().decode('utf-8')
+
+
+# 四隅のトンボ。紙のどこに刷られたかを直に測るための印。
+CORNER_IN = 5.0    # 紙の端からの距離(mm)
+CORNER_LEN = 6.0   # かぎ線の腕の長さ(mm)
+
+
+def corner_svg() -> str:
+    """紙の四隅に、かぎ形の印を打つ。線なし版にも入れる。
+
+    ★ 二役ある。
+
+    1) 版の「中身の範囲」を紙いっぱいに固定する。
+       印刷ダイアログの「用紙に合わせる」「中央に配置」は、
+       中身の外枠を見て動かす。中身が面付けだけだと、
+       こちらが面付けを右へ1.5mm動かしても外枠ごと動くので、
+       中央合わせがそれを打ち消してしまう ―
+       実際、版は1.5mm動いているのに紙では0.5mmしか動かなかった。
+       四隅に印があれば外枠は常に紙いっぱいで、動かした分がそのまま出る。
+
+    2) プリンタが何をしたかを直に測れる。
+       印は紙の端から 5mm(CORNER_IN)の所にある。
+       刷ったものを定規で測って
+         5mm なら位置は正しい / 7mm なら2mm右へ流れている。
+       カット線とミシン目を見比べるより、はるかに読み取りやすい。
+
+    印は面付けの外(左右14mm・上下11mmの余白)に収まるので、
+    名刺には刷り込まれない。クリアエッジの縁は切り離して捨てる部分。
+    """
+    d = CORNER_IN
+    L = CORNER_LEN
+    W, H = 210.0, 297.0
+    seg = []
+    for x, sx in ((d, 1), (W - d, -1)):
+        for y, sy in ((d, 1), (H - d, -1)):
+            seg.append(f'<line x1="{x:.2f}" y1="{y:.2f}" '
+                       f'x2="{x + L * sx:.2f}" y2="{y:.2f}"/>')
+            seg.append(f'<line x1="{x:.2f}" y1="{y:.2f}" '
+                       f'x2="{x:.2f}" y2="{y + L * sy:.2f}"/>')
+    return (
+        f'<svg class="corner" viewBox="0 0 {W:.0f} {H:.0f}" '
+        f'xmlns="http://www.w3.org/2000/svg">'
+        f'<g stroke="#8fa3b8" stroke-width="0.25" fill="none">'
+        + ''.join(seg) +
+        f'</g>'
+        '</svg>')
+    # ★ ここに説明の文字を添えないこと。
+    #   一度 5mm より外(紙の端から2.1mm)へ字が出て、プリンタの
+    #   刷れない領域(ふつう3mm)に掛かった。それだけで
+    #   「用紙に合わせる」が働いて全体が縮む。印は線だけにする。
 
 
 def cut_svg() -> str:
@@ -276,7 +443,7 @@ def cut_svg() -> str:
 
 
 def card_html(art: str, qr: str, cr: str, title: str, ribbon: str,
-              wind: str) -> str:
+              wind: str, recipes: int) -> str:
     return f'''
   <div class="card">
     <div class="inner">
@@ -311,8 +478,8 @@ def card_html(art: str, qr: str, cr: str, title: str, ribbon: str,
 
       <p class="lead">8つのエレメントを調合して、魔法を&quot;発見&quot;する</p>
       <ul class="pts">
-        <li>レシピは<b>非公開</b>。組み合わせを試して見つけ出す</li>
-        <li>隠された系統は<b>28種</b>。仲間と共闘、研究者と決闘</li>
+        <li>レシピは<b>非公開</b>。隠された<b>{recipes}系統</b>を試して見つけ出す</li>
+        <li>お気に入り魔法をセットして<b>仲間と共闘や決闘</b>しよう</li>
         <li>スマホでもパソコンでも、<b>ブラウザだけ</b>で遊べます</li>
       </ul>
 
@@ -333,13 +500,15 @@ def card_html(art: str, qr: str, cr: str, title: str, ribbon: str,
 
 
 def build(cut: bool = False) -> None:
+    chara_clear()
     art = char_art()
     qr = qr_svg()
     cr = copyright_text()
     title = title_uri()
     ribbon = elem_ribbon()
     wind = wind_svg()
-    cards = ''.join(card_html(art, qr, cr, title, ribbon, wind)
+    recipes = recipe_count()
+    cards = ''.join(card_html(art, qr, cr, title, ribbon, wind, recipes)
                     for _ in range(COLS * ROWS))
     out = OUT_CUT if cut else OUT
     kind = 'ハサミ線あり(普通紙用)' if cut else 'エーワン 51861(A4 10面)'
@@ -415,9 +584,16 @@ def build(cut: bool = False) -> None:
     width: 53mm;
   }}
 
-  .pts {{ list-style: none; margin-top: 1.4mm; width: 51mm; }}
+  /* 幅は「絵に触れない上限」まで取る。ここが狭いと文言が折り返し、
+     行が増えたぶん下の足元(QR・アドレス)に食い込む。
+     倍率を下げると面が狭くなり、右寄せの絵が左へ来る(いま左端64.4mm)。
+     4.5 + 58 = 62.5mm で手前に止める。
+     折り返していないことは check_layout.mjs が行の高さで見張る。 */
+  .pts {{ list-style: none; margin-top: 0.4mm; width: 58mm; }}
+  /* 行間は QR を1.2倍にしたぶん詰めてある(1.55 → 1.42)。
+     ここを戻すと箇条書きの下端が QR の上端に触れる。 */
   .pts li {{
-    font-size: 2.35mm; line-height: 1.55; color: #3f4a63;
+    font-size: 2.35mm; line-height: 1.42; color: #3f4a63;
     padding-left: 2.6mm; position: relative;
   }}
   /* 点はエレメントの色で1つずつ変える。同じ色を並べるより、
@@ -434,11 +610,14 @@ def build(cut: bool = False) -> None:
   /* ===== 足元(QRとURL) ===== */
   .foot {{
     position: absolute; left: 4.5mm; bottom: 3.2mm;
-    display: flex; align-items: center; gap: 2mm;
+    display: flex; align-items: center; gap: 1.4mm;
   }}
   /* 静穏帯を規格の4マスにしたぶん1マスが細るので、QR自体を少し大きくして
      1マス0.4mm以上を保つ(14mmのままだと0.378mmまで落ちる)。 */
-  .qr {{ width: 17mm; height: 17mm; display: block; }}
+  /* 17mm → 20.4mm(1.2倍)。
+     左と下は紙の端から3mmの決まりに当たっていて、これ以上は寄せられない。
+     増えたぶんは上へ出るので、箇条書きを詰めて場所を空けてある。 */
+  .qr {{ width: 20.4mm; height: 20.4mm; display: block; }}
   .qr svg {{ width: 100%; height: 100%; display: block; shape-rendering: crispEdges; }}
   .url b {{
     display: block; font-size: 2.9mm; letter-spacing: -0.02mm;
@@ -455,7 +634,9 @@ def build(cut: bool = False) -> None:
 
   /* 右上の空きに、いちばん言いたいことを置く */
   .badge {{
-    position: absolute; right: 3.6mm; top: 4.4mm;
+    /* 上下の真ん中を、左のアイコン(と題字)の真ん中に合わせてある。
+       アイコンの中心は 8.89mm、この札の高さは 5.17mm。 */
+    position: absolute; right: 3.6mm; top: 6.3mm;
     background: linear-gradient(135deg, #ff7a3d, #e8442f); color: #fff6ef;
     font-size: 2.4mm; font-weight: bold; letter-spacing: 0.15mm;
     padding: 1mm 2mm; border-radius: 9mm; white-space: nowrap;
@@ -465,14 +646,19 @@ def build(cut: bool = False) -> None:
      ここは箇条書きの下・QRの右・キャラの左で、どれにも触れない隙間。
      重なっていないことは check_layout.mjs が実測で見張る。 */
   .wind {{
-    /* 手の左斜め下。キャラの手はおよそ y33mm の高さにある。
-       そこから左下へ下ろすと、足元(QR・アドレス)の右端 61.1mm と
-       キャラの左端 66.1mm に挟まれた 5mm の隙間に入る。
-       キャラには重ねない約束なので、この幅に収まる大きさにしてある。 */
-    /* ★ 面は倍率ぶん大きい(いま92mm幅)。右からの指定はその幅を基準に
-       効くので、91mmで計算すると1mmぶん右へ寄ってキャラに触れる。 */
-    position: absolute; right: 26.5mm; bottom: 21.5mm;
-    width: 5.5mm; height: 5.5mm;
+    /* 手のすぐ左下に置く。
+       絵は scaleX(-1) で左右反転しているので、絵の中の座標ではなく
+       紙の上の座標で決めること(反転を忘れると左右が逆の場所に置く)。
+       ・組んだ手      … x72.8〜75.6 / y34.9〜38.0mm
+       ・体の左の輪郭  … y37.8〜44.3 の範囲では 73.6mm より右
+       ・足元(アドレス)… 右端 61.1mm
+       挟まれた x61.1〜73.6 に置く。
+       ★ right/bottom ではなく left/top で指定する。
+         面は倍率ぶん大きい(いま91.25mm幅)ので、右からの指定は
+         倍率を変えるたびに場所が動いてしまう。
+       重なっていないことは build 時に chara_clear() が実測で見張る。 */
+    position: absolute; left: {WIND_X}mm; top: {WIND_Y}mm;
+    width: {WIND_D}mm; height: {WIND_D}mm;
   }}
   .wind svg {{ width: 100%; height: 100%; display: block; }}
 
@@ -496,7 +682,7 @@ def build(cut: bool = False) -> None:
   .guide-note code {{ color: #88ddaa; }}
 
   /* ハサミ線。面の上に重ねるだけなので、名刺の中身には触らない */
-  .cut {{
+  .cut, .corner {{
     position: absolute; left: 0; top: 0; width: 210mm; height: 297mm;
     pointer-events: none;
   }}
@@ -539,6 +725,7 @@ def build(cut: bool = False) -> None:
 </div>
 
 <div class="sheet">{cards}
+{corner_svg()}
 {cut_svg() if cut else ''}
 </div>
 

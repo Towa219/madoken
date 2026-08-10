@@ -33,6 +33,7 @@ tools/spell_list.json
 tools/mv/*
 !tools/mv/*.py
 !tools/mv/README.md
+tools/mv/.vidu_key
 
 # 名刺の生成物(tools/meishi)。
 #
@@ -43,4 +44,8 @@ tools/mv/*
 #   これは動画の中間生成物(tools/mv)で一度やった失敗の再来。
 tools/meishi/*.html
 tools/meishi/*.pdf
+tools/meishi/*.png
 tools/title/title_ink.svg
+
+# Python の中間ファイル。どのフォルダにできても持たない。
+__pycache__/

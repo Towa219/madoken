@@ -109,10 +109,25 @@ async function main() {
         const parts = ['.title','.badge','.mark','.lead','.pts','.foot','.chara','.wind']
           .map(s => ({ s, r: card.querySelector(s).getBoundingClientRect() }));
         const hit = (a,b) => !(a.right<=b.left||b.right<=a.left||a.bottom<=b.top||b.bottom<=a.top);
+        // 風の渦と絵だけは四角では見ない。
+        // 絵の四角は肩から靴までを囲むので、手の左下の空きもその中に入る。
+        // そこが本当に透けているかは build_meishi.py の chara_clear() が
+        // 絵の中身(不透明な点)で確かめている。
+        const skip = new Set(['.chara × .wind']);
         const over = [];
         for (let i=0;i<parts.length;i++) for (let j=i+1;j<parts.length;j++)
-          if (hit(parts[i].r, parts[j].r)) over.push(parts[i].s + ' × ' + parts[j].s);
-        return JSON.stringify({ cards, line: mm(lb.left - sheet.left), over });
+          if (hit(parts[i].r, parts[j].r)) {
+            const k = parts[i].s + ' × ' + parts[j].s;
+            if (!skip.has(k)) over.push(k);
+          }
+        // 箇条書きが折り返していないか。
+        // 折り返すと行が増え、そのぶん下へ伸びて足元(QR・アドレス)に食い込む。
+        // 「2行にはしない」約束なので、高さで見る(1行 = 文字の1.55倍)。
+        const one = 2.35 * 1.42;   // .pts li の font-size × line-height (mm)
+        const wrapped = [...card.querySelectorAll('.pts li')]
+          .filter(li => li.getBoundingClientRect().height / px > one * 1.4)
+          .map(li => li.textContent);
+        return JSON.stringify({ cards, line: mm(lb.left - sheet.left), over, wrapped });
       })()
     `);
     const got = JSON.parse(m);
@@ -141,6 +156,7 @@ async function main() {
       near(gapX, CARD_W * want.sx, 0.2) && near(gapY, CARD_H * want.sy, 0.2),
       `横${gapX} 縦${gapY}mm`);
     check('中身が重なっていない', got.over.length === 0, got.over.join(' / '));
+    check('箇条書きが折り返していない', got.wrapped.length === 0, got.wrapped.join(' / '));
   } finally {
     ch.kill();
     await sleep(300);
