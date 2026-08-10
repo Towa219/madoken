@@ -145,9 +145,20 @@ def data_uri(img: Image.Image) -> str:
     return 'data:image/png;base64,' + base64.b64encode(buf.getvalue()).decode('ascii')
 
 
+# 名刺に載せる絵。ゲームの絵をそのまま使う(描き足さない)。
+#   'idle'   … 手を組んで立っている(4.png)
+#   'potion' … 緑の魔法薬を手にしている(4_hurt.png)
+# ★ 4_hurt は戦闘では被弾の絵だが、絵柄としては「薬を持って身構える」姿。
+#   同じ絵描きの手による絵なので、手と薬の重なりが正しい ―
+#   後から別の絵を合成すると、指の前後がおかしくなって嘘になる。
+CHARA_POSE = os.environ.get('MEISHI_POSE', 'potion')
+POSE_FILE = {'idle': '4.png', 'potion': '4_hurt.png'}
+
+
 def char_art() -> str:
     """翠緑の薬導士。余白を切り詰めてから埋め込む(名刺では1mmが大きい)。"""
-    im = Image.open(os.path.join(ROOT, 'public', 'img', 'player', '4.png')).convert('RGBA')
+    name = POSE_FILE.get(CHARA_POSE, '4.png')
+    im = Image.open(os.path.join(ROOT, 'public', 'img', 'player', name)).convert('RGBA')
     box = im.getbbox()
     if box:
         im = im.crop(box)
