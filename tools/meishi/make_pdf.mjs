@@ -31,7 +31,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 const profile = fs.mkdtempSync(path.join(process.env.TEMP ?? '/tmp', 'madoken-pdf-'));
 const ch = spawn(CHROME, [
   '--headless=new', '--remote-debugging-port=' + PORT, '--user-data-dir=' + profile,
-  '--no-first-run', '--hide-scrollbars', '--allow-file-access-from-files', 'about:blank',
+  '--no-first-run', '--no-sandbox', '--disable-gpu', '--hide-scrollbars', '--allow-file-access-from-files', 'about:blank',
 ], { stdio: 'ignore' });
 
 try {

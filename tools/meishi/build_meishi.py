@@ -61,7 +61,7 @@ COLS, ROWS = 2, 5
 # 面と線が一緒に動くようになってからの実測:
 #   -2.5mm → まだ1mmほど左。全体に4mm右へ、との申告
 #   +1.5mm → -2.5 から右へ4mm(いまここ)
-SHIFT_X = float(os.environ.get('MEISHI_SHIFT_X', '1.5'))
+SHIFT_X = float(os.environ.get('MEISHI_SHIFT_X', '2.5'))
 SHIFT_Y = float(os.environ.get('MEISHI_SHIFT_Y', '1.0'))
 
 # ---- 大きさの補正 ----
@@ -79,8 +79,8 @@ SHIFT_Y = float(os.environ.get('MEISHI_SHIFT_Y', '1.0'))
 #   275 / 272 = 1.011 を入れる。
 #   横も同じ。2列ぶんは 91 × 2 = 182mm。右が2mm短いなら実際は180mm。
 #   182 / 180 = 1.011。縦と同じ値になった(このプリンタは縦横とも約1.1%縮む)。
-SCALE_X = float(os.environ.get('MEISHI_SCALE_X', '1.011'))
-SCALE_Y = float(os.environ.get('MEISHI_SCALE_Y', '1.011'))
+SCALE_X = float(os.environ.get('MEISHI_SCALE_X', '1.0166'))
+SCALE_Y = float(os.environ.get('MEISHI_SCALE_Y', '1.0222'))
 
 
 # 8つのエレメントの色。ゲーム本体(shared/data.ts の ELEMENTS)と同じ並び・同じ色。
@@ -183,49 +183,51 @@ def qr_svg() -> str:
 def cut_svg() -> str:
     """ハサミ線と、実寸を確かめるものさし。普通紙での試し刷り用。
 
-    面と面の境目に細い線を通す。マルチカードのミシン目と同じ位置なので、
-    刷った紙を用紙に重ねて光にかざせば、位置が合っているか分かる
-    (エーワン用に刷る時は線なしの版を使うこと ― 縁に線が残る)。
+    ★ 線の座標にも、面と同じ補正(SHIFT / SCALE)を数値で織り込む。
+      CSSの transform でまとめて動かす書き方は、画面では効くのに
+      printToPDF では落ちた(実測で確認)。紙に出るのは数値だけ。
 
-    ★ ものさしを入れてある理由
-      「印刷したら名刺より小さい」は、ほぼ倍率の設定で起きる。
-      刷った紙の上で 100mm を実際に測れば、何%で出たのかが分かり、
-      設定のどれが効いているのかを言い当てられる。
+    ★ ものさしは面の外(上の余白)に置く。
+      面の中に入り込むと名刺に刷り込まれてしまう ― 一度やった。
     """
-    w = MARGIN_X * 2 + CARD_W * COLS
-    h = MARGIN_Y * 2 + CARD_H * ROWS
+    # 面付けの実際の位置(補正込み)
+    x0 = MARGIN_X + SHIFT_X
+    y0 = MARGIN_Y + SHIFT_Y
+    w1 = CARD_W * SCALE_X
+    h1 = CARD_H * SCALE_Y
+
     lines = []
     for c in range(COLS + 1):
-        x = MARGIN_X + c * CARD_W
-        lines.append(f'<line x1="{x}" y1="{MARGIN_Y}" '
-                     f'x2="{x}" y2="{MARGIN_Y + CARD_H * ROWS}"/>')
+        x = x0 + c * w1
+        lines.append(f'<line x1="{x:.3f}" y1="{y0:.3f}" '
+                     f'x2="{x:.3f}" y2="{y0 + h1 * ROWS:.3f}"/>')
     for r in range(ROWS + 1):
-        y = MARGIN_Y + r * CARD_H
-        lines.append(f'<line x1="{MARGIN_X}" y1="{y}" '
-                     f'x2="{MARGIN_X + CARD_W * COLS}" y2="{y}"/>')
+        y = y0 + r * h1
+        lines.append(f'<line x1="{x0:.3f}" y1="{y:.3f}" '
+                     f'x2="{x0 + w1 * COLS:.3f}" y2="{y:.3f}"/>')
 
-    # ものさし: 上の余白に 100mm。10mm ごとに目盛り、50mm だけ長く。
-    # 紙の上端すれすれは刷れないプリンタがあるので、5mm 下げてある。
-    ry = 10.0
-    ruler = [f'<line x1="{MARGIN_X}" y1="{ry}" x2="{MARGIN_X + 100}" y2="{ry}"/>']
+    # ものさし。刷り上がりで100mmになるよう、倍率ぶん長く引く。
+    # 面の上端(y0)より上に収める ― 目盛りも文字も面に入れない。
+    ry = max(6.0, y0 - 4.2)          # ものさしの線の高さ
+    rlen = 100.0 * SCALE_X
+    ruler = [f'<line x1="{x0:.3f}" y1="{ry:.2f}" x2="{x0 + rlen:.3f}" y2="{ry:.2f}"/>']
     for i in range(11):
-        x = MARGIN_X + i * 10
-        long = 3.2 if i % 5 == 0 else 1.8
-        ruler.append(f'<line x1="{x}" y1="{ry}" x2="{x}" y2="{ry - long}"/>')
+        x = x0 + i * rlen / 10
+        up = 2.6 if i % 5 == 0 else 1.5
+        ruler.append(f'<line x1="{x:.3f}" y1="{ry:.2f}" '
+                     f'x2="{x:.3f}" y2="{ry - up:.2f}"/>')
+
+    # 説明は1行だけ、ものさしの右へ。面の上端より下に垂らさない。
+    note = (f'← 刷り上がりでここが100mmなら実寸 ／ 1面 {CARD_W}×{CARD_H}mm ／ '
+            f'ずれ補正 横{SHIFT_X:+.1f} 縦{SHIFT_Y:+.1f}mm ／ '
+            f'倍率 横×{SCALE_X:.3f} 縦×{SCALE_Y:.3f}')
 
     return (
-        f'<svg class="cut" viewBox="0 0 {w} {h}" xmlns="http://www.w3.org/2000/svg">'
+        f'<svg class="cut" viewBox="0 0 210 297" xmlns="http://www.w3.org/2000/svg">'
         f'<g stroke="#adbccc" stroke-width="0.2" fill="none">' + ''.join(lines) + '</g>'
         f'<g stroke="#1b56a8" stroke-width="0.35" fill="none">' + ''.join(ruler) + '</g>'
-        f'<text x="{MARGIN_X + 102}" y="{ry + 0.6}" font-size="3.2" fill="#1b56a8"'
-        f' font-family="sans-serif">← ここが 100mm。定規で測って100mmなら実寸</text>'
-        f'<text x="{MARGIN_X}" y="{ry + 4.6}" font-size="2.8" fill="#77869e"'
-        f' font-family="sans-serif">1面の大きさは 91 × 55mm</text>'
-        # ★ この紙がどの補正値で刷られたかを残す。刷り直すたびに
-        #   どれがどれだか分からなくなるので、紙自身に書かせる。
-        f'<text x="{MARGIN_X + 102}" y="{ry + 4.6}" font-size="2.8" fill="#77869e"'
-        f' font-family="sans-serif">ずれ補正 横{SHIFT_X:+.1f}mm / 縦{SHIFT_Y:+.1f}mm'
-        f' / 倍率 横×{SCALE_X:.3f} 縦×{SCALE_Y:.3f}</text>'
+        f'<text x="{x0 + rlen + 3:.3f}" y="{ry + 0.9:.2f}" font-size="2.4"'
+        f' fill="#1b56a8" font-family="sans-serif">{note}</text>'
         '</svg>')
 
 
@@ -311,21 +313,22 @@ def build(cut: bool = False) -> None:
     background: #fff; margin: 8mm auto; box-shadow: 0 0 12px #0006;
   }}
   .card {{
-    position: absolute; width: {CARD_W}mm; height: {CARD_H}mm; overflow: hidden;
+    position: absolute; overflow: hidden;
+    /* 刷り上がりで 91×55mm になるよう、縮むぶんだけ大きく作る */
+    width: {CARD_W * SCALE_X:.3f}mm; height: {CARD_H * SCALE_Y:.3f}mm;
   }}
   /* 面の位置。エーワン 51861 の実寸から出した値 */
 '''
     for i in range(COLS * ROWS):
         r, c = divmod(i, COLS)
-        # 位置は用紙の実寸そのまま。ここでは補正を足さない。
-        #
-        # ★ ずらすのは .shift の入れ物ごと1回だけ。
-        #   面と線を別々にずらしていた時は、片方だけ動いて食い違い、
-        #   さらに両方に足した時は二重に効いて9mmまで飛んだ。
-        #   足し算の場所を1か所に限ることでしか防げない。
+        # ★ 補正はここで数値として織り込む。
+        #   CSSの transform でまとめて動かす書き方も試したが、
+        #   画面では効くのに printToPDF では落ちて、PDFには
+        #   まったく反映されなかった(実測で確認)。
+        #   紙に出るのはこの数値だけなので、ここで完結させる。
         html += (f'  .card:nth-child({i + 1}) {{ '
-                 f'left: {MARGIN_X + c * CARD_W}mm; '
-                 f'top: {MARGIN_Y + r * CARD_H}mm; }}\n')
+                 f'left: {MARGIN_X + SHIFT_X + c * CARD_W * SCALE_X:.3f}mm; '
+                 f'top: {MARGIN_Y + SHIFT_Y + r * CARD_H * SCALE_Y:.3f}mm; }}\n')
 
     html += f'''
   /* ===== 名刺の中身 ===== */
@@ -436,21 +439,6 @@ def build(cut: bool = False) -> None:
     pointer-events: none;
   }}
 
-  /* ★ ずれ補正はここ1か所だけ。
-     面(名刺)とハサミ線を同じ入れ物に入れ、その入れ物ごと動かす。
-     以前は面と線を別々にずらしていて、片方だけ動く事故を起こした
-     (「3mmずらしたのに1cm違う」の正体)。 */
-  .shift {{
-    position: absolute; left: 0; top: 0; width: 210mm; height: 297mm;
-    /* 紙の左上を基準に伸ばしてから、ずれを補正して動かす。
-       基準は紙の左上。「上は合うのに下だけ短い」出方をしたので、
-       縮みは上端を起点に下へ溜まっている。中央基準にすると
-       合っていた上まで動いてしまう。 */
-    /* 基準は面付けの左上の角。ここが合っているので、
-       伸ばしてもこの角だけは動かないようにする。 */
-    transform-origin: {MARGIN_X}mm {MARGIN_Y}mm;
-    transform: translate({SHIFT_X}mm, {SHIFT_Y}mm) scale({SCALE_X}, {SCALE_Y});
-  }}
 
   @media print {{
     body {{ background: #fff; }}
@@ -488,10 +476,8 @@ def build(cut: bool = False) -> None:
   アドレスを変えたい時は <code>tools/meishi/build_meishi.py</code> の <code>URL</code> を直して作り直してください(QRも一緒に変わります)。
 </div>
 
-<div class="sheet">
-  <div class="shift">{cards}
+<div class="sheet">{cards}
 {cut_svg() if cut else ''}
-  </div>
 </div>
 
 </body>

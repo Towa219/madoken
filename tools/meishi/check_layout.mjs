@@ -32,14 +32,14 @@ const check = (label, ok, detail = '') => {
 const near = (a, b, tol = 0.15) => Math.abs(a - b) <= tol;
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
-// 生成された HTML から、実際に使われた補正値と倍率を読む
+// 生成された HTML の数値ベイク済みCSSから、実際に使われた補正値と倍率を読む
 function shiftFromHtml(file) {
   const s = fs.readFileSync(file, 'utf8');
-  const m = s.match(
-    /transform:\s*translate\((-?[\d.]+)mm,\s*(-?[\d.]+)mm\)\s*scale\(([\d.]+),\s*([\d.]+)\)/);
-  if (!m) throw new Error('.shift の translate/scale が見つからない');
-  return { x: parseFloat(m[1]), y: parseFloat(m[2]),
-           sx: parseFloat(m[3]), sy: parseFloat(m[4]) };
+  const size = s.match(/\.card\s*\{[\s\S]*?width:\s*(-?[\d.]+)mm;\s*height:\s*(-?[\d.]+)mm;/);
+  const pos = s.match(/\.card:nth-child\(1\)\s*\{\s*left:\s*(-?[\d.]+)mm;\s*top:\s*(-?[\d.]+)mm;/);
+  if (!size || !pos) throw new Error('数値ベイク済みのカード寸法・位置が見つからない');
+  return { x: parseFloat(pos[1]) - MARGIN_X, y: parseFloat(pos[2]) - MARGIN_Y,
+           sx: parseFloat(size[1]) / CARD_W, sy: parseFloat(size[2]) / CARD_H };
 }
 
 async function main() {
@@ -55,7 +55,7 @@ async function main() {
   const profile = fs.mkdtempSync(path.join(process.env.TEMP ?? '/tmp', 'meishi-chk-'));
   const ch = spawn(CHROME, [
     '--headless=new', '--remote-debugging-port=' + PORT, '--user-data-dir=' + profile,
-    '--no-first-run', '--hide-scrollbars', '--allow-file-access-from-files', 'about:blank',
+    '--no-first-run', '--no-sandbox', '--disable-gpu', '--hide-scrollbars', '--allow-file-access-from-files', 'about:blank',
   ], { stdio: 'ignore' });
 
   try {
