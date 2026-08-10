@@ -31,6 +31,9 @@ OUTS = [
     os.path.join(ROOT, 'public', 'img', 'title.svg'),
     os.path.join(ROOT, 'docs', 'title.svg'),
 ]
+# 紙に刷る用(名刺)。画面用は暗い背景を前提にした淡い青と光を持つので、
+# 白い紙に置くと上半分が紙に溶ける。紙用は濃い青・光なしで作る。
+OUT_INK = os.path.join(ROOT, 'tools', 'title', 'title_ink.svg')
 
 # 游明朝 Demibold。明朝の縦横の差が「魔導書」の気配を出す。
 FONT = 'C:/Windows/Fonts/yumindb.ttf'
@@ -75,7 +78,7 @@ def glyph_paths(font: TTFont, text: str, size: float, track: float):
     return out, total
 
 
-def build() -> None:
+def build(ink: bool = False) -> None:
     font = TTFont(FONT, fontNumber=0)
     upem = font['head'].unitsPerEm
 
@@ -105,22 +108,34 @@ def build() -> None:
     main_g = group(main, MAIN_SIZE, main_base, 'm', PAD_X)
     sub_g = group(sub, SUB_SIZE, sub_base, 's', sub_x)
 
+    # 画面用と紙用で、色と光だけを差し替える(字の形は同じ)
+    if ink:
+        g_top, g_mid, g_low, g_bot = '#5aa3ec', '#2a6fd0', '#134a9e', '#0b2f6e'
+        sub_a, sub_b, sub_c = '#b8860b', '#a06f08', '#8a5f06'
+        edge_main, edge_sub = '#0a2350', '#5a4408'
+        glow_open, glow_close = '<g>', '</g>'
+    else:
+        g_top, g_mid, g_low, g_bot = '#f2fbff', '#a9e2ff', '#4fa8f5', '#2b62c8'
+        sub_a, sub_b, sub_c = '#ffe9b0', '#fff6dc', '#ffd98a'
+        edge_main, edge_sub = '#0d2350', '#3a2a08'
+        glow_open, glow_close = '<g filter="url(#t-glow)">', '</g>'
+
     svg = f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {w:.1f} {h:.1f}"
      role="img" aria-label="{MAIN}{SUB}">
   <title>{MAIN}{SUB}</title>
   <defs>
     <!-- 題字の色。上から下へ、白銀→空→碧→紺。氷と魔力の青 -->
     <linearGradient id="t-blue" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0"    stop-color="#f2fbff"/>
-      <stop offset="0.38" stop-color="#a9e2ff"/>
-      <stop offset="0.70" stop-color="#4fa8f5"/>
-      <stop offset="1"    stop-color="#2b62c8"/>
+      <stop offset="0"    stop-color="{g_top}"/>
+      <stop offset="0.38" stop-color="{g_mid}"/>
+      <stop offset="0.70" stop-color="{g_low}"/>
+      <stop offset="1"    stop-color="{g_bot}"/>
     </linearGradient>
     <!-- 副題は淡い金。青一色にすると題字と溶けて読みにくい -->
     <linearGradient id="t-sub" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0"   stop-color="#ffe9b0"/>
-      <stop offset="0.5" stop-color="#fff6dc"/>
-      <stop offset="1"   stop-color="#ffd98a"/>
+      <stop offset="0"   stop-color="{sub_a}"/>
+      <stop offset="0.5" stop-color="{sub_b}"/>
+      <stop offset="1"   stop-color="{sub_c}"/>
     </linearGradient>
     <!-- 青い光。暗い背景から字を浮かせる -->
     <filter id="t-glow" x="-25%" y="-40%" width="150%" height="190%">
@@ -135,18 +150,18 @@ def build() -> None:
     </filter>
   </defs>
 
-  <g filter="url(#t-glow)">
+  {glow_open}
     <!-- 縁取りを先に敷いて、明るい背景でも字が潰れないようにする -->
-    <g fill="none" stroke="#0d2350" stroke-width="7" stroke-linejoin="round">
+    <g fill="none" stroke="{edge_main}" stroke-width="7" stroke-linejoin="round">
       {main_g}
     </g>
     <g fill="url(#t-blue)">
       {main_g}
     </g>
-  </g>
+  {glow_close}
 
   <g>
-    <g fill="none" stroke="#3a2a08" stroke-width="4.5" stroke-linejoin="round">
+    <g fill="none" stroke="{edge_sub}" stroke-width="4.5" stroke-linejoin="round">
       {sub_g}
     </g>
     <g fill="url(#t-sub)">
@@ -155,15 +170,17 @@ def build() -> None:
   </g>
 </svg>
 '''
-    for out in OUTS:
+    targets = [OUT_INK] if ink else OUTS
+    for out in targets:
         os.makedirs(os.path.dirname(out), exist_ok=True)
         with io.open(out, 'w', encoding='utf-8', newline='\n') as f:
             f.write(svg)
         print(f'書き出した: {out} ({os.path.getsize(out) / 1024:.0f} KB)')
-    print(f'  版面: {w:.0f} × {h:.0f} / 字はすべて図形(フォント不要)')
-    print(f'  使ったフォント: {FONT} (単位em {upem})')
+    print(f'  {"紙用(濃い青・光なし)" if ink else "画面用(淡い青・光あり)"} / '
+          f'版面 {w:.0f} × {h:.0f} / 字はすべて図形(フォント不要)')
 
 
 if __name__ == '__main__':
     sys.stdout.reconfigure(encoding='utf-8')
-    build()
+    build(ink=False)   # 画面用(暗い背景)
+    build(ink=True)    # 紙用(白い紙。名刺が使う)

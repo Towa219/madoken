@@ -52,6 +52,26 @@ def copyright_text() -> str:
     return m.group(1)
 
 
+def title_uri() -> str:
+    """題字は画面と同じ絵(public/img/title.svg)をそのまま使う。
+
+    ★ ここで作り直さないこと。名刺だけ古い題字、が起きる。
+      題字を直す時は tools/title/build_title.py を走らせてから、
+      この build_meishi.py を走らせる。
+
+    10面ぶん貼るので、SVGを直に埋めると同じ id が10組できてしまう。
+    data URI の <img> にすれば中身は1つの絵として扱われ、ぶつからない。
+    """
+    # 紙用の版(濃い青・光なし)。画面用は淡い青と光を持つので、
+    # 白い紙に置くと上半分が紙に溶ける。
+    path = os.path.join(ROOT, 'tools', 'title', 'title_ink.svg')
+    if not os.path.exists(path):
+        raise SystemExit('題字が無い。先に tools/title/build_title.py を走らせること')
+    with io.open(path, 'rb') as f:
+        raw = f.read()
+    return 'data:image/svg+xml;base64,' + base64.b64encode(raw).decode('ascii')
+
+
 def data_uri(img: Image.Image) -> str:
     buf = io.BytesIO()
     img.save(buf, format='PNG', optimize=True)
@@ -76,7 +96,7 @@ def qr_svg() -> str:
     """
     q = segno.make(URL, error='m')
     buf = io.BytesIO()   # segno はバイト列で書き出す
-    q.save(buf, kind='svg', scale=1, border=4, dark='#1b1035', light=None,
+    q.save(buf, kind='svg', scale=1, border=4, dark='#10243f', light=None,
            svgclass=None, lineclass=None, xmldecl=False, svgns=True, omitsize=True)
     return buf.getvalue().decode('utf-8')
 
@@ -102,11 +122,11 @@ def cut_svg() -> str:
                      f'x2="{MARGIN_X + CARD_W * COLS}" y2="{y}"/>')
     return (f'<svg class="cut" viewBox="0 0 {w} {h}" '
             f'xmlns="http://www.w3.org/2000/svg">'
-            f'<g stroke="#b9b3c8" stroke-width="0.2" fill="none">'
+            f'<g stroke="#adbccc" stroke-width="0.2" fill="none">'
             + ''.join(lines) + '</g></svg>')
 
 
-def card_html(art: str, qr: str, cr: str) -> str:
+def card_html(art: str, qr: str, cr: str, title: str) -> str:
     return f'''
   <div class="card">
     <div class="inner">
@@ -115,8 +135,8 @@ def card_html(art: str, qr: str, cr: str) -> str:
           <svg viewBox="0 0 100 100">
             <defs>
               <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
-                <stop offset="0" stop-color="#6a3fd0"/>
-                <stop offset="1" stop-color="#2a1a5e"/>
+                <stop offset="0" stop-color="#3f8ef0"/>
+                <stop offset="1" stop-color="#12306e"/>
               </linearGradient>
             </defs>
             <rect x="2" y="2" width="96" height="96" rx="22" fill="url(#g)"/>
@@ -135,9 +155,7 @@ def card_html(art: str, qr: str, cr: str) -> str:
                   font-weight="bold" fill="#ffe9a8">魔</text>
           </svg>
         </span>
-        <span class="title">
-          <b>魔導研究記</b><i>《まどけん》</i>
-        </span>
+        <img class="title" src="{title}" alt="魔導研究記《まどけん》">
       </div>
 
       <p class="lead">8つのエレメントを調合して、魔法を&quot;発見&quot;する</p>
@@ -166,7 +184,8 @@ def build(cut: bool = False) -> None:
     art = char_art()
     qr = qr_svg()
     cr = copyright_text()
-    cards = ''.join(card_html(art, qr, cr) for _ in range(COLS * ROWS))
+    title = title_uri()
+    cards = ''.join(card_html(art, qr, cr, title) for _ in range(COLS * ROWS))
     out = OUT_CUT if cut else OUT
     kind = 'ハサミ線あり(普通紙用)' if cut else 'エーワン 51861(A4 10面)'
 
@@ -208,38 +227,32 @@ def build(cut: bool = False) -> None:
        ふちまで刷れないプリンタ(特に下の段)で色が途切れて見える。
        それに10面ぶんのベタ塗りはインクを食うし、紙も波打つ。 */
     background: #ffffff;
-    color: #241a3d;
+    color: #17233f;
   }}
 
-  .head {{ display: flex; align-items: center; gap: 2.2mm; }}
-  .mark {{ width: 11mm; height: 11mm; flex: 0 0 auto; }}
+  .head {{ display: flex; align-items: center; gap: 2.4mm; }}
+  .mark {{ width: 10mm; height: 10mm; flex: 0 0 auto; }}
   .mark svg {{ width: 100%; height: 100%; display: block; }}
-  .title b {{
-    display: block; font-family: 'Yu Mincho', 'MS Mincho', serif;
-    font-size: 6.6mm; letter-spacing: 0.5mm; color: #2c1a63; line-height: 1.08;
-  }}
-  .title i {{
-    display: block; font-style: normal; font-size: 2.9mm;
-    letter-spacing: 0.3mm; color: #7a5bd0; margin-top: 0.5mm;
-  }}
+  /* 題字は画面と同じ絵。字の輪郭が図形なので、刷っても形が変わらない */
+  .title {{ height: 8.6mm; width: auto; display: block; }}
 
   .lead {{
-    margin-top: 1.8mm; font-size: 2.7mm; font-weight: bold; color: #3a2a70;
-    background: #efe9fb; border-left: 0.8mm solid #7a5bd0;
+    margin-top: 1.8mm; font-size: 2.7mm; font-weight: bold; color: #17457e;
+    background: #e8f2fd; border-left: 0.8mm solid #3f8ef0;
     padding: 1mm 1.6mm; border-radius: 0 1mm 1mm 0;
     width: 53mm;
   }}
 
   .pts {{ list-style: none; margin-top: 1.8mm; width: 51mm; }}
   .pts li {{
-    font-size: 2.35mm; line-height: 1.55; color: #4a4160;
+    font-size: 2.35mm; line-height: 1.55; color: #3f4a63;
     padding-left: 2.6mm; position: relative;
   }}
   .pts li::before {{
     content: ''; position: absolute; left: 0.5mm; top: 1.3mm;
-    width: 1.2mm; height: 1.2mm; border-radius: 50%; background: #b9a4ea;
+    width: 1.2mm; height: 1.2mm; border-radius: 50%; background: #8dc2f0;
   }}
-  .pts b {{ color: #2c1a63; }}
+  .pts b {{ color: #12417a; }}
 
   /* ===== 足元(QRとURL) ===== */
   .foot {{
@@ -252,21 +265,21 @@ def build(cut: bool = False) -> None:
   .qr svg {{ width: 100%; height: 100%; display: block; shape-rendering: crispEdges; }}
   .url b {{
     display: block; font-size: 2.9mm; letter-spacing: -0.02mm;
-    color: #2c1a63; font-weight: bold; white-space: nowrap;
+    color: #12417a; font-weight: bold; white-space: nowrap;
   }}
   .url i {{
     display: block; font-style: normal; font-size: 2.1mm;
-    color: #8a80a5; margin-top: 0.6mm;
+    color: #77869e; margin-top: 0.6mm;
   }}
   /* 著作権表記。読ませる文字ではないので、いちばん小さく淡く */
   .url small {{
-    display: block; font-size: 1.9mm; color: #a49cba; margin-top: 1.1mm;
+    display: block; font-size: 1.9mm; color: #94a2b8; margin-top: 1.1mm;
   }}
 
   /* 右上の空きに、いちばん言いたいことを置く */
   .badge {{
     position: absolute; right: 3.6mm; top: 4.4mm;
-    background: #5533aa; color: #fff8e6;
+    background: #1b56a8; color: #eaf4ff;
     font-size: 2.6mm; font-weight: bold; letter-spacing: 0.2mm;
     padding: 1.1mm 2.4mm; border-radius: 9mm; white-space: nowrap;
   }}
@@ -278,7 +291,7 @@ def build(cut: bool = False) -> None:
     /* 左右反転。元絵は左を向いているが、名刺では右端に立つので、
        反転すると視線と体の向きが紙の内側(文字のほう)へ向く。 */
     transform: scaleX(-1);
-    filter: drop-shadow(0 0.6mm 0.8mm rgba(60,40,110,0.22));
+    filter: drop-shadow(0 0.6mm 0.8mm rgba(20,50,100,0.22));
   }}
 
   /* ===== 画面用の案内(印刷には出ない) ===== */
