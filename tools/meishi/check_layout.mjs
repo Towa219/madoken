@@ -36,9 +36,10 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 function shiftFromHtml(file) {
   const s = fs.readFileSync(file, 'utf8');
   const m = s.match(
-    /transform:\s*translate\((-?[\d.]+)mm,\s*(-?[\d.]+)mm\)\s*scale\(([\d.]+)\)/);
+    /transform:\s*translate\((-?[\d.]+)mm,\s*(-?[\d.]+)mm\)\s*scale\(([\d.]+),\s*([\d.]+)\)/);
   if (!m) throw new Error('.shift の translate/scale が見つからない');
-  return { x: parseFloat(m[1]), y: parseFloat(m[2]), s: parseFloat(m[3]) };
+  return { x: parseFloat(m[1]), y: parseFloat(m[2]),
+           sx: parseFloat(m[3]), sy: parseFloat(m[4]) };
 }
 
 async function main() {
@@ -49,7 +50,7 @@ async function main() {
   }
   const want = shiftFromHtml(file);
   console.log('=== 名刺の版を実測する ===');
-  console.log(`狙い: ずれ補正 横${want.x}mm / 縦${want.y}mm / 倍率 ×${want.s}`);
+  console.log(`狙い: ずれ補正 横${want.x}mm / 縦${want.y}mm / 倍率 横×${want.sx} 縦×${want.sy}`);
 
   const profile = fs.mkdtempSync(path.join(process.env.TEMP ?? '/tmp', 'meishi-chk-'));
   const ch = spawn(CHROME, [
@@ -121,12 +122,12 @@ async function main() {
     const c0 = got.cards[0];
     // 倍率を掛けた版では、版の中の1面は 91×55mm より大きい。
     // 紙の上で91mmになるのが狙いなので、ここでは倍率込みの値と突き合わせる。
-    check(`1面の大きさが ${(CARD_W * want.s).toFixed(2)}×${(CARD_H * want.s).toFixed(2)}mm`,
-      near(c0.w, CARD_W * want.s) && near(c0.h, CARD_H * want.s),
+    check(`1面の大きさが ${(CARD_W * want.sx).toFixed(2)}×${(CARD_H * want.sy).toFixed(2)}mm`,
+      near(c0.w, CARD_W * want.sx) && near(c0.h, CARD_H * want.sy),
       `${c0.w} × ${c0.h}mm`);
-    // 紙の中央(105, 148.5)を基準に伸ばしてから、ずれ補正で動かす
-    const wx = 105 + (MARGIN_X - 105) * want.s + want.x;
-    const wy = 148.5 + (MARGIN_Y - 148.5) * want.s + want.y;
+    // 面付けの左上の角(14, 11)を基準に伸ばすので、その角は倍率で動かない
+    const wx = MARGIN_X + want.x;
+    const wy = MARGIN_Y + want.y;
     check('★1面目が狙いの位置にある',
       near(c0.x, wx, 0.2) && near(c0.y, wy, 0.2),
       `(${c0.x}, ${c0.y})mm / 狙い (${wx.toFixed(2)}, ${wy.toFixed(2)})mm`);
@@ -136,8 +137,8 @@ async function main() {
     // 面と面の間隔が用紙どおり(どこか1面だけずれていないか)
     const gapX = got.cards[1].x - got.cards[0].x;
     const gapY = got.cards[2].y - got.cards[0].y;
-    check(`面の間隔が ${(CARD_W * want.s).toFixed(2)} / ${(CARD_H * want.s).toFixed(2)}mm`,
-      near(gapX, CARD_W * want.s, 0.2) && near(gapY, CARD_H * want.s, 0.2),
+    check(`面の間隔が ${(CARD_W * want.sx).toFixed(2)} / ${(CARD_H * want.sy).toFixed(2)}mm`,
+      near(gapX, CARD_W * want.sx, 0.2) && near(gapY, CARD_H * want.sy, 0.2),
       `横${gapX} 縦${gapY}mm`);
     check('中身が重なっていない', got.over.length === 0, got.over.join(' / '));
   } finally {

@@ -66,14 +66,21 @@ SHIFT_Y = float(os.environ.get('MEISHI_SHIFT_Y', '1.0'))
 
 # ---- 大きさの補正 ----
 #
-# プリンタによっては、等倍で刷ったつもりでも1〜3%小さく出る。
+# プリンタによっては、等倍で刷ったつもりでも数%小さく出る。
 # 版のほうを少し大きく作って、刷り上がりで実寸になるようにする。
 #
-# 決め方: 試し刷り版の上にある100mmのものさしを定規で測る。
-#   98mm なら 100 / 98 = 1.020 を入れる。
-# ★ ここを1.0以外にすると、PDFの中の1面は 91×55mm ではなくなる
-#   (91 × SCALE になる)。紙の上で91mmになれば正しい。
-SCALE = float(os.environ.get('MEISHI_SCALE', '1.02'))
+# ★ 基準は紙の左上。中央ではない。
+#   「上のカット線は合っているのに、下が3mm短い」という出方をした。
+#   これは縮みが上端を起点にして下へ溜まっている、ということ。
+#   中央を基準に伸ばすと上も動いてしまい、合っていた上までずれる。
+#
+# ★ 決め方(縦の例)
+#   5段ぶんの高さは 55 × 5 = 275mm。下が3mm短いなら実際は272mm。
+#   275 / 272 = 1.011 を入れる。
+#   横も同じ。2列ぶんは 91 × 2 = 182mm。右が2mm短いなら実際は180mm。
+#   182 / 180 = 1.011。縦と同じ値になった(このプリンタは縦横とも約1.1%縮む)。
+SCALE_X = float(os.environ.get('MEISHI_SCALE_X', '1.011'))
+SCALE_Y = float(os.environ.get('MEISHI_SCALE_Y', '1.011'))
 
 
 # 8つのエレメントの色。ゲーム本体(shared/data.ts の ELEMENTS)と同じ並び・同じ色。
@@ -206,7 +213,7 @@ def cut_svg() -> str:
         #   どれがどれだか分からなくなるので、紙自身に書かせる。
         f'<text x="{MARGIN_X + 102}" y="{ry + 4.6}" font-size="2.8" fill="#77869e"'
         f' font-family="sans-serif">ずれ補正 横{SHIFT_X:+.1f}mm / 縦{SHIFT_Y:+.1f}mm'
-        f' / 倍率 ×{SCALE:.3f}</text>'
+        f' / 倍率 横×{SCALE_X:.3f} 縦×{SCALE_Y:.3f}</text>'
         '</svg>')
 
 
@@ -423,11 +430,14 @@ def build(cut: bool = False) -> None:
      (「3mmずらしたのに1cm違う」の正体)。 */
   .shift {{
     position: absolute; left: 0; top: 0; width: 210mm; height: 297mm;
-    /* 紙の中央を基準に伸ばしてから、ずれを補正して動かす。
-       中央基準にするのは、プリンタの縮みが紙の中心に向かって
-       起きるため ― 角を基準にすると、伸ばすほど位置までずれる。 */
-    transform-origin: 105mm 148.5mm;
-    transform: translate({SHIFT_X}mm, {SHIFT_Y}mm) scale({SCALE});
+    /* 紙の左上を基準に伸ばしてから、ずれを補正して動かす。
+       基準は紙の左上。「上は合うのに下だけ短い」出方をしたので、
+       縮みは上端を起点に下へ溜まっている。中央基準にすると
+       合っていた上まで動いてしまう。 */
+    /* 基準は面付けの左上の角。ここが合っているので、
+       伸ばしてもこの角だけは動かないようにする。 */
+    transform-origin: {MARGIN_X}mm {MARGIN_Y}mm;
+    transform: translate({SHIFT_X}mm, {SHIFT_Y}mm) scale({SCALE_X}, {SCALE_Y});
   }}
 
   @media print {{
@@ -482,8 +492,9 @@ def build(cut: bool = False) -> None:
     print('  アドレス: {}'.format(URL))
     print('  面付け: {}×{}面 / 1面 {}×{}mm / 余白 左右{}mm・上下{}mm'.format(
         COLS, ROWS, CARD_W, CARD_H, MARGIN_X, MARGIN_Y))
-    print(f'  ずれ補正: 横 {SHIFT_X}mm / 縦 {SHIFT_Y}mm / 倍率 ×{SCALE}')
-    print(f'  → 版の中の1面は {CARD_W * SCALE:.2f} × {CARD_H * SCALE:.2f}mm'
+    print(f'  ずれ補正: 横 {SHIFT_X}mm / 縦 {SHIFT_Y}mm'
+          f' / 倍率 横×{SCALE_X} 縦×{SCALE_Y}')
+    print(f'  → 版の中の1面は {CARD_W * SCALE_X:.2f} × {CARD_H * SCALE_Y:.2f}mm'
           f'(紙の上で {CARD_W} × {CARD_H}mm になれば正しい)')
     print('  大きさ: {:.0f} KB'.format(os.path.getsize(out) / 1024))
 
