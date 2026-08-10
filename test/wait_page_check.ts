@@ -162,7 +162,17 @@ async function main(): Promise<void> {
       first.includes('眠っています') && first.includes('故障ではありません'));
     check('待ち時間の目安が出ている', first.includes('30〜60秒'));
     check('自動で始まると伝えている', first.includes('自動で始まります'));
-    check('題名が出ている', first.includes('魔導研究記'));
+    // 題字は絵(title.svg)になったので、文字ではなく絵の有無で見る。
+    // alt を見ているのは、絵が出ない環境でも題名が伝わることの確認も兼ねる。
+    const titleImg = await cdp.evaluate<string>(`
+      (() => {
+        const e = document.querySelector('h1 img');
+        if (!e) return '';
+        return JSON.stringify({ alt: e.alt, w: e.naturalWidth, h: e.naturalHeight });
+      })()
+    `);
+    check('★題字の絵が出ている', titleImg.includes('魔導研究記')
+      && !titleImg.includes('"w":0'), titleImg || '<h1 img> が無い');
 
     // ② 絵
     const art = await cdp.evaluate<number>(`

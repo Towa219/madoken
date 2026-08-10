@@ -45,11 +45,12 @@
   /* サムネイルを載せるので少し広げてある(以前は460px) */
   #box { max-width: 560px; width: 100%; }
 
-  h1 {
-    font-size: 30px; margin: 0 0 4px; letter-spacing: 1px;
-    background: linear-gradient(135deg, #ddbbff, #8866ee 55%, #66ddff);
-    -webkit-background-clip: text; background-clip: text;
-    -webkit-text-fill-color: transparent; color: #bb99ff;
+  /* 題字は本体と同じ絵(title.svg)。ここは待機ページなので、
+     サーバーが眠っていても開けるよう、絵も docs/ に置いてある。
+     作り直しは tools/title/build_title.py(2か所へ同時に書き出す)。 */
+  h1 { margin: 0 0 6px; line-height: 0; }
+  h1 img {
+    width: 100%; max-width: 440px; height: auto; display: block; margin: 0 auto;
   }
   .sub { font-size: 12px; color: #777799; margin: 0 0 22px; }
 
@@ -171,7 +172,7 @@
 </head>
 <body>
 <div id="box">
-  <h1>魔導研究記《まどけん》</h1>
+  <h1><img src="title.svg" alt="魔導研究記《まどけん》" width="829" height="132"></h1>
   <p class="sub">調合で魔法を作る、多人数の魔法研究ゲーム</p>
 
   <div id="circles" aria-hidden="true"><i id="outer"></i><i id="inner"></i></div>

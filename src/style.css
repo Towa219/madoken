@@ -31,6 +31,10 @@ body {
 }
 #topbar-info {
   display: flex; align-items: baseline; gap: 4px 14px; flex-wrap: wrap;
+  /* 数字(研究P・チケット・戦闘力・プレイ中)は右へ寄せる。
+     題字を中央に置いたので、左端に数字が残ると重心が左に偏る。 */
+  justify-content: flex-end;
+  flex: 1 1 100%;
 }
 /* 題字。中身は絵(public/img/title.svg)なので、ここでは大きさだけ決める。
    line-height を 0 にしないと、img の下に行送りぶんの隙間が残る。 */
@@ -39,7 +43,7 @@ body {
 }
 #game-title img {
   height: 52px; width: auto; max-width: 100%;
-  display: block;
+  display: block; margin: 0 auto;      /* 題字は中央 */
 }
 #rp-display { color: #ffdd66; font-weight: bold; }
 #power-display { color: #ff9977; font-weight: bold; }
@@ -56,7 +60,9 @@ body {
 
 #nick-row { display: flex; gap: 8px; max-width: 420px; }
 #nick-note { margin-top: 6px; }
-#topbar nav { margin-left: auto; display: flex; gap: 6px; flex-wrap: wrap; }
+/* タブは左へ。数字を右に寄せたので、押すものと読むものを左右に分ける
+   (どちらも右に集まると、目的の違うものが同じ側に並んで探しにくい) */
+#topbar nav { margin-right: auto; display: flex; gap: 6px; flex-wrap: wrap; }
 
 button {
   background: #2a2a4a; color: #ddddee; border: 1px solid #44446a;

@@ -24,8 +24,13 @@ from fontTools.pens.svgPathPen import SVGPathPen
 from fontTools.ttLib import TTFont
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-OUT = os.path.join(ROOT, 'public', 'img', 'title.svg')
-PREVIEW = os.path.join(ROOT, 'tools', 'title', 'preview.png')
+# 本体(public/)と入口の待機ページ(docs/)の両方へ置く。
+# 待機ページはサーバーが眠っていても開くので、本体の絵を参照できない。
+# 同じ版を2か所に置き、ここから一度に書き出して食い違いを防ぐ。
+OUTS = [
+    os.path.join(ROOT, 'public', 'img', 'title.svg'),
+    os.path.join(ROOT, 'docs', 'title.svg'),
+]
 
 # 游明朝 Demibold。明朝の縦横の差が「魔導書」の気配を出す。
 FONT = 'C:/Windows/Fonts/yumindb.ttf'
@@ -104,23 +109,23 @@ def build() -> None:
      role="img" aria-label="{MAIN}{SUB}">
   <title>{MAIN}{SUB}</title>
   <defs>
-    <!-- 題字の色。上から下へ、白金→金→琥珀。魔導書の箔押しのつもり -->
-    <linearGradient id="t-gold" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0"    stop-color="#fff8dc"/>
-      <stop offset="0.42" stop-color="#ffd977"/>
-      <stop offset="0.72" stop-color="#eeae44"/>
-      <stop offset="1"    stop-color="#d1902e"/>
+    <!-- 題字の色。上から下へ、白銀→空→碧→紺。氷と魔力の青 -->
+    <linearGradient id="t-blue" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0"    stop-color="#f2fbff"/>
+      <stop offset="0.38" stop-color="#a9e2ff"/>
+      <stop offset="0.70" stop-color="#4fa8f5"/>
+      <stop offset="1"    stop-color="#2b62c8"/>
     </linearGradient>
-    <!-- 副題は世界の色(紫)。題字と役割を分ける -->
-    <linearGradient id="t-violet" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0"   stop-color="#c3a6ff"/>
-      <stop offset="0.5" stop-color="#e6d7ff"/>
-      <stop offset="1"   stop-color="#9fd8ff"/>
+    <!-- 副題は淡い金。青一色にすると題字と溶けて読みにくい -->
+    <linearGradient id="t-sub" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0"   stop-color="#ffe9b0"/>
+      <stop offset="0.5" stop-color="#fff6dc"/>
+      <stop offset="1"   stop-color="#ffd98a"/>
     </linearGradient>
-    <!-- 紫の光。暗い背景から字を浮かせる -->
+    <!-- 青い光。暗い背景から字を浮かせる -->
     <filter id="t-glow" x="-25%" y="-40%" width="150%" height="190%">
       <feGaussianBlur stdDeviation="3.2" result="b"/>
-      <feFlood flood-color="#8b5cf6" flood-opacity="0.7"/>
+      <feFlood flood-color="#3f8ef0" flood-opacity="0.75"/>
       <feComposite in2="b" operator="in" result="g"/>
       <feMerge>
         <feMergeNode in="g"/>
@@ -132,30 +137,30 @@ def build() -> None:
 
   <g filter="url(#t-glow)">
     <!-- 縁取りを先に敷いて、明るい背景でも字が潰れないようにする -->
-    <g fill="none" stroke="#2a1150" stroke-width="7" stroke-linejoin="round">
+    <g fill="none" stroke="#0d2350" stroke-width="7" stroke-linejoin="round">
       {main_g}
     </g>
-    <g fill="url(#t-gold)">
+    <g fill="url(#t-blue)">
       {main_g}
     </g>
   </g>
 
   <g>
-    <g fill="none" stroke="#241046" stroke-width="4.5" stroke-linejoin="round">
+    <g fill="none" stroke="#3a2a08" stroke-width="4.5" stroke-linejoin="round">
       {sub_g}
     </g>
-    <g fill="url(#t-violet)">
+    <g fill="url(#t-sub)">
       {sub_g}
     </g>
   </g>
 </svg>
 '''
-    os.makedirs(os.path.dirname(OUT), exist_ok=True)
-    with io.open(OUT, 'w', encoding='utf-8', newline='\n') as f:
-        f.write(svg)
-    print('書き出した:', OUT)
+    for out in OUTS:
+        os.makedirs(os.path.dirname(out), exist_ok=True)
+        with io.open(out, 'w', encoding='utf-8', newline='\n') as f:
+            f.write(svg)
+        print(f'書き出した: {out} ({os.path.getsize(out) / 1024:.0f} KB)')
     print(f'  版面: {w:.0f} × {h:.0f} / 字はすべて図形(フォント不要)')
-    print(f'  大きさ: {os.path.getsize(OUT) / 1024:.0f} KB')
     print(f'  使ったフォント: {FONT} (単位em {upem})')
 
 
