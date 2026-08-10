@@ -33,3 +33,14 @@ tools/spell_list.json
 tools/mv/*
 !tools/mv/*.py
 !tools/mv/README.md
+
+# 名刺の生成物(tools/meishi)。
+#
+# ★ 位置合わせのたびに HTML と PDF を作り直してコミットしていたら、
+#   1回あたり約4.6MBが履歴に積もり、10回ほどで63MBになった
+#   (.git 全体で114MB)。Renderは毎回このリポジトリを取りに行く。
+#   版は build_meishi.py + make_pdf.mjs から1分で作り直せるので持たない。
+#   これは動画の中間生成物(tools/mv)で一度やった失敗の再来。
+tools/meishi/*.html
+tools/meishi/*.pdf
+tools/title/title_ink.svg
