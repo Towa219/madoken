@@ -3,8 +3,8 @@
 import { Application, Container, Graphics, Sprite, Text } from 'pixi.js';
 import type { Room } from 'colyseus.js';
 import {
-  affinitySymbol, ALL_ENEMIES, bossBgmFor, ELEMENTS, ELEMENT_ORDER, enemyTopY,
-  poseName, SPRITE_SCALE,
+  affinitySymbol, ALL_ENEMIES, backgroundKeyForStage, bossBgmFor, ELEMENTS,
+  ELEMENT_ORDER, enemyTopY, poseName, SPRITE_SCALE,
 } from '../shared/data';
 import type { AffinityGrade, EnemyDef } from '../shared/data';
 import {
@@ -14,6 +14,7 @@ import {
   COUNT_STYLE, makeEnemySprite, makePlayerSprite, makeProjectileGfx,
   setEnemySpritePose, setPlayerSpritePose, START_LABEL,
 } from './battle';
+import { backgroundArt } from './artwork';
 import { clampCharId } from '../shared/characters';
 import { spellCooldown, spellDisplayName } from '../shared/spellcraft';
 import { grantBossReward, markGained, showToast } from './lab';
@@ -56,6 +57,9 @@ export class CoopView {
   private uiLayer!: Container;
   private barsG!: Graphics;
   private stageText!: Text;
+  // 背景の絵を敷く層。ステージが分かってから中身を入れる。
+  private bgLayer!: Container;
+  private bgKey = '';       // いま敷いてある背景の名前(空=まだ敷いていない)
   // 3→2→1→開戦
   private countText!: Text;
   private prevCount = -99;
@@ -172,6 +176,11 @@ export class CoopView {
     app.stage.addChild(root);
     this.root = root;
 
+    // 背景。素材があればステージ段階ごとの絵を敷く。
+    //
+    // ★ ここではまだステージが分からない。共闘のステージは部屋の状態
+    //   (room.state.stage)で届くので、届いた時点で applyBackground() が
+    //   敷き直す。図形の背景は素材が無い環境のための下地として残す。
     const bg = new Graphics();
     bg.rect(0, 0, W, H).fill(0x0b0b18);
     bg.circle(780, 90, 42).fill({ color: 0xddddff, alpha: 0.85 });
@@ -184,6 +193,9 @@ export class CoopView {
     bg.rect(0, GROUND_Y, W, H - GROUND_Y).fill(0x1c1c30);
     bg.rect(0, GROUND_Y, W, 4).fill(0x33335a);
     root.addChild(bg);
+    this.bgLayer = new Container();
+    root.addChild(this.bgLayer);
+    this.bgKey = '';
 
     this.entityLayer = new Container();
     this.projLayer = new Container();
@@ -225,6 +237,20 @@ export class CoopView {
     this.warnText.position.set(W / 2, H / 2 - 40);
     this.warnText.visible = false;
     this.uiLayer.addChild(this.warnText);
+  }
+
+  // ステージ段階に応じた背景を敷く。同じ段階なら何もしない。
+  private applyBackground(stage: number): void {
+    if (!Number.isFinite(stage) || stage <= 0) return;
+    // ★ 「いま敷いてある段階」を数値で持ってはいけない。
+    //   初期値0を backgroundKeyForStage に渡すと B1 が返る(0 % 5 === 0 のため)。
+    //   ステージ5のボス戦で「もう敷いてある」と誤判定し、敷き替えを飛ばす。
+    const key = backgroundKeyForStage(stage);
+    if (key === this.bgKey) return;
+    this.bgKey = key;
+    this.bgLayer.removeChildren().forEach(c => c.destroy());
+    const art = backgroundArt(W, H, stage);
+    if (art) this.bgLayer.addChild(art);
   }
 
   private buildBar(): void {
@@ -720,6 +746,11 @@ export class CoopView {
       this.cds = this.cds.map(() => 0);
       this.prevCastingIdx = -1;
     }
+    // 背景も段階ごとに敷き替える。
+    // ★ buildScene の時点ではステージが分からない(部屋の状態で届く)ので、
+    //   ここで敷く。共闘はボス戦の唯一の入口なので、ここを抜かすと
+    //   ボス面だけ背景が変わらないままになる(2026-08-11に実際そうなった)。
+    this.applyBackground(stage);
 
     // 部屋は終わっているのに決着の知らせが来ない = 留守の間に終わっていた。
     // 少しだけ待つのは、知らせが状態の更新より僅かに遅れて届くことがあるため。

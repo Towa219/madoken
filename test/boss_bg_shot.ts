@@ -1,9 +1,9 @@
 // ステージごとの戦闘背景が実画面でどう見えるかを撮る(目視確認用)。
 //
-// 各段階の代表ステージへ入って1枚ずつ撮る。
+// ボス面(共闘専用)の背景を撮る。部屋を作って1人で始める。
 // 背景だけ並べても分からない「キャラと敵が読めるか」を確かめる。
 //
-//   npx tsx test/bg_shot.ts
+//   npx tsx test/boss_bg_shot.ts
 
 import { spawn } from 'node:child_process';
 import { mkdtempSync, rmSync, writeFileSync, mkdirSync } from 'node:fs';
@@ -14,10 +14,10 @@ const BASE = process.env.MADOKEN_ENDPOINT ?? 'http://127.0.0.1:2567';
 const HTTP = BASE.replace(/^ws/, 'http');
 const CHROME = process.env.CHROME_PATH
   ?? 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe';
-const PORT = 9471;
+const PORT = 9473;
 const OUT = join(process.cwd(), 'tools', 'shots');
 
-const NAME = `bg${Math.random().toString(36).slice(2, 6)}`;
+const NAME = `bb${Math.random().toString(36).slice(2, 6)}`;
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 
 class Cdp {
@@ -89,17 +89,17 @@ function seedSave() {
 }
 
 
-// 撮る代表ステージ。段階の切り替わりが分かるように選ぶ。
+
+// 撮るボスステージ。段階の切り替わりが分かるように選ぶ。
 const TARGETS: [number, string][] = [
-  [1, 'S1_ステージ1'], [5, 'B1_ボス5'], [11, 'S2_ステージ11'], [20, 'B4_ボス20'],
-  [21, 'S3_ステージ21'], [31, 'S4_ステージ31'], [41, 'S5_ステージ41'], [50, 'B10_ボス50'],
+  [5, 'B1_ボス5'], [20, 'B4_ボス20'], [50, 'B10_ボス50'],
 ];
 
 async function main(): Promise<void> {
-  console.log('=== ステージごとの戦闘背景を撮る ===');
+  console.log('=== ボス面(共闘)の背景を撮る ===');
   mkdirSync(OUT, { recursive: true });
 
-  const profile = mkdtempSync(join(tmpdir(), 'madoken-bg-'));
+  const profile = mkdtempSync(join(tmpdir(), 'madoken-bb-'));
   const chrome = spawn(CHROME, [
     '--headless=new', `--remote-debugging-port=${PORT}`,
     `--user-data-dir=${profile}`, '--no-first-run', '--no-default-browser-check',
@@ -134,43 +134,47 @@ async function main(): Promise<void> {
       await sleep(250);
     }
     await sleep(4000);
-    for (const l of cdp.logs.filter(l => l.includes('[素材]'))) console.log(`  ${l}`);
 
     for (const [stage, label] of TARGETS) {
       await cdp.evaluate('document.querySelector("#tab-battle").click()');
       await sleep(900);
-      const picked = await cdp.evaluate<boolean>(`
+      const diag = await cdp.evaluate<string>(`
         (() => {
           const bs = [...document.querySelectorAll('#stage-select button')];
-          // ボス面のボタンは「5 👑」のように王冠が付く。数字だけの一致では拾えない。
+          if (bs.length === 0) return 'ボタンが1つも無い';
           const b = bs.find(x => (x.textContent || '').trim().split(' ')[0] === '${stage}');
-          if (!b) return false;
-          b.click(); return true;
+          if (!b) return '数=' + bs.length + ' 見本=' + JSON.stringify(bs.slice(3,6).map(y=>y.textContent));
+          b.click(); return 'OK';
         })()
       `);
+      const picked = diag === 'OK';
+      if (!picked) console.log('  診断: ' + diag);
       if (!picked) { console.log(`  ステージ${stage} を選べない(飛ばす)`); continue; }
-      await sleep(400);
-      await cdp.evaluate("document.querySelector('#btn-solo-go').click()");
-      await sleep(2600);
-      await cdp.shot(`bg_${label}`);
+      await sleep(500);
+      // ボス戦は共闘部屋から。1人でも始められる。
+      await cdp.evaluate("document.querySelector('#btn-create-room').click()");
+      await sleep(3000);
+      // 部屋の「開始」を押す
+      await cdp.evaluate(`
+        (() => {
+          const b = [...document.querySelectorAll('button')]
+            .find(x => /開始|はじめ|スタート|出撃/.test(x.textContent || '')
+                       && !(x as HTMLButtonElement).disabled);
+          if (b) (b as HTMLElement).click();
+        })()
+      `);
+      await sleep(6000);      // 3→2→1 の合図を待つ
+      await cdp.shot(`boss_${label}`);
       console.log(`  撮った: ${label}`);
-      // 逃げて次のステージへ
+      // 部屋を出て次へ
       await cdp.evaluate(`
         (() => {
           const b = [...document.querySelectorAll('button')]
-            .find(x => /逃|撤退|やめ/.test(x.textContent || ''));
+            .find(x => /退出|抜け|やめ|閉じ|戻/.test(x.textContent || ''));
           if (b) (b as HTMLElement).click();
         })()
       `);
-      await sleep(1500);
-      await cdp.evaluate(`
-        (() => {
-          const b = [...document.querySelectorAll('button')]
-            .find(x => /はい|OK|確定|閉じ/.test(x.textContent || ''));
-          if (b) (b as HTMLElement).click();
-        })()
-      `);
-      await sleep(1200);
+      await sleep(2500);
     }
     console.log('\n出力先: ' + OUT);
   } finally {

@@ -115,9 +115,14 @@ def build(ink: bool = False) -> None:
         edge_main, edge_sub = '#0a2350', '#5a4408'
         glow_open, glow_close = '<g>', '</g>'
     else:
-        g_top, g_mid, g_low, g_bot = '#f2fbff', '#a9e2ff', '#4fa8f5', '#2b62c8'
+        # ★ 上端をほぼ白(#f2fbff)にしてはいけない(2026-08-11)。
+        #   暗い画面では、白い字とその周りの青い光が背景と同じ明るさになり、
+        #   字の上半分だけ輪郭が消えて「半透明のよう」に見えた。
+        #   下半分(濃い青)は輪郭が立っていたので、上だけ弱く見える。
+        #   上端を1段落とし、縁取りを濃くして背景から切り離す。
+        g_top, g_mid, g_low, g_bot = '#cfeaff', '#8ccbff', '#3f95ee', '#2258bd'
         sub_a, sub_b, sub_c = '#ffe9b0', '#fff6dc', '#ffd98a'
-        edge_main, edge_sub = '#0d2350', '#3a2a08'
+        edge_main, edge_sub = '#071a3c', '#3a2a08'
         glow_open, glow_close = '<g filter="url(#t-glow)">', '</g>'
 
     svg = f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {w:.1f} {h:.1f}"
@@ -137,13 +142,17 @@ def build(ink: bool = False) -> None:
       <stop offset="0.5" stop-color="{sub_b}"/>
       <stop offset="1"   stop-color="{sub_c}"/>
     </linearGradient>
-    <!-- 青い光。暗い背景から字を浮かせる -->
+    <!-- 青い光。暗い背景から字を浮かせる。
+         ★ 効かせすぎないこと(2026-08-11)。
+           滲み3.2・濃さ0.75で2枚重ねていたら、光が字の輪郭そのものを埋め、
+           上半分(明るい色の側)が背景に溶けて「半透明のよう」に見えた。
+           色を暗くするだけでは直らず、光を弱めて初めて輪郭が立った。
+           光は「字の外側にうっすら」で足り、1枚で十分。 -->
     <filter id="t-glow" x="-25%" y="-40%" width="150%" height="190%">
-      <feGaussianBlur stdDeviation="3.2" result="b"/>
-      <feFlood flood-color="#3f8ef0" flood-opacity="0.75"/>
+      <feGaussianBlur stdDeviation="2.0" result="b"/>
+      <feFlood flood-color="#2f6fc8" flood-opacity="0.42"/>
       <feComposite in2="b" operator="in" result="g"/>
       <feMerge>
-        <feMergeNode in="g"/>
         <feMergeNode in="g"/>
         <feMergeNode in="SourceGraphic"/>
       </feMerge>
@@ -152,7 +161,7 @@ def build(ink: bool = False) -> None:
 
   {glow_open}
     <!-- 縁取りを先に敷いて、明るい背景でも字が潰れないようにする -->
-    <g fill="none" stroke="{edge_main}" stroke-width="7" stroke-linejoin="round">
+    <g fill="none" stroke="{edge_main}" stroke-width="9" stroke-linejoin="round">
       {main_g}
     </g>
     <g fill="url(#t-blue)">
