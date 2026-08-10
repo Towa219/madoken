@@ -47,9 +47,12 @@ COLS, ROWS = 2, 5
 #
 # 一時的に変えて試すなら環境変数でもよい:
 #   MEISHI_SHIFT_X=-2.5 MEISHI_SHIFT_Y=0 python tools/meishi/build_meishi.py
-# 実測の経過: 0mm → 右へ2〜3mmずれた / -2.5mm → 今度は左へ行きすぎた。
-# 間を取って -1.2mm。ここから先は0.3mm刻みで詰める。
-SHIFT_X = float(os.environ.get('MEISHI_SHIFT_X', '-1.2'))
+# 実測の経過(★ 倍率を100%に直してからの値だけが当てになる。
+# それ以前の「右へ2〜3mm」は縮んだ紙の上で見ていたので数えない):
+#   -2.5mm → 左へ行きすぎた
+#   -1.2mm → まだ2mmほど左
+#   +0.8mm → -1.2 から右へ2mm戻した(いまここ)
+SHIFT_X = float(os.environ.get('MEISHI_SHIFT_X', '0.8'))
 SHIFT_Y = float(os.environ.get('MEISHI_SHIFT_Y', '0'))
 
 
