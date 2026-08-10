@@ -10,3 +10,24 @@ services:
     envVars:
       - key: NODE_VERSION
         value: "22.12.0"
+
+    # ★ ゲームに関係のない変更では、デプロイを走らせない。
+    #
+    #   main に push するたびに Render は毎回ビルドし直す。
+    #   名刺の位置合わせ(tools/meishi)を10回ほど繰り返した日は、
+    #   ゲームのコードを1行も変えていないのにデプロイが10回走り、
+    #   そのうち1回が失敗して「deploy failed」のメールが届いた。
+    #   遊んでいる人には何も届かない変更のために、無料枠のビルド時間を
+    #   使い、失敗の知らせで驚かせるのは割に合わない。
+    #
+    #   ここに挙げた場所だけが変わった push は、まるごと無視される。
+    #   ・tools/  … 名刺・題字・動画などの道具(ゲームには入らない)
+    #   ・docs/   … 入口の待機ページ(GitHub Pagesが配信する。Renderは無関係)
+    #   ・*.md    … 説明書き
+    #   ★ shared/ src/ server/ public/ index.html を触った時は今までどおり出る。
+    buildFilter:
+      ignoredPaths:
+        - tools/**
+        - docs/**
+        - "**/*.md"
+        - "20260806.txt"
