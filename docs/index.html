@@ -118,7 +118,7 @@
     position: relative; overflow: hidden; cursor: pointer;
     background: #0a0a14; border: 1px solid #3a3a5c; border-radius: 10px;
     /* 絵が届く前から場所を取っておく。後から入ると下の文字が飛び跳ねる。 */
-    aspect-ratio: 1280 / 704;
+    aspect-ratio: 1280 / 720;
   }
   #pv-thumb img {
     display: block; width: 100%; height: 100%; object-fit: cover;
@@ -192,12 +192,12 @@
   <div id="pv-box">
     <!-- 押すと動画が始まる。絵は動画の1コマ(pv_poster.jpg)をそのまま使う。
          枠は縦横比だけ先に決めてあるので、絵が届く前でも下の文字が飛ばない。 -->
-    <button id="pv-thumb" aria-label="予告編を再生する（45秒）">
-      <img src="pv_poster.jpg" alt="" width="1280" height="704">
+    <button id="pv-thumb" aria-label="予告編を再生する（26秒）">
+      <img src="pv_poster.jpg" alt="" width="1280" height="720">
       <span class="pv-play" aria-hidden="true"></span>
-      <span class="pv-time" aria-hidden="true">0:45</span>
+      <span class="pv-time" aria-hidden="true">0:26</span>
     </button>
-    <button class="go" id="btn-pv">▶ 予告編を見る（45秒）</button>
+    <button class="go" id="btn-pv">▶ 予告編を見る（26秒）</button>
   </div>
 
   <!-- サーバーが既に起きていた時。すぐ飛ばさず、数秒だけ選ばせる -->
@@ -226,7 +226,7 @@
 <div id="pv-modal" class="hidden">
   <div id="pv-inner">
     <video id="pv-video" controls playsinline preload="none"
-           poster="pv_poster.jpg" width="1280" height="704">
+           poster="pv_poster.jpg" width="1280" height="720">
       <source src="pv.mp4" type="video/mp4">
     </video>
     <div id="pv-actions">

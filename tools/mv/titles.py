@@ -30,10 +30,10 @@ for stream in (sys.stdout, sys.stderr):
         pass
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-OUT_DIR = os.path.join(HERE, 'overlay')
+W = int(os.environ.get('MV_W', '1280'))
+H = int(os.environ.get('MV_H', '704'))
+OUT_DIR = os.path.join(HERE, 'overlay_vidu' if H == 720 else 'overlay')
 SEQ_DIR = os.path.join(OUT_DIR, 'title_seq')
-
-W, H = 1280, 704
 SS = 2                 # 2倍で描いて縮める。字の縁と動きが滑らかになる。
 FPS = 24
 
@@ -52,9 +52,15 @@ SERIF = r'C:\Windows\Fonts\NotoSerifJP-VF.ttf'
 GOTHIC = r'C:\Windows\Fonts\YuGothM.ttc'
 
 # 題名の出し方(秒)
-T_TOTAL = 5.0
-T_FADE_IN = (0.15, 1.05)     # 浮かび上がる
-T_FADE_OUT = (4.05, 5.00)    # 消える
+#
+# ★ 尺の短いPVでは短くすること(2026-08-11)。
+#   第1版は44.8秒あったので5.0秒でよかったが、第2版(26.4秒・1カット1.8秒)に
+#   そのまま使うと、開幕・黒金・紅蓮の3カットにまたがって出続け、
+#   いちばん派手な魔法の上に文字が乗り続けた。
+#   MV_TITLE_SEC で変えられる。第2版は 3.2 で走らせている。
+T_TOTAL = float(os.environ.get('MV_TITLE_SEC', '5.0'))
+T_FADE_IN = (0.15, 1.05)                        # 浮かび上がる
+T_FADE_OUT = (T_TOTAL - 0.95, T_TOTAL)          # 消える
 SCALE_FROM, SCALE_TO = 1.055, 1.0   # ゆっくり収まる
 
 

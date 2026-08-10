@@ -7,6 +7,7 @@
 # 使い方(ComfyUI を起動した状態で):
 #   "D:/ComfyUI/python_embeded/python.exe" tools/mv/pv_bgm.py          … 3案を作る
 #   "D:/ComfyUI/python_embeded/python.exe" tools/mv/pv_bgm.py --only B … 1案だけ
+#   "D:/ComfyUI/python_embeded/python.exe" tools/mv/pv_bgm.py --set v2 … 第2版を各3テイク
 #
 # 出来た3案を聴き比べて、採用したものを PICKED に書き残すこと。
 
@@ -32,7 +33,7 @@ CKPT = os.environ.get('ACE_CKPT', 'ace_step_1.5_turbo_aio.safetensors')
 # 動画の実尺は 37.5秒(コマ数を 4n+1 に丸めた結果)。
 # 少し長めに作って、繋ぐ時に末尾を絞る。ぴったりに作ると
 # 終わりが切り落とされて、余韻の無い切れ方になる。
-SECONDS = 45
+SECONDS = float(os.environ.get('MV_BGM_SEC', '45'))
 
 STEPS = 28
 CFG = 2.0
@@ -70,6 +71,51 @@ VARIANTS = {
     },
 }
 
+# 第2版(26.4秒・15カット)専用。時刻を明記し、映像の山谷を曲へ渡す。
+# ACE-Stepは自然言語の時刻を厳密には保証しないため、複数テイクを作り、
+# bgm_match.pyで実際の音量包絡線を全探索して採用位置を決める。
+V2_VARIANTS = {
+    'V1': {
+        'bpm': 144, 'keyscale': 'D minor', 'seed': 26401,
+        'tags': 'precisely structured 28-second orchestral trailer cue; '
+                '0.0-1.8 seconds extremely quiet low sustained bass drone with one tiny bell note only; '
+                '1.8-12.0 seconds rapid driving staccato string ostinato and tight taiko percussion, six escalating attacks; '
+                '12.0-13.8 seconds gigantic enemy entrance with one crushing sub-bass impact; '
+                '13.8-15.5 seconds tense battle continuation; '
+                '15.5-17.2 seconds strong breakdown, sparse and thin, percussion drops out; '
+                '17.2-20.8 seconds determined rebuild and accelerating crescendo; '
+                '20.8-22.6 seconds absolute loudest climax, full brass and percussion tutti; '
+                '22.6-26.4 seconds release, gentle resonance and quiet resolved ending; '
+                '26.4-28.0 seconds soft reverb tail',
+    },
+    'V2': {
+        'bpm': 136, 'keyscale': 'E minor', 'seed': 26411,
+        'tags': 'time-coded 28-second fantasy action score; '
+                '0.0-1.8 seconds near silence, deep pedal tone and a single delicate temple bell; '
+                '1.8-12.0 seconds relentless short string pulses, toms and taiko building through six magical strikes; '
+                '12.0-13.8 seconds colossal monster reveal marked by a solitary low orchestral slam; '
+                '13.8-15.5 seconds urgent counterattack; '
+                '15.5-17.2 seconds dramatic drop to exposed thin strings and almost no drums; '
+                '17.2-20.8 seconds rising heroic sequence, faster and louder every bar; '
+                '20.8-22.6 seconds maximum intensity brass fanfare and full percussion ensemble; '
+                '22.6-26.4 seconds victorious release decrescendo to a calm final chord; '
+                '26.4-28.0 seconds only fading natural resonance',
+    },
+    'V3': {
+        'bpm': 152, 'keyscale': 'A minor', 'seed': 26421,
+        'tags': 'compact 28-second cinematic magical battle cue with exact dramatic arc; '
+                '0.0-1.8 seconds hushed ominous low drone plus exactly one small glass bell; '
+                '1.8-12.0 seconds agile spiccato strings and crisp war drums surge forward in six waves; '
+                '12.0-13.8 seconds massive creature arrival, isolated thunderous bass hit; '
+                '13.8-15.5 seconds forceful struggle; '
+                '15.5-17.2 seconds sudden restrained low-energy gap with very sparse instrumentation; '
+                '17.2-20.8 seconds powerful comeback and steep ascending crescendo; '
+                '20.8-22.6 seconds single loudest peak, blazing horns, brass and drums tutti; '
+                '22.6-26.4 seconds open warm resolution becoming quiet; '
+                '26.4-28.0 seconds clean orchestral tail',
+    },
+}
+
 
 def post(path, payload):
     req = urllib.request.Request(
@@ -84,7 +130,7 @@ def get(path):
         return json.loads(res.read().decode('utf-8'))
 
 
-def build(v, quality):
+def build(v, quality, seconds):
     # TextEncodeAceStepAudio1.5 は全ての項目が必須。省くと 400 で弾かれる。
     def encode(text):
         return {
@@ -92,7 +138,7 @@ def build(v, quality):
             'inputs': {
                 'clip': ['1', 1], 'tags': text, 'lyrics': '',
                 'seed': int(v['seed']), 'bpm': int(v['bpm']),
-                'duration': float(SECONDS), 'timesignature': '4',
+                'duration': float(seconds), 'timesignature': '4',
                 'language': 'en', 'keyscale': str(v['keyscale']),
                 'generate_audio_codes': True, 'cfg_scale': 2.0,
                 'temperature': 0.85, 'top_p': 0.9, 'top_k': 0, 'min_p': 0.0,
@@ -104,7 +150,7 @@ def build(v, quality):
         '2': encode(f"{v['tags']}, {COMMON}"),
         '3': encode(NEGATIVE),
         '4': {'class_type': 'EmptyAceStep1.5LatentAudio',
-              'inputs': {'seconds': float(SECONDS), 'batch_size': 1}},
+              'inputs': {'seconds': float(seconds), 'batch_size': 1}},
         '5': {'class_type': 'KSampler',
               'inputs': {'model': ['1', 0], 'seed': int(v['seed']), 'steps': STEPS,
                          'cfg': CFG, 'sampler_name': 'euler', 'scheduler': 'simple',
@@ -133,8 +179,8 @@ def quality_choice():
         return '128k'
 
 
-def run(v, name, quality):
-    pid = post('/prompt', {'prompt': build(v, quality)})['prompt_id']
+def run(v, name, quality, seconds):
+    pid = post('/prompt', {'prompt': build(v, quality, seconds)})['prompt_id']
     started = time.time()
     last = -1
     while True:
@@ -175,19 +221,34 @@ def run(v, name, quality):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument('--only', help='A / B / C のどれか')
+    ap.add_argument('--set', choices=('v1', 'v2'), default='v1', help='曲案セット')
+    ap.add_argument('--only', help='第1版はA/B/C、第2版はV1/V2/V3のどれか')
+    ap.add_argument('--takes', type=int, help='各案の生成テイク数(第1版1、第2版3)')
     args = ap.parse_args()
 
+    is_v2 = args.set == 'v2'
+    variants = V2_VARIANTS if is_v2 else VARIANTS
+    seconds = float(os.environ.get('MV_BGM_SEC', '28' if is_v2 else '45'))
+    takes = args.takes if args.takes is not None else (3 if is_v2 else 1)
+    if takes < 1:
+        ap.error('--takesは1以上にしてください')
+    if args.only and args.only not in variants:
+        ap.error(f"--set {args.set}で選べる案は{'/'.join(variants)}です")
+
     quality = quality_choice()
-    print(f'♪ 紹介動画の曲を作る({SECONDS}秒 / {quality})')
-    for name, v in VARIANTS.items():
+    print(f'♪ 紹介動画の曲を作る({seconds}秒 / {quality} / {args.set})')
+    for name, base in variants.items():
         if args.only and name != args.only:
             continue
-        print(f"▶ 案{name}: BPM{v['bpm']} / {v['keyscale']}")
-        made, took = run(v, name, quality)
-        for m in made:
-            mb = os.path.getsize(m) / 1024 / 1024
-            print(f'   {took:.0f}秒  {m}  ({mb:.1f}MB)')
+        for take in range(1, takes + 1):
+            v = dict(base)
+            v['seed'] = int(base['seed']) + take - 1
+            output_name = f'v2_{name}_take{take}' if is_v2 else name
+            print(f"▶ 案{name} テイク{take}: BPM{v['bpm']} / {v['keyscale']} / seed={v['seed']}")
+            made, took = run(v, output_name, quality, seconds)
+            for m in made:
+                mb = os.path.getsize(m) / 1024 / 1024
+                print(f'   {took:.0f}秒  {m}  ({mb:.1f}MB)')
 
 
 if __name__ == '__main__':
