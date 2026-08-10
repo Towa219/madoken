@@ -364,8 +364,16 @@ export const BASE_MP_REGEN = PLAYER_MP_REGEN;
 
 // MP自然回復の上乗せ(毎秒)。基礎の自然回復は毎秒3なので、+3で倍になる。
 // 上限6(毎秒9=3倍)。全体版は7割。
+// 瞑想系(と共鳴系)のMP回復量にかかる倍率。
+//
+// 2026-08-11に 1.0 → 1.5 へ。長期戦を支える系統なのに、
+// 上限が毎秒6(自然回復3の2倍)では撃ち続けるほどの差にならなかった。
+// 上限も一緒に上がる(6 → 9)ようにしてある ―
+// ここだけ据え置くと、威力を上げても頭打ちのままで倍率の意味が消える。
+export const FOCUS_REGEN_MUL = 1.5;
+
 export function mpRegenBonusOf(s: SpellStats): number {
-  const base = Math.min(6, 1.5 + s.power / 16);
+  const base = Math.min(6, 1.5 + s.power / 16) * FOCUS_REGEN_MUL;
   return Math.round((s.targetAll ? base * 0.7 : base) * 10) / 10;
 }
 
