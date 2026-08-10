@@ -58,7 +58,8 @@ COLS, ROWS = 2, 5
 #   「さっき刷ったPDFはどの値だったか」を紙を見れば確かめられる ―
 #   何度も刷り直すと、どれがどれだか分からなくなるため。
 SHIFT_X = float(os.environ.get('MEISHI_SHIFT_X', '4.8'))
-SHIFT_Y = float(os.environ.get('MEISHI_SHIFT_Y', '0'))
+# 縦は 0mm → +1.0mm(上に寄っていたので全体を1mm下げた)
+SHIFT_Y = float(os.environ.get('MEISHI_SHIFT_Y', '1.0'))
 
 
 # 8つのエレメントの色。ゲーム本体(shared/data.ts の ELEMENTS)と同じ並び・同じ色。

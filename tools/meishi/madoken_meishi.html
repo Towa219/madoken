@@ -135,7 +135,7 @@
     position: absolute; left: 0; top: 0; width: 210mm; height: 297mm;
     pointer-events: none;
     /* 面と同じだけ動かす。別々に動くと線が名刺の縁からずれる */
-    transform: translate(4.8mm, 0.0mm);
+    transform: translate(4.8mm, 1.0mm);
   }
 
   @media print {
@@ -163,7 +163,7 @@
   100mmのはずが <b>96mm前後</b>なら「倍率=デフォルト」、
   <b>94mm前後</b>なら用紙がレターになっています。<br>
   1面の大きさは <b>91 × 55mm</b>。ここが合っていれば本番を刷って大丈夫です。<br>
-  <b>いまのずれ補正: 横 4.8mm / 縦 0.0mm</b>
+  <b>いまのずれ補正: 横 4.8mm / 縦 1.0mm</b>
   (刷った位置がまだずれる時は <code>build_meishi.py</code> の
   <code>SHIFT_X</code> / <code>SHIFT_Y</code> を直して作り直す。
   右にずれるなら横を小さく、下にずれるなら縦を小さくする)<br>
