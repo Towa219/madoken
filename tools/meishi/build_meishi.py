@@ -61,7 +61,13 @@ COLS, ROWS = 2, 5
 # 面と線が一緒に動くようになってからの実測:
 #   -2.5mm → まだ1mmほど左。全体に4mm右へ、との申告
 #   +1.5mm → -2.5 から右へ4mm(いまここ)
-SHIFT_X = float(os.environ.get('MEISHI_SHIFT_X', '1.5'))
+# 実測から解いた値(2026-08-10)。
+#   版(PDF)  16.50 〜 201.52mm  ← SHIFT_X=2.5 / SCALE_X=1.0166 で作った紙
+#   紙の上   14.00 〜 198.50mm  ← 左は合っていた / 右が2.5mm外へ出た
+#   ⇒ プリンタは ×0.99719 で刷り、-2.45mm ずれる
+#   ⇒ 紙の上で 14〜196mm に来る版は SHIFT_X=+2.5 / SCALE_X=1.0028
+#     (左が合っている以上、位置は動かさない ― 幅だけを詰める)
+SHIFT_X = float(os.environ.get('MEISHI_SHIFT_X', '2.5'))
 SHIFT_Y = float(os.environ.get('MEISHI_SHIFT_Y', '1.0'))
 
 # ---- 大きさの補正 ----
@@ -79,8 +85,10 @@ SHIFT_Y = float(os.environ.get('MEISHI_SHIFT_Y', '1.0'))
 #   275 / 272 = 1.011 を入れる。
 #   横も同じ。2列ぶんは 91 × 2 = 182mm。右が2mm短いなら実際は180mm。
 #   182 / 180 = 1.011。縦と同じ値になった(このプリンタは縦横とも約1.1%縮む)。
-SCALE_X = float(os.environ.get('MEISHI_SCALE_X', '1.011'))
-SCALE_Y = float(os.environ.get('MEISHI_SCALE_Y', '1.011'))
+# 横も縦も 1 より大きい ― このプリンタは刷ると少し縮む。
+# 縮み方が縦横で違う(横0.28% / 縦0.75%)ので、別々に持つ。
+SCALE_X = float(os.environ.get('MEISHI_SCALE_X', '1.0028'))
+SCALE_Y = float(os.environ.get('MEISHI_SCALE_Y', '1.0075'))
 
 
 # 8つのエレメントの色。ゲーム本体(shared/data.ts の ELEMENTS)と同じ並び・同じ色。
@@ -245,16 +253,24 @@ def cut_svg() -> str:
         ruler.append(f'<line x1="{x:.3f}" y1="{ry:.2f}" '
                      f'x2="{x:.3f}" y2="{ry - up:.2f}"/>')
 
-    # 説明は1行だけ、ものさしの右へ。面の上端より下に垂らさない。
-    note = (f'← 刷り上がりでここが100mmなら実寸 ／ 1面 {CARD_W}×{CARD_H}mm ／ '
-            f'ずれ補正 横{SHIFT_X:+.1f} 縦{SHIFT_Y:+.1f}mm ／ '
-            f'倍率 横×{SCALE_X:.3f} 縦×{SCALE_Y:.3f}')
+    # 説明はものさしの右へ1行。
+    #
+    # ★ 短く保つこと。長い文を置いたら紙の右へはみ出した。
+    #   ものさしの右端は x0+rlen(いま約120mm)。紙は210mmしかない。
+    #   全角は約2.2mm、半角は約1.2mm を目安に、90mm以内に収める。
+    note = (f'← 100mm ／ ずれ{SHIFT_X:+.1f},{SHIFT_Y:+.1f} '
+            f'／ 倍率{SCALE_X:.4f},{SCALE_Y:.4f}')
+    # 目安の幅を出して、はみ出しそうなら作る時に知らせる
+    est = sum(2.2 if ord(ch) > 0x2000 else 1.2 for ch in note)
+    if x0 + rlen + 2 + est > 205:
+        print(f'  ※ ものさしの説明が長い(推定 {est:.0f}mm)。'
+              f'右端 {x0 + rlen + 2 + est:.0f}mm ― 紙からはみ出す')
 
     return (
         f'<svg class="cut" viewBox="0 0 210 297" xmlns="http://www.w3.org/2000/svg">'
         f'<g stroke="#adbccc" stroke-width="0.2" fill="none">' + ''.join(lines) + '</g>'
         f'<g stroke="#1b56a8" stroke-width="0.35" fill="none">' + ''.join(ruler) + '</g>'
-        f'<text x="{x0 + rlen + 3:.3f}" y="{ry + 0.9:.2f}" font-size="2.4"'
+        f'<text x="{x0 + rlen + 2:.3f}" y="{ry + 0.8:.2f}" font-size="2.2"'
         f' fill="#1b56a8" font-family="sans-serif">{note}</text>'
         '</svg>')
 
