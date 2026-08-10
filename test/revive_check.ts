@@ -132,6 +132,12 @@ async function checkCoop(): Promise<void> {
     roomB.send('ready');
     check('戦闘が始まる', await until(() => stA()?.phase === 'fight', 20));
 
+    // ---- 先に「誰も倒れていない時」を見る ----
+    //
+    // 蘇生は空振りにせず、全員を大きく回復する。
+    // 満タンでは差が出ないので、囮が殴られて減るまで待ってから撃つ。
+    const bInB = () => stB()?.players?.get(roomB!.sessionId);
+
     // A だけ撃ち続ける。ヘイトが集まり、やがて倒れる。
     const swing = setInterval(() => {
       const me = meA();
@@ -140,7 +146,26 @@ async function checkCoop(): Promise<void> {
       }
     }, 500);
 
-    const died = await until(() => aInB()?.alive === false, 150);
+    // 囮が半分以下まで削られたところで、蘇生光を1発。
+    // この時点では誰も倒れていないので、回復として効くはず。
+    const hurt = await until(
+      () => (aInB()?.alive === true) && Number(aInB()?.hp ?? 999) < PLAYER_MAX_HP * 0.6, 90);
+    check('囮が削られる(回復を測るための下ごしらえ)', hurt);
+    if (hurt) {
+      const aBefore = Number(aInB()?.hp ?? 0);
+      const bBefore = Number(bInB()?.hp ?? 0);
+      roomB.send('cast', { idx: 0 });
+      const healed = await until(() => Number(aInB()?.hp ?? 0) > aBefore, 20);
+      check('★誰も倒れていない時は回復になる', healed,
+        `囮 ${aBefore} → ${Number(aInB()?.hp ?? 0)}`);
+      // 蘇生役自身も対象。減っていなければ満タンのままなので、そこは責めない
+      const bAfter = Number(bInB()?.hp ?? 0);
+      check('★撃った本人にも効いている(減っていれば増える)',
+        bBefore >= (bInB()?.maxHp ?? 0) || bAfter > bBefore,
+        `蘇生役 ${bBefore} → ${bAfter}`);
+    }
+
+    const died = await until(() => aInB()?.alive === false, 180);
     clearInterval(swing);
     check('★囮が倒れる(ここまでは前提)', died,
       died ? '' : `${STAGE}階でも倒れなかった。MADOKEN_STAGE を上げて試す`);

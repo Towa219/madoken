@@ -657,7 +657,7 @@ export function statsSummary(s: SpellStats): string {
   if (s.kind === 'revive') {
     const parts = [
       `【蘇生】倒れた仲間を全員よみがえらせる(最大HPの${Math.round(REVIVE_HP_RATE * 100)}%)`,
-      '倒れている人がいなければ自分を回復',
+      `倒れている人がいなければ全員を回復(各自${Math.round(PLAYER_MAX_HP * REVIVE_HP_RATE)})`,
       `詠唱${s.castTime.toFixed(2)}秒`, `MP${s.manaCost}`,
       `再使用${spellCooldown(s).toFixed(1)}秒`,
     ];

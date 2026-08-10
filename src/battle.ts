@@ -606,11 +606,14 @@ export class BattleManager {
           // 蘇生は共闘のためのもの。ソロには起こす相手がいないので、
           // 大きな回復に化ける(挑発をソロで護盾に読み替えているのと同じ扱い)。
           // ★ お供は起こせない ―「倒れると復活しない」を崩さないため。
+          //   ただし生きているお供は、他の全体魔法と同じように癒される。
           playSfx('heal');
           const heal = Math.round(this.maxHp * REVIVE_HP_RATE);
           const before = this.hp;
           this.hp = Math.min(this.maxHp, this.hp + heal);
           this.addPopup(PLAYER_X, cy(115), `+${this.hp - before}`, 0x88ddaa);
+          const buddy = this.sharedAlly(st);
+          if (buddy) this.addPopup(ALLY_X, ay(115), `+${buddy.heal(heal)}`, 0x88ddaa);
         } else if (st.kind === 'seal') {
           // 封印の効きは敵ごとに違う。属性相性がそのまま止まる時間に効く。
           let sealed = 0;

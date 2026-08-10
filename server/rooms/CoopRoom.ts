@@ -739,12 +739,19 @@ export class CoopRoom extends Room<CoopState> {
         announce(`✨ ${p.name} の蘇生光 — ${back.join('・')} が戦線に戻った`);
         if (casterInternal) casterInternal.hate += back.length * 60;
       } else {
-        // 誰も倒れていない = 自分を回復する
+        // 誰も倒れていない = 全員を大きく回復する。
+        // 空振りにしないための受け皿だが、撃ち時を選べば
+        // 「倒れる前に立て直す」使い方もできる。
         const heal = Math.round(PLAYER_MAX_HP * REVIVE_HP_RATE);
-        const before = p.hp;
-        p.hp = Math.min(p.maxHp, p.hp + heal);
-        this.broadcast('heal', { sid, amount: p.hp - before });
-        if (casterInternal) casterInternal.hate += (p.hp - before) * 1.2;
+        let healedTotal = 0;
+        this.state.players.forEach((q, qsid) => {
+          if (!q.alive) return;
+          const before = q.hp;
+          q.hp = Math.min(q.maxHp, q.hp + heal);
+          healedTotal += q.hp - before;
+          this.broadcast('heal', { sid: qsid, amount: q.hp - before });
+        });
+        if (casterInternal) casterInternal.hate += healedTotal * 1.2;
       }
       return;
     }

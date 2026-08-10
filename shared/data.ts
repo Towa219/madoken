@@ -220,7 +220,7 @@ export const RECIPES: RecipeDef[] = [
     hint: '光を六つ束ねると、失われた灯にもう一度火が入る (光×6以上)',
     desc: '共闘で<b>倒れた仲間を全員よみがえらせる</b>'
       + `(最大HPの${Math.round(REVIVE_HP_RATE * 100)}%で復帰)。`
-      + '倒れている人が誰もいない時は、自分を大きく回復する。',
+      + '倒れている人が誰もいない時は、<b>全員を大きく回復</b>する。',
     check: c => n(c, 'light') >= 6,
     apply: s => { s.kind = 'revive'; s.targetAll = true; },
   },
