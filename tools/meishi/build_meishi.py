@@ -449,12 +449,14 @@ def build(cut: bool = False) -> None:
      ここは箇条書きの下・QRの右・キャラの左で、どれにも触れない隙間。
      重なっていないことは check_layout.mjs が実測で見張る。 */
   .wind {{
-    /* 実測で空いている所へ置いた。
-       箇条書きの右端 55.5mm / キャラの左端 66.1mm /
-       売り文句の下 20.7mm / 足元(QR)の上 35.4mm ―
-       その内側 x56.5〜65.0 / y22.5〜31.0 に収まる。 */
-    position: absolute; right: 26mm; bottom: 24mm;
-    width: 8.5mm; height: 8.5mm;
+    /* 手の左斜め下。キャラの手はおよそ y33mm の高さにある。
+       そこから左下へ下ろすと、足元(QR・アドレス)の右端 61.1mm と
+       キャラの左端 66.1mm に挟まれた 5mm の隙間に入る。
+       キャラには重ねない約束なので、この幅に収まる大きさにしてある。 */
+    /* ★ 面は倍率ぶん大きい(いま92mm幅)。右からの指定はその幅を基準に
+       効くので、91mmで計算すると1mmぶん右へ寄ってキャラに触れる。 */
+    position: absolute; right: 26.5mm; bottom: 21.5mm;
+    width: 5.5mm; height: 5.5mm;
   }}
   .wind svg {{ width: 100%; height: 100%; display: block; }}
 
