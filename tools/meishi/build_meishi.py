@@ -61,7 +61,7 @@ COLS, ROWS = 2, 5
 # 面と線が一緒に動くようになってからの実測:
 #   -2.5mm → まだ1mmほど左。全体に4mm右へ、との申告
 #   +1.5mm → -2.5 から右へ4mm(いまここ)
-SHIFT_X = float(os.environ.get('MEISHI_SHIFT_X', '2.5'))
+SHIFT_X = float(os.environ.get('MEISHI_SHIFT_X', '1.5'))
 SHIFT_Y = float(os.environ.get('MEISHI_SHIFT_Y', '1.0'))
 
 # ---- 大きさの補正 ----
@@ -79,8 +79,8 @@ SHIFT_Y = float(os.environ.get('MEISHI_SHIFT_Y', '1.0'))
 #   275 / 272 = 1.011 を入れる。
 #   横も同じ。2列ぶんは 91 × 2 = 182mm。右が2mm短いなら実際は180mm。
 #   182 / 180 = 1.011。縦と同じ値になった(このプリンタは縦横とも約1.1%縮む)。
-SCALE_X = float(os.environ.get('MEISHI_SCALE_X', '1.0166'))
-SCALE_Y = float(os.environ.get('MEISHI_SCALE_Y', '1.0222'))
+SCALE_X = float(os.environ.get('MEISHI_SCALE_X', '1.011'))
+SCALE_Y = float(os.environ.get('MEISHI_SCALE_Y', '1.011'))
 
 
 # 8つのエレメントの色。ゲーム本体(shared/data.ts の ELEMENTS)と同じ並び・同じ色。
@@ -103,6 +103,34 @@ def elem_ribbon() -> str:
         segs.append(
             f'<span style="background:{col};flex:1 1 0"></span>')
     return '<span class="ribbon">' + ''.join(segs) + '</span>'
+
+
+def wind_svg() -> str:
+    """風の渦。キャラの左に小さく置く(キャラには重ねない)。
+
+    ★ 図形で描く。AIに描かせると線の太さ・色・光の当たり方が
+      既存の絵と揃わず、貼った感じになる。この大きさなら図形のほうが馴染む。
+    ★ 色は風のエレメント(#66dd99)。名刺の上端の帯と同じ色を使うので、
+      「これは風の魔法だ」と色だけで分かる。
+    """
+    g = '#66dd99'
+    return (
+        '<span class="wind" aria-hidden="true">'
+        '<svg viewBox="0 0 100 100">'
+        '<g fill="none" stroke="' + g + '" stroke-linecap="round">'
+        # 外から内へ巻き込む本体
+        '<path d="M8 40 C 20 22, 52 18, 66 32 C 78 44, 72 64, 56 66'
+        ' C 43 68, 36 58, 42 50 C 47 43, 58 45, 58 53"'
+        ' stroke-width="6"/>'
+        # 添えの筋(風が流れている感じを出す)
+        '<path d="M4 60 C 16 52, 30 52, 38 56" stroke-width="4.5" opacity="0.75"/>'
+        '<path d="M14 76 C 24 70, 36 70, 44 73" stroke-width="3.6" opacity="0.5"/>'
+        '</g>'
+        # 舞う粒
+        '<circle cx="80" cy="20" r="3.4" fill="' + g + '" opacity="0.85"/>'
+        '<circle cx="90" cy="34" r="2.2" fill="' + g + '" opacity="0.6"/>'
+        '<circle cx="26" cy="14" r="2.4" fill="' + g + '" opacity="0.6"/>'
+        '</svg></span>')
 
 
 def copyright_text() -> str:
@@ -231,7 +259,8 @@ def cut_svg() -> str:
         '</svg>')
 
 
-def card_html(art: str, qr: str, cr: str, title: str, ribbon: str) -> str:
+def card_html(art: str, qr: str, cr: str, title: str, ribbon: str,
+              wind: str) -> str:
     return f'''
   <div class="card">
     <div class="inner">
@@ -280,6 +309,7 @@ def card_html(art: str, qr: str, cr: str, title: str, ribbon: str) -> str:
         </span>
       </div>
 
+      {wind}
       <span class="badge">無料・登録不要</span>
       <img class="chara" src="{art}" alt="翠緑の薬導士">
     </div>
@@ -292,7 +322,8 @@ def build(cut: bool = False) -> None:
     cr = copyright_text()
     title = title_uri()
     ribbon = elem_ribbon()
-    cards = ''.join(card_html(art, qr, cr, title, ribbon)
+    wind = wind_svg()
+    cards = ''.join(card_html(art, qr, cr, title, ribbon, wind)
                     for _ in range(COLS * ROWS))
     out = OUT_CUT if cut else OUT
     kind = 'ハサミ線あり(普通紙用)' if cut else 'エーワン 51861(A4 10面)'
@@ -413,6 +444,19 @@ def build(cut: bool = False) -> None:
     font-size: 2.4mm; font-weight: bold; letter-spacing: 0.15mm;
     padding: 1mm 2mm; border-radius: 9mm; white-space: nowrap;
   }}
+
+  /* 風の渦。キャラの左の空きに置く。
+     ここは箇条書きの下・QRの右・キャラの左で、どれにも触れない隙間。
+     重なっていないことは check_layout.mjs が実測で見張る。 */
+  .wind {{
+    /* 実測で空いている所へ置いた。
+       箇条書きの右端 55.5mm / キャラの左端 66.1mm /
+       売り文句の下 20.7mm / 足元(QR)の上 35.4mm ―
+       その内側 x56.5〜65.0 / y22.5〜31.0 に収まる。 */
+    position: absolute; right: 26mm; bottom: 24mm;
+    width: 8.5mm; height: 8.5mm;
+  }}
+  .wind svg {{ width: 100%; height: 100%; display: block; }}
 
   /* ===== 翠緑の薬導士 ===== */
   .chara {{

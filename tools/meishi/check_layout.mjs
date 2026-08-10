@@ -106,7 +106,7 @@ async function main() {
         const lb = line.getBoundingClientRect();
         // 名刺の中身どうしが重なっていないか(1面目で見る)
         const card = document.querySelector('.card');
-        const parts = ['.title','.badge','.mark','.lead','.pts','.foot','.chara']
+        const parts = ['.title','.badge','.mark','.lead','.pts','.foot','.chara','.wind']
           .map(s => ({ s, r: card.querySelector(s).getBoundingClientRect() }));
         const hit = (a,b) => !(a.right<=b.left||b.right<=a.left||a.bottom<=b.top||b.bottom<=a.top);
         const over = [];
