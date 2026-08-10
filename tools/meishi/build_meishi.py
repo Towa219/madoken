@@ -58,7 +58,10 @@ COLS, ROWS = 2, 5
 #
 #   次からは、面と線が同じだけ動いていることを必ず実測で確かめる
 #   (tools/meishi の scratchpad にある shiftcheck の要領)。
-SHIFT_X = float(os.environ.get('MEISHI_SHIFT_X', '-2.5'))
+# 面と線が一緒に動くようになってからの実測:
+#   -2.5mm → まだ1mmほど左。全体に4mm右へ、との申告
+#   +1.5mm → -2.5 から右へ4mm(いまここ)
+SHIFT_X = float(os.environ.get('MEISHI_SHIFT_X', '1.5'))
 SHIFT_Y = float(os.environ.get('MEISHI_SHIFT_Y', '1.0'))
 
 
