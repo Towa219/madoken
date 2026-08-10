@@ -47,18 +47,18 @@ COLS, ROWS = 2, 5
 #
 # 一時的に変えて試すなら環境変数でもよい:
 #   MEISHI_SHIFT_X=-2.5 MEISHI_SHIFT_Y=0 python tools/meishi/build_meishi.py
-# 実測の経過(★ 倍率を100%に直してからの値だけが当てになる。
-# それ以前の「右へ2〜3mm」は縮んだ紙の上で見ていたので数えない):
-#   -2.5mm → 左へ行きすぎた
-#   -1.2mm → まだ左(2mm…いや3mmくらい)
-#   +1.8mm → まだ左。そこから右へ3mm
-#   +4.8mm → いまここ
+# ★ 2026-08-10、ここまでの調整はすべて無効だった。
+#   面(名刺)に SHIFT を足し忘れていて、動いていたのはハサミ線だけ。
+#   -2.5 → -1.2 → +1.8 → +4.8 と触った値は、線だけを動かしていた。
+#   名刺は最初からずっと 14mm の位置にあった。
 #
-# ★ 刷った紙には、この値が刷り込んである(試し刷り版の上の余白)。
-#   「さっき刷ったPDFはどの値だったか」を紙を見れば確かめられる ―
-#   何度も刷り直すと、どれがどれだか分からなくなるため。
-SHIFT_X = float(os.environ.get('MEISHI_SHIFT_X', '4.8'))
-# 縦は 0mm → +1.0mm(上に寄っていたので全体を1mm下げた)
+#   したがって当てになる観測は「最初の1回」だけ:
+#     倍率100%で刷ったら、名刺がミシン目より 2〜3mm 右にあった
+#   → 左へ 2.5mm 戻す。縦は「1mm下げて」の申告どおり +1.0mm。
+#
+#   次からは、面と線が同じだけ動いていることを必ず実測で確かめる
+#   (tools/meishi の scratchpad にある shiftcheck の要領)。
+SHIFT_X = float(os.environ.get('MEISHI_SHIFT_X', '-2.5'))
 SHIFT_Y = float(os.environ.get('MEISHI_SHIFT_Y', '1.0'))
 
 
@@ -283,8 +283,15 @@ def build(cut: bool = False) -> None:
 '''
     for i in range(COLS * ROWS):
         r, c = divmod(i, COLS)
+        # 位置は用紙の実寸そのまま。ここでは補正を足さない。
+        #
+        # ★ ずらすのは .shift の入れ物ごと1回だけ。
+        #   面と線を別々にずらしていた時は、片方だけ動いて食い違い、
+        #   さらに両方に足した時は二重に効いて9mmまで飛んだ。
+        #   足し算の場所を1か所に限ることでしか防げない。
         html += (f'  .card:nth-child({i + 1}) {{ '
-                 f'left: {MARGIN_X + c * CARD_W}mm; top: {MARGIN_Y + r * CARD_H}mm; }}\n')
+                 f'left: {MARGIN_X + c * CARD_W}mm; '
+                 f'top: {MARGIN_Y + r * CARD_H}mm; }}\n')
 
     html += f'''
   /* ===== 名刺の中身 ===== */
@@ -393,7 +400,14 @@ def build(cut: bool = False) -> None:
   .cut {{
     position: absolute; left: 0; top: 0; width: 210mm; height: 297mm;
     pointer-events: none;
-    /* 面と同じだけ動かす。別々に動くと線が名刺の縁からずれる */
+  }}
+
+  /* ★ ずれ補正はここ1か所だけ。
+     面(名刺)とハサミ線を同じ入れ物に入れ、その入れ物ごと動かす。
+     以前は面と線を別々にずらしていて、片方だけ動く事故を起こした
+     (「3mmずらしたのに1cm違う」の正体)。 */
+  .shift {{
+    position: absolute; left: 0; top: 0; width: 210mm; height: 297mm;
     transform: translate({SHIFT_X}mm, {SHIFT_Y}mm);
   }}
 
@@ -433,8 +447,10 @@ def build(cut: bool = False) -> None:
   アドレスを変えたい時は <code>tools/meishi/build_meishi.py</code> の <code>URL</code> を直して作り直してください(QRも一緒に変わります)。
 </div>
 
-<div class="sheet">{cards}
+<div class="sheet">
+  <div class="shift">{cards}
 {cut_svg() if cut else ''}
+  </div>
 </div>
 
 </body>

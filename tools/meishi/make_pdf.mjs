@@ -4,7 +4,7 @@
 //
 // ブラウザの印刷ダイアログは倍率の指定を間違えやすい。
 // PDFにしておけば「実際のサイズ」で刷るだけで済む。
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -15,6 +15,17 @@ const JOBS = ['madoken_meishi', 'madoken_meishi_cut'];
 const CHROME = process.env.CHROME_PATH
   ?? 'C:/Program Files/Google/Chrome/Application/chrome.exe';
 const PORT = 9458;
+
+// ★ PDFにする前に、版が狙いどおりに組めているかを実測して確かめる。
+//   面とハサミ線が別々に動いていた事故(2026-08-10)を二度と紙にしないため。
+{
+  const r = spawnSync(process.execPath, [path.join(HERE, 'check_layout.mjs')],
+    { stdio: 'inherit' });
+  if (r.status !== 0) {
+    console.error('版の確認で落ちた。PDFは作らない。');
+    process.exit(1);
+  }
+}
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const profile = fs.mkdtempSync(path.join(process.env.TEMP ?? '/tmp', 'madoken-pdf-'));
