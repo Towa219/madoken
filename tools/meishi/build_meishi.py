@@ -37,6 +37,41 @@ CARD_W, CARD_H = 91, 55       # mm
 MARGIN_X, MARGIN_Y = 14, 11   # mm
 COLS, ROWS = 2, 5
 
+# ---- 印刷のずれ補正(mm) ----
+#
+# プリンタは紙送りの都合で、刷る位置が数mmずれることがある。
+# 用紙そのものは正しくても、これがあるとミシン目と合わない。
+#
+# 「刷ったものが右に2.5mmずれている」なら X に -2.5 を入れる(左へ動かす)。
+# 下にずれているなら Y に負の値。試し刷りで測って決めること。
+#
+# 一時的に変えて試すなら環境変数でもよい:
+#   MEISHI_SHIFT_X=-2.5 MEISHI_SHIFT_Y=0 python tools/meishi/build_meishi.py
+SHIFT_X = float(os.environ.get('MEISHI_SHIFT_X', '-2.5'))
+SHIFT_Y = float(os.environ.get('MEISHI_SHIFT_Y', '0'))
+
+
+# 8つのエレメントの色。ゲーム本体(shared/data.ts の ELEMENTS)と同じ並び・同じ色。
+# 名刺を「青一色」から「遊びの色」に戻すための素。
+ELEM_COLORS = [
+    ('火', '#ff6644'), ('水', '#44aaff'), ('風', '#66dd99'), ('土', '#cc9955'),
+    ('雷', '#ffcc33'), ('氷', '#7fdfff'), ('光', '#ffe98a'), ('闇', '#a97ae6'),
+]
+
+
+def elem_ribbon() -> str:
+    """8色の帯。名刺の上端に細く通す。
+
+    「8つのエレメントを調合する遊び」であることを、読む前に色で伝える。
+    帯は1.1mmと細いので、10面ぶん刷ってもインクは食わない。
+    """
+    n = len(ELEM_COLORS)
+    segs = []
+    for i, (_name, col) in enumerate(ELEM_COLORS):
+        segs.append(
+            f'<span style="background:{col};flex:1 1 0"></span>')
+    return '<span class="ribbon">' + ''.join(segs) + '</span>'
+
 
 def copyright_text() -> str:
     """著作権表記は shared/version.ts から拾う。
@@ -102,12 +137,16 @@ def qr_svg() -> str:
 
 
 def cut_svg() -> str:
-    """ハサミ線。普通紙に刷って自分で切る時だけ使う。
+    """ハサミ線と、実寸を確かめるものさし。普通紙での試し刷り用。
 
     面と面の境目に細い線を通す。マルチカードのミシン目と同じ位置なので、
-    「線どおりに切れば名刺の寸法になる」ことがそのまま確かめられる
-    (エーワン用に刷る時は線なしの版を使うこと ― 切り離した紙の縁に
-     線が残ってしまう)。
+    刷った紙を用紙に重ねて光にかざせば、位置が合っているか分かる
+    (エーワン用に刷る時は線なしの版を使うこと ― 縁に線が残る)。
+
+    ★ ものさしを入れてある理由
+      「印刷したら名刺より小さい」は、ほぼ倍率の設定で起きる。
+      刷った紙の上で 100mm を実際に測れば、何%で出たのかが分かり、
+      設定のどれが効いているのかを言い当てられる。
     """
     w = MARGIN_X * 2 + CARD_W * COLS
     h = MARGIN_Y * 2 + CARD_H * ROWS
@@ -120,23 +159,39 @@ def cut_svg() -> str:
         y = MARGIN_Y + r * CARD_H
         lines.append(f'<line x1="{MARGIN_X}" y1="{y}" '
                      f'x2="{MARGIN_X + CARD_W * COLS}" y2="{y}"/>')
-    return (f'<svg class="cut" viewBox="0 0 {w} {h}" '
-            f'xmlns="http://www.w3.org/2000/svg">'
-            f'<g stroke="#adbccc" stroke-width="0.2" fill="none">'
-            + ''.join(lines) + '</g></svg>')
+
+    # ものさし: 上の余白に 100mm。10mm ごとに目盛り、50mm だけ長く。
+    # 紙の上端すれすれは刷れないプリンタがあるので、5mm 下げてある。
+    ry = 10.0
+    ruler = [f'<line x1="{MARGIN_X}" y1="{ry}" x2="{MARGIN_X + 100}" y2="{ry}"/>']
+    for i in range(11):
+        x = MARGIN_X + i * 10
+        long = 3.2 if i % 5 == 0 else 1.8
+        ruler.append(f'<line x1="{x}" y1="{ry}" x2="{x}" y2="{ry - long}"/>')
+
+    return (
+        f'<svg class="cut" viewBox="0 0 {w} {h}" xmlns="http://www.w3.org/2000/svg">'
+        f'<g stroke="#adbccc" stroke-width="0.2" fill="none">' + ''.join(lines) + '</g>'
+        f'<g stroke="#1b56a8" stroke-width="0.35" fill="none">' + ''.join(ruler) + '</g>'
+        f'<text x="{MARGIN_X + 102}" y="{ry + 0.6}" font-size="3.2" fill="#1b56a8"'
+        f' font-family="sans-serif">← ここが 100mm。定規で測って100mmなら実寸</text>'
+        f'<text x="{MARGIN_X}" y="{ry + 4.6}" font-size="2.8" fill="#77869e"'
+        f' font-family="sans-serif">1面の大きさは 91 × 55mm</text>'
+        '</svg>')
 
 
-def card_html(art: str, qr: str, cr: str, title: str) -> str:
+def card_html(art: str, qr: str, cr: str, title: str, ribbon: str) -> str:
     return f'''
   <div class="card">
     <div class="inner">
+      {ribbon}
       <div class="head">
         <span class="mark" aria-hidden="true">
           <svg viewBox="0 0 100 100">
             <defs>
               <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
-                <stop offset="0" stop-color="#3f8ef0"/>
-                <stop offset="1" stop-color="#12306e"/>
+                <stop offset="0" stop-color="#7b5cf0"/>
+                <stop offset="1" stop-color="#1b3f8f"/>
               </linearGradient>
             </defs>
             <rect x="2" y="2" width="96" height="96" rx="22" fill="url(#g)"/>
@@ -185,7 +240,9 @@ def build(cut: bool = False) -> None:
     qr = qr_svg()
     cr = copyright_text()
     title = title_uri()
-    cards = ''.join(card_html(art, qr, cr, title) for _ in range(COLS * ROWS))
+    ribbon = elem_ribbon()
+    cards = ''.join(card_html(art, qr, cr, title, ribbon)
+                    for _ in range(COLS * ROWS))
     out = OUT_CUT if cut else OUT
     kind = 'ハサミ線あり(普通紙用)' if cut else 'エーワン 51861(A4 10面)'
 
@@ -230,6 +287,12 @@ def build(cut: bool = False) -> None:
     color: #17233f;
   }}
 
+  /* 8エレメントの帯。名刺の上端いっぱいに通す(紙の縁から1mm内側) */
+  .ribbon {{
+    position: absolute; left: 0; right: 0; top: 0;
+    height: 1.1mm; display: flex;
+  }}
+
   .head {{ display: flex; align-items: center; gap: 2.2mm; }}
   .mark {{ width: 9.4mm; height: 9.4mm; flex: 0 0 auto; }}
   .mark svg {{ width: 100%; height: 100%; display: block; }}
@@ -239,8 +302,9 @@ def build(cut: bool = False) -> None:
   .title {{ width: 45mm; height: auto; display: block; }}
 
   .lead {{
-    margin-top: 1.4mm; font-size: 2.7mm; font-weight: bold; color: #17457e;
-    background: #e8f2fd; border-left: 0.8mm solid #3f8ef0;
+    margin-top: 1.4mm; font-size: 2.7mm; font-weight: bold; color: #6b3a17;
+    background: linear-gradient(90deg, #fff2e6 0%, #eef6ff 55%, #f3ecff 100%);
+    border-left: 0.8mm solid #ff8a3d;
     padding: 1mm 1.6mm; border-radius: 0 1mm 1mm 0;
     width: 53mm;
   }}
@@ -250,10 +314,15 @@ def build(cut: bool = False) -> None:
     font-size: 2.35mm; line-height: 1.55; color: #3f4a63;
     padding-left: 2.6mm; position: relative;
   }}
+  /* 点はエレメントの色で1つずつ変える。同じ色を並べるより、
+     「いろいろある遊び」に見える */
   .pts li::before {{
     content: ''; position: absolute; left: 0.5mm; top: 1.3mm;
-    width: 1.2mm; height: 1.2mm; border-radius: 50%; background: #8dc2f0;
+    width: 1.3mm; height: 1.3mm; border-radius: 50%; background: #8dc2f0;
   }}
+  .pts li:nth-child(1)::before {{ background: #ff6644; }}
+  .pts li:nth-child(2)::before {{ background: #ffcc33; }}
+  .pts li:nth-child(3)::before {{ background: #66dd99; }}
   .pts b {{ color: #12417a; }}
 
   /* ===== 足元(QRとURL) ===== */
@@ -281,7 +350,7 @@ def build(cut: bool = False) -> None:
   /* 右上の空きに、いちばん言いたいことを置く */
   .badge {{
     position: absolute; right: 3.6mm; top: 4.4mm;
-    background: #1b56a8; color: #eaf4ff;
+    background: linear-gradient(135deg, #ff7a3d, #e8442f); color: #fff6ef;
     font-size: 2.4mm; font-weight: bold; letter-spacing: 0.15mm;
     padding: 1mm 2mm; border-radius: 9mm; white-space: nowrap;
   }}
@@ -309,6 +378,8 @@ def build(cut: bool = False) -> None:
   .cut {{
     position: absolute; left: 0; top: 0; width: 210mm; height: 297mm;
     pointer-events: none;
+    /* 面と同じだけ動かす。別々に動くと線が名刺の縁からずれる */
+    transform: translate({SHIFT_X}mm, {SHIFT_Y}mm);
   }}
 
   @media print {{
@@ -321,18 +392,29 @@ def build(cut: bool = False) -> None:
 <body>
 
 <div class="guide-note">
-  {'<b>ハサミ線あり(普通紙用)</b> — 普通のコピー用紙に刷って、線どおりに切ると名刺(91×55mm)になります。'
+  {'<b>ハサミ線あり(普通紙での試し刷り用)</b> — 上の余白に <b>100mmのものさし</b>が刷ってあります。'
+   '刷った紙を定規で測って100mmなら実寸です。'
    if cut else
    '<b>エーワン 51861(A4 10面・91×55mm)用</b> — このまま印刷すると10枚できます。'}<br>
-  印刷設定は <b>用紙サイズ=A4</b>／<b>倍率=100%(「実際のサイズ」。
-  「ページに合わせる」「用紙に合わせて拡大縮小」は必ず外す)</b>／
-  <b>背景グラフィックを印刷する</b>。<br>
-  <b>「フチなし印刷」は使わないでください</b> ― 紙いっぱいに引き伸ばされて面付けがずれます
-  (この版は余白11mm・14mmを見込んで組んであるので、等倍で刷れば端は切れません)。<br>
-  名刺用紙は厚いので<b>手差しトレイ</b>から1枚ずつ。顔料インクは乾くまで擦らないこと。<br>
-  {'切った紙の縁に線が残るのが気になる時は、線なしの版(madoken_meishi.html)を使ってください。'
-   if cut else
-   '1枚目は普通紙に刷って、名刺用紙に重ねて光にかざすと位置を確かめられます。'}<br>
+
+  <b>★ Chrome で印刷する時の設定(ここを外すと必ず小さく出ます)</b><br>
+  &nbsp;&nbsp;送信先を選んだあと <b>「詳細設定」を開く</b>。<br>
+  &nbsp;&nbsp;・<b>用紙サイズ = A4</b><br>
+  &nbsp;&nbsp;・<b>倍率 = カスタム → 100</b>
+  (「デフォルト」は<b>印刷可能な範囲に合わせて縮小</b>します。これが「小さく出る」の正体)<br>
+  &nbsp;&nbsp;・<b>余白 = なし</b>(この版は余白14mm・11mmを自分で持っています)<br>
+  &nbsp;&nbsp;・<b>背景のグラフィック = オン</b><br>
+  &nbsp;&nbsp;・<b>「フチなし印刷」は使わない</b>(紙いっぱいに引き伸ばされて面付けがずれます)<br>
+
+  <b>測った長さから、何が起きたか分かります</b> —
+  100mmのはずが <b>96mm前後</b>なら「倍率=デフォルト」、
+  <b>94mm前後</b>なら用紙がレターになっています。<br>
+  1面の大きさは <b>91 × 55mm</b>。ここが合っていれば本番を刷って大丈夫です。<br>
+  <b>いまのずれ補正: 横 {SHIFT_X}mm / 縦 {SHIFT_Y}mm</b>
+  (刷った位置がまだずれる時は <code>build_meishi.py</code> の
+  <code>SHIFT_X</code> / <code>SHIFT_Y</code> を直して作り直す。
+  右にずれるなら横を小さく、下にずれるなら縦を小さくする)<br>
+
   アドレスを変えたい時は <code>tools/meishi/build_meishi.py</code> の <code>URL</code> を直して作り直してください(QRも一緒に変わります)。
 </div>
 
@@ -350,6 +432,8 @@ def build(cut: bool = False) -> None:
     print('  アドレス: {}'.format(URL))
     print('  面付け: {}×{}面 / 1面 {}×{}mm / 余白 左右{}mm・上下{}mm'.format(
         COLS, ROWS, CARD_W, CARD_H, MARGIN_X, MARGIN_Y))
+    print(f'  ずれ補正: 横 {SHIFT_X}mm / 縦 {SHIFT_Y}mm'
+          f' → 1面目の位置 ({MARGIN_X + SHIFT_X}, {MARGIN_Y + SHIFT_Y})mm')
     print('  大きさ: {:.0f} KB'.format(os.path.getsize(out) / 1024))
 
 

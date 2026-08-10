@@ -43,6 +43,12 @@
     color: #17233f;
   }
 
+  /* 8エレメントの帯。名刺の上端いっぱいに通す(紙の縁から1mm内側) */
+  .ribbon {
+    position: absolute; left: 0; right: 0; top: 0;
+    height: 1.1mm; display: flex;
+  }
+
   .head { display: flex; align-items: center; gap: 2.2mm; }
   .mark { width: 9.4mm; height: 9.4mm; flex: 0 0 auto; }
   .mark svg { width: 100%; height: 100%; display: block; }
@@ -52,8 +58,9 @@
   .title { width: 45mm; height: auto; display: block; }
 
   .lead {
-    margin-top: 1.4mm; font-size: 2.7mm; font-weight: bold; color: #17457e;
-    background: #e8f2fd; border-left: 0.8mm solid #3f8ef0;
+    margin-top: 1.4mm; font-size: 2.7mm; font-weight: bold; color: #6b3a17;
+    background: linear-gradient(90deg, #fff2e6 0%, #eef6ff 55%, #f3ecff 100%);
+    border-left: 0.8mm solid #ff8a3d;
     padding: 1mm 1.6mm; border-radius: 0 1mm 1mm 0;
     width: 53mm;
   }
@@ -63,10 +70,15 @@
     font-size: 2.35mm; line-height: 1.55; color: #3f4a63;
     padding-left: 2.6mm; position: relative;
   }
+  /* 点はエレメントの色で1つずつ変える。同じ色を並べるより、
+     「いろいろある遊び」に見える */
   .pts li::before {
     content: ''; position: absolute; left: 0.5mm; top: 1.3mm;
-    width: 1.2mm; height: 1.2mm; border-radius: 50%; background: #8dc2f0;
+    width: 1.3mm; height: 1.3mm; border-radius: 50%; background: #8dc2f0;
   }
+  .pts li:nth-child(1)::before { background: #ff6644; }
+  .pts li:nth-child(2)::before { background: #ffcc33; }
+  .pts li:nth-child(3)::before { background: #66dd99; }
   .pts b { color: #12417a; }
 
   /* ===== 足元(QRとURL) ===== */
@@ -94,7 +106,7 @@
   /* 右上の空きに、いちばん言いたいことを置く */
   .badge {
     position: absolute; right: 3.6mm; top: 4.4mm;
-    background: #1b56a8; color: #eaf4ff;
+    background: linear-gradient(135deg, #ff7a3d, #e8442f); color: #fff6ef;
     font-size: 2.4mm; font-weight: bold; letter-spacing: 0.15mm;
     padding: 1mm 2mm; border-radius: 9mm; white-space: nowrap;
   }
@@ -122,6 +134,8 @@
   .cut {
     position: absolute; left: 0; top: 0; width: 210mm; height: 297mm;
     pointer-events: none;
+    /* 面と同じだけ動かす。別々に動くと線が名刺の縁からずれる */
+    transform: translate(-2.5mm, 0.0mm);
   }
 
   @media print {
@@ -135,26 +149,39 @@
 
 <div class="guide-note">
   <b>エーワン 51861(A4 10面・91×55mm)用</b> — このまま印刷すると10枚できます。<br>
-  印刷設定は <b>用紙サイズ=A4</b>／<b>倍率=100%(「実際のサイズ」。
-  「ページに合わせる」「用紙に合わせて拡大縮小」は必ず外す)</b>／
-  <b>背景グラフィックを印刷する</b>。<br>
-  <b>「フチなし印刷」は使わないでください</b> ― 紙いっぱいに引き伸ばされて面付けがずれます
-  (この版は余白11mm・14mmを見込んで組んであるので、等倍で刷れば端は切れません)。<br>
-  名刺用紙は厚いので<b>手差しトレイ</b>から1枚ずつ。顔料インクは乾くまで擦らないこと。<br>
-  1枚目は普通紙に刷って、名刺用紙に重ねて光にかざすと位置を確かめられます。<br>
+
+  <b>★ Chrome で印刷する時の設定(ここを外すと必ず小さく出ます)</b><br>
+  &nbsp;&nbsp;送信先を選んだあと <b>「詳細設定」を開く</b>。<br>
+  &nbsp;&nbsp;・<b>用紙サイズ = A4</b><br>
+  &nbsp;&nbsp;・<b>倍率 = カスタム → 100</b>
+  (「デフォルト」は<b>印刷可能な範囲に合わせて縮小</b>します。これが「小さく出る」の正体)<br>
+  &nbsp;&nbsp;・<b>余白 = なし</b>(この版は余白14mm・11mmを自分で持っています)<br>
+  &nbsp;&nbsp;・<b>背景のグラフィック = オン</b><br>
+  &nbsp;&nbsp;・<b>「フチなし印刷」は使わない</b>(紙いっぱいに引き伸ばされて面付けがずれます)<br>
+
+  <b>測った長さから、何が起きたか分かります</b> —
+  100mmのはずが <b>96mm前後</b>なら「倍率=デフォルト」、
+  <b>94mm前後</b>なら用紙がレターになっています。<br>
+  1面の大きさは <b>91 × 55mm</b>。ここが合っていれば本番を刷って大丈夫です。<br>
+  <b>いまのずれ補正: 横 -2.5mm / 縦 0.0mm</b>
+  (刷った位置がまだずれる時は <code>build_meishi.py</code> の
+  <code>SHIFT_X</code> / <code>SHIFT_Y</code> を直して作り直す。
+  右にずれるなら横を小さく、下にずれるなら縦を小さくする)<br>
+
   アドレスを変えたい時は <code>tools/meishi/build_meishi.py</code> の <code>URL</code> を直して作り直してください(QRも一緒に変わります)。
 </div>
 
 <div class="sheet">
   <div class="card">
     <div class="inner">
+      <span class="ribbon"><span style="background:#ff6644;flex:1 1 0"></span><span style="background:#44aaff;flex:1 1 0"></span><span style="background:#66dd99;flex:1 1 0"></span><span style="background:#cc9955;flex:1 1 0"></span><span style="background:#ffcc33;flex:1 1 0"></span><span style="background:#7fdfff;flex:1 1 0"></span><span style="background:#ffe98a;flex:1 1 0"></span><span style="background:#a97ae6;flex:1 1 0"></span></span>
       <div class="head">
         <span class="mark" aria-hidden="true">
           <svg viewBox="0 0 100 100">
             <defs>
               <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
-                <stop offset="0" stop-color="#3f8ef0"/>
-                <stop offset="1" stop-color="#12306e"/>
+                <stop offset="0" stop-color="#7b5cf0"/>
+                <stop offset="1" stop-color="#1b3f8f"/>
               </linearGradient>
             </defs>
             <rect x="2" y="2" width="96" height="96" rx="22" fill="url(#g)"/>
@@ -199,13 +226,14 @@
   </div>
   <div class="card">
     <div class="inner">
+      <span class="ribbon"><span style="background:#ff6644;flex:1 1 0"></span><span style="background:#44aaff;flex:1 1 0"></span><span style="background:#66dd99;flex:1 1 0"></span><span style="background:#cc9955;flex:1 1 0"></span><span style="background:#ffcc33;flex:1 1 0"></span><span style="background:#7fdfff;flex:1 1 0"></span><span style="background:#ffe98a;flex:1 1 0"></span><span style="background:#a97ae6;flex:1 1 0"></span></span>
       <div class="head">
         <span class="mark" aria-hidden="true">
           <svg viewBox="0 0 100 100">
             <defs>
               <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
-                <stop offset="0" stop-color="#3f8ef0"/>
-                <stop offset="1" stop-color="#12306e"/>
+                <stop offset="0" stop-color="#7b5cf0"/>
+                <stop offset="1" stop-color="#1b3f8f"/>
               </linearGradient>
             </defs>
             <rect x="2" y="2" width="96" height="96" rx="22" fill="url(#g)"/>
@@ -250,13 +278,14 @@
   </div>
   <div class="card">
     <div class="inner">
+      <span class="ribbon"><span style="background:#ff6644;flex:1 1 0"></span><span style="background:#44aaff;flex:1 1 0"></span><span style="background:#66dd99;flex:1 1 0"></span><span style="background:#cc9955;flex:1 1 0"></span><span style="background:#ffcc33;flex:1 1 0"></span><span style="background:#7fdfff;flex:1 1 0"></span><span style="background:#ffe98a;flex:1 1 0"></span><span style="background:#a97ae6;flex:1 1 0"></span></span>
       <div class="head">
         <span class="mark" aria-hidden="true">
           <svg viewBox="0 0 100 100">
             <defs>
               <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
-                <stop offset="0" stop-color="#3f8ef0"/>
-                <stop offset="1" stop-color="#12306e"/>
+                <stop offset="0" stop-color="#7b5cf0"/>
+                <stop offset="1" stop-color="#1b3f8f"/>
               </linearGradient>
             </defs>
             <rect x="2" y="2" width="96" height="96" rx="22" fill="url(#g)"/>
@@ -301,13 +330,14 @@
   </div>
   <div class="card">
     <div class="inner">
+      <span class="ribbon"><span style="background:#ff6644;flex:1 1 0"></span><span style="background:#44aaff;flex:1 1 0"></span><span style="background:#66dd99;flex:1 1 0"></span><span style="background:#cc9955;flex:1 1 0"></span><span style="background:#ffcc33;flex:1 1 0"></span><span style="background:#7fdfff;flex:1 1 0"></span><span style="background:#ffe98a;flex:1 1 0"></span><span style="background:#a97ae6;flex:1 1 0"></span></span>
       <div class="head">
         <span class="mark" aria-hidden="true">
           <svg viewBox="0 0 100 100">
             <defs>
               <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
-                <stop offset="0" stop-color="#3f8ef0"/>
-                <stop offset="1" stop-color="#12306e"/>
+                <stop offset="0" stop-color="#7b5cf0"/>
+                <stop offset="1" stop-color="#1b3f8f"/>
               </linearGradient>
             </defs>
             <rect x="2" y="2" width="96" height="96" rx="22" fill="url(#g)"/>
@@ -352,13 +382,14 @@
   </div>
   <div class="card">
     <div class="inner">
+      <span class="ribbon"><span style="background:#ff6644;flex:1 1 0"></span><span style="background:#44aaff;flex:1 1 0"></span><span style="background:#66dd99;flex:1 1 0"></span><span style="background:#cc9955;flex:1 1 0"></span><span style="background:#ffcc33;flex:1 1 0"></span><span style="background:#7fdfff;flex:1 1 0"></span><span style="background:#ffe98a;flex:1 1 0"></span><span style="background:#a97ae6;flex:1 1 0"></span></span>
       <div class="head">
         <span class="mark" aria-hidden="true">
           <svg viewBox="0 0 100 100">
             <defs>
               <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
-                <stop offset="0" stop-color="#3f8ef0"/>
-                <stop offset="1" stop-color="#12306e"/>
+                <stop offset="0" stop-color="#7b5cf0"/>
+                <stop offset="1" stop-color="#1b3f8f"/>
               </linearGradient>
             </defs>
             <rect x="2" y="2" width="96" height="96" rx="22" fill="url(#g)"/>
@@ -403,13 +434,14 @@
   </div>
   <div class="card">
     <div class="inner">
+      <span class="ribbon"><span style="background:#ff6644;flex:1 1 0"></span><span style="background:#44aaff;flex:1 1 0"></span><span style="background:#66dd99;flex:1 1 0"></span><span style="background:#cc9955;flex:1 1 0"></span><span style="background:#ffcc33;flex:1 1 0"></span><span style="background:#7fdfff;flex:1 1 0"></span><span style="background:#ffe98a;flex:1 1 0"></span><span style="background:#a97ae6;flex:1 1 0"></span></span>
       <div class="head">
         <span class="mark" aria-hidden="true">
           <svg viewBox="0 0 100 100">
             <defs>
               <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
-                <stop offset="0" stop-color="#3f8ef0"/>
-                <stop offset="1" stop-color="#12306e"/>
+                <stop offset="0" stop-color="#7b5cf0"/>
+                <stop offset="1" stop-color="#1b3f8f"/>
               </linearGradient>
             </defs>
             <rect x="2" y="2" width="96" height="96" rx="22" fill="url(#g)"/>
@@ -454,13 +486,14 @@
   </div>
   <div class="card">
     <div class="inner">
+      <span class="ribbon"><span style="background:#ff6644;flex:1 1 0"></span><span style="background:#44aaff;flex:1 1 0"></span><span style="background:#66dd99;flex:1 1 0"></span><span style="background:#cc9955;flex:1 1 0"></span><span style="background:#ffcc33;flex:1 1 0"></span><span style="background:#7fdfff;flex:1 1 0"></span><span style="background:#ffe98a;flex:1 1 0"></span><span style="background:#a97ae6;flex:1 1 0"></span></span>
       <div class="head">
         <span class="mark" aria-hidden="true">
           <svg viewBox="0 0 100 100">
             <defs>
               <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
-                <stop offset="0" stop-color="#3f8ef0"/>
-                <stop offset="1" stop-color="#12306e"/>
+                <stop offset="0" stop-color="#7b5cf0"/>
+                <stop offset="1" stop-color="#1b3f8f"/>
               </linearGradient>
             </defs>
             <rect x="2" y="2" width="96" height="96" rx="22" fill="url(#g)"/>
@@ -505,13 +538,14 @@
   </div>
   <div class="card">
     <div class="inner">
+      <span class="ribbon"><span style="background:#ff6644;flex:1 1 0"></span><span style="background:#44aaff;flex:1 1 0"></span><span style="background:#66dd99;flex:1 1 0"></span><span style="background:#cc9955;flex:1 1 0"></span><span style="background:#ffcc33;flex:1 1 0"></span><span style="background:#7fdfff;flex:1 1 0"></span><span style="background:#ffe98a;flex:1 1 0"></span><span style="background:#a97ae6;flex:1 1 0"></span></span>
       <div class="head">
         <span class="mark" aria-hidden="true">
           <svg viewBox="0 0 100 100">
             <defs>
               <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
-                <stop offset="0" stop-color="#3f8ef0"/>
-                <stop offset="1" stop-color="#12306e"/>
+                <stop offset="0" stop-color="#7b5cf0"/>
+                <stop offset="1" stop-color="#1b3f8f"/>
               </linearGradient>
             </defs>
             <rect x="2" y="2" width="96" height="96" rx="22" fill="url(#g)"/>
@@ -556,13 +590,14 @@
   </div>
   <div class="card">
     <div class="inner">
+      <span class="ribbon"><span style="background:#ff6644;flex:1 1 0"></span><span style="background:#44aaff;flex:1 1 0"></span><span style="background:#66dd99;flex:1 1 0"></span><span style="background:#cc9955;flex:1 1 0"></span><span style="background:#ffcc33;flex:1 1 0"></span><span style="background:#7fdfff;flex:1 1 0"></span><span style="background:#ffe98a;flex:1 1 0"></span><span style="background:#a97ae6;flex:1 1 0"></span></span>
       <div class="head">
         <span class="mark" aria-hidden="true">
           <svg viewBox="0 0 100 100">
             <defs>
               <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
-                <stop offset="0" stop-color="#3f8ef0"/>
-                <stop offset="1" stop-color="#12306e"/>
+                <stop offset="0" stop-color="#7b5cf0"/>
+                <stop offset="1" stop-color="#1b3f8f"/>
               </linearGradient>
             </defs>
             <rect x="2" y="2" width="96" height="96" rx="22" fill="url(#g)"/>
@@ -607,13 +642,14 @@
   </div>
   <div class="card">
     <div class="inner">
+      <span class="ribbon"><span style="background:#ff6644;flex:1 1 0"></span><span style="background:#44aaff;flex:1 1 0"></span><span style="background:#66dd99;flex:1 1 0"></span><span style="background:#cc9955;flex:1 1 0"></span><span style="background:#ffcc33;flex:1 1 0"></span><span style="background:#7fdfff;flex:1 1 0"></span><span style="background:#ffe98a;flex:1 1 0"></span><span style="background:#a97ae6;flex:1 1 0"></span></span>
       <div class="head">
         <span class="mark" aria-hidden="true">
           <svg viewBox="0 0 100 100">
             <defs>
               <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
-                <stop offset="0" stop-color="#3f8ef0"/>
-                <stop offset="1" stop-color="#12306e"/>
+                <stop offset="0" stop-color="#7b5cf0"/>
+                <stop offset="1" stop-color="#1b3f8f"/>
               </linearGradient>
             </defs>
             <rect x="2" y="2" width="96" height="96" rx="22" fill="url(#g)"/>
