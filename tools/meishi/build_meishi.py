@@ -230,20 +230,22 @@ def build(cut: bool = False) -> None:
     color: #17233f;
   }}
 
-  .head {{ display: flex; align-items: center; gap: 2.4mm; }}
-  .mark {{ width: 10mm; height: 10mm; flex: 0 0 auto; }}
+  .head {{ display: flex; align-items: center; gap: 2.2mm; }}
+  .mark {{ width: 9.4mm; height: 9.4mm; flex: 0 0 auto; }}
   .mark svg {{ width: 100%; height: 100%; display: block; }}
   /* 題字は画面と同じ絵。字の輪郭が図形なので、刷っても形が変わらない */
-  .title {{ height: 8.6mm; width: auto; display: block; }}
+  /* ★ 高さで決めない。右上のバッジに《まどけん》がかかったので、
+     入れてよい幅を先に決めて、高さはそれに従わせる。 */
+  .title {{ width: 45mm; height: auto; display: block; }}
 
   .lead {{
-    margin-top: 1.8mm; font-size: 2.7mm; font-weight: bold; color: #17457e;
+    margin-top: 1.4mm; font-size: 2.7mm; font-weight: bold; color: #17457e;
     background: #e8f2fd; border-left: 0.8mm solid #3f8ef0;
     padding: 1mm 1.6mm; border-radius: 0 1mm 1mm 0;
     width: 53mm;
   }}
 
-  .pts {{ list-style: none; margin-top: 1.8mm; width: 51mm; }}
+  .pts {{ list-style: none; margin-top: 1.4mm; width: 51mm; }}
   .pts li {{
     font-size: 2.35mm; line-height: 1.55; color: #3f4a63;
     padding-left: 2.6mm; position: relative;
@@ -256,12 +258,12 @@ def build(cut: bool = False) -> None:
 
   /* ===== 足元(QRとURL) ===== */
   .foot {{
-    position: absolute; left: 4.5mm; bottom: 3.4mm;
+    position: absolute; left: 4.5mm; bottom: 3.2mm;
     display: flex; align-items: center; gap: 2mm;
   }}
   /* 静穏帯を規格の4マスにしたぶん1マスが細るので、QR自体を少し大きくして
      1マス0.4mm以上を保つ(14mmのままだと0.378mmまで落ちる)。 */
-  .qr {{ width: 15mm; height: 15mm; display: block; }}
+  .qr {{ width: 17mm; height: 17mm; display: block; }}
   .qr svg {{ width: 100%; height: 100%; display: block; shape-rendering: crispEdges; }}
   .url b {{
     display: block; font-size: 2.9mm; letter-spacing: -0.02mm;
@@ -280,8 +282,8 @@ def build(cut: bool = False) -> None:
   .badge {{
     position: absolute; right: 3.6mm; top: 4.4mm;
     background: #1b56a8; color: #eaf4ff;
-    font-size: 2.6mm; font-weight: bold; letter-spacing: 0.2mm;
-    padding: 1.1mm 2.4mm; border-radius: 9mm; white-space: nowrap;
+    font-size: 2.4mm; font-weight: bold; letter-spacing: 0.15mm;
+    padding: 1mm 2mm; border-radius: 9mm; white-space: nowrap;
   }}
 
   /* ===== 翠緑の薬導士 ===== */
