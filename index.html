@@ -6,7 +6,7 @@
        アプリ内ブラウザ(WKWebView)では効く。そこから開く人が多いので入れておく。 -->
   <meta name="viewport"
         content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>魔導研究記《まどけん》試作版</title>
+  <title>魔導研究記《まどけん》</title>
 
   <!-- SNSにURLを貼った時のカード。
        これが無いと画像の出ない素っ気ないリンクになり、押されなくなる。
@@ -36,7 +36,11 @@
   <div id="app">
     <header id="topbar">
       <div id="topbar-info">
-        <span id="game-title">魔導研究記《まどけん》<small>試作版</small></span>
+        <!-- 題字は絵(SVG)。字の輪郭を図形にしてあるので、端末に明朝が
+             無くても同じ形で出る。作り直しは tools/title/build_title.py -->
+        <span id="game-title">
+          <img src="/img/title.svg" alt="魔導研究記《まどけん》" width="829" height="132">
+        </span>
         <span id="rp-display">研究P: 0</span>
         <span id="ticket-display">🎟 チケット: 0</span>
         <span id="power-display">戦闘力: 0</span>

@@ -32,18 +32,14 @@ body {
 #topbar-info {
   display: flex; align-items: baseline; gap: 4px 14px; flex-wrap: wrap;
 }
+/* 題字。中身は絵(public/img/title.svg)なので、ここでは大きさだけ決める。
+   line-height を 0 にしないと、img の下に行送りぶんの隙間が残る。 */
 #game-title {
-  font-size: 30px; font-weight: bold; letter-spacing: 1px;
-  background: linear-gradient(135deg, #ddbbff, #8866ee 55%, #66ddff);
-  -webkit-background-clip: text; background-clip: text;
-  -webkit-text-fill-color: transparent; color: #bb99ff;
-  text-shadow: 0 0 18px rgba(136,102,238,0.25);
-  width: 100%;
+  width: 100%; line-height: 0;
 }
-#game-title small {
-  font-size: 12px; color: #8888aa; margin-left: 8px;
-  -webkit-text-fill-color: #8888aa;
-  letter-spacing: 0;
+#game-title img {
+  height: 52px; width: auto; max-width: 100%;
+  display: block;
 }
 #rp-display { color: #ffdd66; font-weight: bold; }
 #power-display { color: #ff9977; font-weight: bold; }
@@ -926,7 +922,9 @@ button.tab:disabled { opacity: 0.4; cursor: not-allowed; }
   #app { padding: 6px; }
   #topbar { flex-direction: column; align-items: stretch; gap: 8px; }
   #topbar-info { justify-content: center; font-size: 12px; }
-  #game-title { font-size: 24px; width: 100%; text-align: center; }
+  /* 狭い画面では題字を小さくし、中央に置く */
+  #game-title { width: 100%; text-align: center; }
+  #game-title img { height: 38px; margin: 0 auto; }
   /* 取引の卓: 横に並べると1列が細くなりすぎて +/- が押せない */
   #trade-sides { flex-direction: column; }
   .trade-card { padding: 14px; }
