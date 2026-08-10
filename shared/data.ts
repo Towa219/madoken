@@ -53,6 +53,16 @@ export interface RecipeDef {
 
 const n = (c: ElementCounts, id: ElementId) => c[id] ?? 0;
 
+// 蘇生した人が戻ってくる時のHP(最大HPに対する割合)。
+// ステージを越えた時の復活と同じ割合にしてある ―
+// 「倒れても半分から立て直す」という手触りを1つに揃えるため。
+export const REVIVE_HP_RATE = 0.5;
+
+// 蘇生の消費MPの下限。
+// 光は消費MPを下げる性質を持つので、素の計算だと32まで落ちて
+// 「いちばん強い効果がいちばん安い」ことになる。
+export const REVIVE_MANA_FLOOR = 70;
+
 export const RECIPES: RecipeDef[] = [
   // --- 基本系統(2素材で成立。最初のスロット数でも発見できる入門枠) ---
   {
@@ -201,6 +211,18 @@ export const RECIPES: RecipeDef[] = [
       + 'ソロでもお供に届く(一人なら満額)。',
     check: c => n(c, 'light') >= 3 && n(c, 'water') >= 1,
     apply: s => { s.kind = 'heal'; s.targetAll = true; },
+  },
+  {
+    // ★ 治癒(光3)・慈雨(光3+水1)より後ろに置くこと。
+    //   RECIPES は成立した順に apply で上書きするので、
+    //   ゆるい条件を後ろに置くと、こちらが潰される(2026-08-02の事故)。
+    id: 'sosei', name: '蘇生系', spellNoun: '蘇生光',
+    hint: '光を六つ束ねると、失われた灯にもう一度火が入る (光×6以上)',
+    desc: '共闘で<b>倒れた仲間を全員よみがえらせる</b>'
+      + `(最大HPの${Math.round(REVIVE_HP_RATE * 100)}%で復帰)。`
+      + '倒れている人が誰もいない時は、自分を大きく回復する。',
+    check: c => n(c, 'light') >= 6,
+    apply: s => { s.kind = 'revive'; s.targetAll = true; },
   },
   {
     id: 'fushoku', name: '腐蝕系', spellNoun: '腐蝕弾',

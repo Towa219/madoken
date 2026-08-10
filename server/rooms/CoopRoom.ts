@@ -26,7 +26,7 @@ import {
   isBossStage,
   pickEnemiesForStage, POSE_CAST, POSE_HURT, POSE_HURT_SEC, POSE_IDLE,
   POSE_RELEASE, POSE_RELEASE_SEC,
-  RECONNECT_SEC, PLAYER_MAX_HP, PLAYER_MAX_MP, PLAYER_MP_REGEN,
+  RECONNECT_SEC, PLAYER_MAX_HP, PLAYER_MAX_MP, PLAYER_MP_REGEN, REVIVE_HP_RATE,
   stageAtkMul, stageHpMul,
 } from '../../shared/data';
 import type { AffinityGrade, EnemyDef } from '../../shared/data';
@@ -715,6 +715,37 @@ export class CoopRoom extends Room<CoopState> {
         this.broadcast('shieldup', { sid, amount: st.barrier });
       }
       casterInternal.hate += st.barrier * 2.0;
+      return;
+    }
+
+    // 蘇生: 倒れている仲間を全員よみがえらせる
+    //
+    // 光を6つ使う魔法だけが持つ効果。共闘でしか意味を持たないので、
+    // 倒れている人が一人もいなければ回復に化ける(空振りで終わらせない)。
+    //
+    // ★ 撃った本人が倒れていることはない(倒れている間は詠唱できない)。
+    if (st.kind === 'revive') {
+      const back: string[] = [];
+      this.state.players.forEach((q, qsid) => {
+        if (q.alive) return;
+        q.alive = true;
+        q.hp = Math.max(1, Math.round(q.maxHp * REVIVE_HP_RATE));
+        const qi = this.internals.get(qsid);
+        if (qi) qi.hate = 0;          // 戻った直後に狙われ続けないように
+        back.push(q.name);
+        this.broadcast('revive', { sid: qsid, hp: q.hp, name: q.name });
+      });
+      if (back.length > 0) {
+        announce(`✨ ${p.name} の蘇生光 — ${back.join('・')} が戦線に戻った`);
+        if (casterInternal) casterInternal.hate += back.length * 60;
+      } else {
+        // 誰も倒れていない = 自分を回復する
+        const heal = Math.round(PLAYER_MAX_HP * REVIVE_HP_RATE);
+        const before = p.hp;
+        p.hp = Math.min(p.maxHp, p.hp + heal);
+        this.broadcast('heal', { sid, amount: p.hp - before });
+        if (casterInternal) casterInternal.hate += (p.hp - before) * 1.2;
+      }
       return;
     }
 

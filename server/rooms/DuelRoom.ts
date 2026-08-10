@@ -10,7 +10,7 @@ import type { MapSchema as MapSchemaType } from '@colyseus/schema';
 import type { IncomingMessage } from 'node:http';
 import {
   DUEL_MAX_HP, DUEL_MAX_MP, POSE_CAST, POSE_HURT, POSE_HURT_SEC, POSE_IDLE,
-  POSE_RELEASE, POSE_RELEASE_SEC, RECONNECT_SEC,
+  POSE_RELEASE, POSE_RELEASE_SEC, RECONNECT_SEC, REVIVE_HP_RATE,
 } from '../../shared/data';
 import { sealWardMul, spellCooldown } from '../../shared/spellcraft';
 import { parseSpells } from '../spellPayload';
@@ -412,6 +412,15 @@ export class DuelRoom extends Room<DuelState> {
     if (st.kind === 'heal') {
       p.hp = Math.min(p.maxHp, p.hp + st.healPower);
       this.broadcast('dheal', { sid, amount: st.healPower });
+      return;
+    }
+    // 蘇生: 決闘では起こす相手がいない(倒れた時点で決着)。
+    // 大きな自己回復として扱う ― 挑発を「構え」に読み替えているのと同じ。
+    if (st.kind === 'revive') {
+      const heal = Math.round(p.maxHp * REVIVE_HP_RATE);
+      const before = p.hp;
+      p.hp = Math.min(p.maxHp, p.hp + heal);
+      this.broadcast('dheal', { sid, amount: p.hp - before });
       return;
     }
     if (st.kind === 'taunt') {

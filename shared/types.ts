@@ -8,7 +8,7 @@ export type ElementCounts = Partial<Record<ElementId, number>>;
 
 export type SpellKind =
   | 'attack' | 'shield' | 'heal' | 'taunt' | 'ward' | 'vigor' | 'seal' | 'empower'
-  | 'focus';
+  | 'focus' | 'revive';
 
 // 調合時にごく稀に生まれる品質
 export type Rarity = 'normal' | 'rare' | 'epic' | 'legend';

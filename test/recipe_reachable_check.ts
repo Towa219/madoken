@@ -3,7 +3,7 @@
 // 系統は成立した順に効果を上書きするため、条件のゆるい系統を後ろに置くと
 // 条件の厳しい系統が永久に発現しなくなる(聖域系が作れなかった不具合の再発防止)。
 
-import { ELEMENT_ORDER, RECIPES } from '../shared/data';
+import { ELEMENT_ORDER, MAX_SLOTS, RECIPES } from '../shared/data';
 import { computeSpell } from '../shared/spellcraft';
 import type { ElementCounts, ElementId } from '../shared/types';
 
@@ -26,7 +26,11 @@ function allRecipes(maxSize: number): ElementCounts[] {
   return out;
 }
 
-const combos = allRecipes(5);
+// 調合台の最大スロット数ぶんまで総当たりする。
+// ★ 5固定にしていた時、6素材でしか作れない蘇生系(光6)を
+//   「どう調合しても発現しない」と誤って報告した。
+//   スロットが増えたらここも一緒に増える形にしておく。
+const combos = allRecipes(MAX_SLOTS);
 let ng = 0;
 
 for (const r of RECIPES) {

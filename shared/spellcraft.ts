@@ -1,5 +1,6 @@
 import {
   ELEMENTS, ELEMENT_ORDER, PLAYER_MAX_HP, PLAYER_MP_REGEN, RARITIES, RECIPES,
+  REVIVE_HP_RATE, REVIVE_MANA_FLOOR,
 } from './data';
 import type { RecipeDef } from './data';
 import { CHAR_POWER_BONUS, characterElement } from './characters';
@@ -87,6 +88,9 @@ export function computeSpell(counts: ElementCounts): CraftResult {
   if (s.kind === 'vigor') s.hpBoost = hpBoostOf(s);
   if (s.kind === 'seal') { s.sealTime = sealTimeOf(s); s.coolTime = sealCoolOf(0); }
   if (s.kind === 'empower') s.atkBoost = atkBoostOf(s);
+  // 蘇生は消費MPに下限を置く。光は消費を下げる性質があるので、
+  // 素の計算だと32まで落ちて「一番強い効果が一番安い」ことになる。
+  if (s.kind === 'revive') s.manaCost = Math.max(s.manaCost, REVIVE_MANA_FLOOR);
   if (s.kind === 'heal') s.manaCost = Math.max(s.manaCost, healManaFloor(s));
   if (s.dotTime > 0) s.dotDps = dotDpsOf(s);
   // 再使用時間も持たせておく。finalStats 側は強化ぶんを掛けて丸めるので、
@@ -313,6 +317,7 @@ export function finalStats(
   if (s.kind === 'seal') { s.sealTime = sealTimeAt(base, L); s.coolTime = sealCoolOf(L); }
   if (s.kind === 'empower') s.atkBoost = atkBoostOf(s);
   if (s.kind === 'focus') s.mpRegenBonus = mpRegenBonusOf(s);
+  if (s.kind === 'revive') s.manaCost = Math.max(s.manaCost, REVIVE_MANA_FLOOR);
   // 回復の下限MPは「品質ぶんを除いた回復量」から決める。
   //
   // 最終回復量から決めていた頃は、品質で回復量が増えたぶんだけMPも増えた。
@@ -456,6 +461,8 @@ export function baseCooldownOf(s: SpellStats): number {
   if (s.kind === 'ward') return 10;
   if (s.kind === 'vigor') return 14;
   if (s.kind === 'seal') return 16;
+  // 蘇生はいちばん長い。連発できると「倒れる」ことの重みが消える
+  if (s.kind === 'revive') return 30;
   if (s.kind === 'empower') return 14;
   if (s.kind === 'focus') return 14;
   if (s.quake) return 7;
@@ -542,6 +549,11 @@ export function spellMagicValue(raw: SpellStats): number {
   } else if (s.kind === 'vigor') {
     // 最大HP上昇 + 同量の即時回復。1秒あたりに供給するHPとして数える。
     v = (s.hpBoost * 2 * all / (s.castTime + spellCooldown(s))) * 27 * upTime(s);
+  } else if (s.kind === 'revive') {
+    // 倒れた人を戻す = その人がこの先出すはずだった働きを丸ごと取り戻す。
+    // 味方1人ぶんの基準DPSを、復帰後に出せる時間ぶん取り返したと見なす。
+    // (誰も倒れていなければ空振りなので、実際の価値は場面による)
+    v = REF_DPS * 12 * 1.8;
   } else if (s.kind === 'seal') {
     // 敵全体の行動を止める = その割合ぶん敵のDPSを消している
     const stop = Math.min(0.85, s.sealTime / (s.castTime + spellCooldown(s)));
@@ -638,6 +650,16 @@ export function statsSummary(s: SpellStats): string {
         : `【瞑想】MP回復 毎秒+${s.mpRegenBonus.toFixed(1)}(通常は毎秒${BASE_MP_REGEN})`,
       '20秒',
       `詠唱${s.castTime.toFixed(2)}秒`, `MP${s.manaCost}`, `再使用${spellCooldown(s).toFixed(1)}秒`,
+    ];
+    if (s.selfDamage > 0) parts.push(`自傷${s.selfDamage}`);
+    return parts.join(' / ');
+  }
+  if (s.kind === 'revive') {
+    const parts = [
+      `【蘇生】倒れた仲間を全員よみがえらせる(最大HPの${Math.round(REVIVE_HP_RATE * 100)}%)`,
+      '倒れている人がいなければ自分を回復',
+      `詠唱${s.castTime.toFixed(2)}秒`, `MP${s.manaCost}`,
+      `再使用${spellCooldown(s).toFixed(1)}秒`,
     ];
     if (s.selfDamage > 0) parts.push(`自傷${s.selfDamage}`);
     return parts.join(' / ');

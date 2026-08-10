@@ -408,6 +408,18 @@ export class CoopView {
       this.addPopup(PLAYER_XS[p.slot] ?? 110, cy(110), `+${m.amount}`, 0x88ddaa);
     });
 
+    // 蘇生(光6の魔法)。倒れていた人がその場で立ち上がる。
+    // 見逃されると「何が起きたのか分からない」ので、名前も出す。
+    room.onMessage('revive', (m: { sid: string; hp: number; name: string }) => {
+      playSfx('discover');
+      const st: any = room.state;
+      const p = st?.players?.get(m.sid);
+      const x = PLAYER_XS[p?.slot] ?? 110;
+      this.addPopup(x, cy(140), '✨ 蘇生!', 0xffee99);
+      this.addPopup(x, cy(110), `HP ${m.hp}`, 0x88ddaa);
+      showToast(`✨ ${m.name} がよみがえった`);
+    });
+
     room.onMessage('shieldup', (m: { sid: string; amount: number }) => {
       playSfx('shield');
       const st: any = room.state;
