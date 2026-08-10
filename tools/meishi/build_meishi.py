@@ -151,7 +151,8 @@ def data_uri(img: Image.Image) -> str:
 # ★ 4_hurt は戦闘では被弾の絵だが、絵柄としては「薬を持って身構える」姿。
 #   同じ絵描きの手による絵なので、手と薬の重なりが正しい ―
 #   後から別の絵を合成すると、指の前後がおかしくなって嘘になる。
-CHARA_POSE = os.environ.get('MEISHI_POSE', 'potion')
+# 既定は idle。potion(薬を持つ姿)も試したが、名刺では不自然だった。
+CHARA_POSE = os.environ.get('MEISHI_POSE', 'idle')
 POSE_FILE = {'idle': '4.png', 'potion': '4_hurt.png'}
 
 
