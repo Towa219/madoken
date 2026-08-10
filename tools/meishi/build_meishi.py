@@ -50,9 +50,9 @@ COLS, ROWS = 2, 5
 # 実測の経過(★ 倍率を100%に直してからの値だけが当てになる。
 # それ以前の「右へ2〜3mm」は縮んだ紙の上で見ていたので数えない):
 #   -2.5mm → 左へ行きすぎた
-#   -1.2mm → まだ2mmほど左
-#   +0.8mm → -1.2 から右へ2mm戻した(いまここ)
-SHIFT_X = float(os.environ.get('MEISHI_SHIFT_X', '0.8'))
+#   -1.2mm → まだ左。ずれ量は2mm…いや3mmくらい、と見直した
+#   +1.8mm → -1.2 から右へ3mm戻した(いまここ)
+SHIFT_X = float(os.environ.get('MEISHI_SHIFT_X', '1.8'))
 SHIFT_Y = float(os.environ.get('MEISHI_SHIFT_Y', '0'))
 
 
