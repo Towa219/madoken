@@ -221,8 +221,13 @@ def cmd_join():
         ]
         video_output = "v"
     if has_bgm:
+        # ★ 終わりのフェードは 1.8 → 0.8秒(2026-08-11)。
+        #   第1版(44.8秒)の値をそのまま使っていたが、26秒の動画では長すぎた。
+        #   曲の素の音量が終盤で落ちるところへ、energy のカーブ(0.45)と
+        #   1.8秒のフェードが重なり、最後の2秒がほぼ無音になった。
+        #   題字とURLを読ませる場面なので、音は残す。
         chains.append(f"[1:a]{energy_volume()}afade=t=in:st=0:d=0.6,"
-                      f"afade=t=out:st={total - 1.8:.2f}:d=1.8[a]")
+                      f"afade=t=out:st={total - 0.8:.2f}:d=0.8[a]")
     if chains:
         command += ["-filter_complex", ";".join(chains)]
     command += ["-map", f"[{video_output}]" if video_output == "v" else video_output]

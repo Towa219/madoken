@@ -33,6 +33,9 @@ tools/spell_list.json
 tools/mv/*
 !tools/mv/*.py
 !tools/mv/README.md
+# どの曲をどこから使うかの決定。中間生成物ではなく設定なので持つ。
+# これが無いと同じPVを作り直せない。
+!tools/mv/bgm_choice.json
 tools/mv/.vidu_key
 
 # 名刺の生成物(tools/meishi)。
