@@ -7,7 +7,8 @@
 //   画面で隠すだけでは意味が無い(開発者ツールで JSON を覗けば読める)ので、
 //   サーバーの返事そのものに species が入っていないことを確かめる。
 import {
-  BREED_JITTER, BREED_MAX_COUNT, MAX_PETS, PET_NAMES, PET_SPECIES, PET_SPECIES_ORDER,
+  BLUEBIRD_RATE, BREED_JITTER, BREED_MAX_COUNT, COMMON_SPECIES, MAX_PETS,
+  PET_NAMES, PET_SPECIES, PET_SPECIES_ORDER, breed, eggHintOf, eggSpeciesForBoss,
   adultDaysOf, partyBonusOf, stageOf,
 } from '../shared/pets';
 import type { Pet, WirePet } from '../shared/pets';
@@ -249,6 +250,59 @@ async function 実行(): Promise<void> {
   const 老拒否 = await 通信('breed', 老一名, { petId: 老一.id, partnerId: 老二.id });
   確認(老拒否.状態 === 400 && String(老拒否.データ.error).includes('年を取りすぎ'),
     `老鳥は産めない → 実測 ${String(老拒否.データ.error)}`);
+
+  // ---- アオイトリ(ごく稀の8種目) ----
+  //
+  // ★ 卵の見た目で当たりが分かってはいけない。殻を見た時点で
+  //   「これは当たりだ」と分かると、孵る瞬間の見せ場が消える。
+  const 青ヒント = eggHintOf('bluebird');
+  for (const 他 of ['swallow', 'owl'] as const) {
+    const h = eggHintOf(他);
+    確認(h.size === 青ヒント.size && h.shell === 青ヒント.shell
+      && h.pattern === 青ヒント.pattern && h.warmNeeded === 青ヒント.warmNeeded,
+      `アオイトリの卵が${PET_SPECIES[他].name}と見分けが付かない`);
+  }
+
+  // 出る割合。乱数を差し替えて数えるので、実行のたびにぶれない。
+  let 種 = 12345;
+  const 疑似乱数 = () => {
+    種 = (種 * 1103515245 + 12345) % 2147483648;
+    return 種 / 2147483648;
+  };
+  let 青 = 0;
+  const 回数 = 20000;
+  for (let i = 0; i < 回数; i++) {
+    if (eggSpeciesForBoss(10, 疑似乱数) === 'bluebird') 青 += 1;
+  }
+  const 割合 = 青 / 回数;
+  確認(Math.abs(割合 - BLUEBIRD_RATE) < 0.01,
+    `ボスの卵からアオイトリが出る割合 → 実測 ${(割合 * 100).toFixed(1)}%(狙い ${BLUEBIRD_RATE * 100}%)`);
+
+  // 交配の突然変異でアオイトリが出過ぎないこと。
+  // ★ PET_SPECIES_ORDER をそのまま変異の候補にすると8分の1で出てしまう。
+  確認(!COMMON_SPECIES.includes('bluebird'),
+    '交配の変異の候補にアオイトリが入っていない');
+  const 親 = (species: Pet['species']): Pet => ({
+    id: species, ownerName: 'x', species, name: '', sex: 'm',
+    hpGene: 50, mpGene: 50, lifeGene: 50, warmCount: 0, lastWarmAt: 0,
+    hatchedAt: 1, boarded: false, chosen: false, breedCount: 0, lastBredAt: 0,
+    parents: null, bornAt: 0,
+  });
+  let 交配青 = 0;
+  for (let i = 0; i < 回数; i++) {
+    if (breed(親('sparrow'), 親('dove'), 疑似乱数).species === 'bluebird') 交配青 += 1;
+  }
+  const 交配割合 = 交配青 / 回数;
+  確認(交配割合 < BLUEBIRD_RATE * 1.6,
+    `交配でもアオイトリが出過ぎない → 実測 ${(交配割合 * 100).toFixed(1)}%`);
+
+  // ★ 底上げの上限。ここを超える鳥を足すと「ペットが無いと戦えない」になる。
+  const 青の合計 = PET_SPECIES.bluebird.hp + PET_SPECIES.bluebird.mp;
+  確認(青の合計 <= 30, `アオイトリの底上げ合計が30以下 → 実測 ${青の合計}`);
+  for (const id of COMMON_SPECIES) {
+    const t = PET_SPECIES[id].hp + PET_SPECIES[id].mp;
+    確認(t <= 26, `${PET_SPECIES[id].name}の合計が26以下 → 実測 ${t}`);
+  }
 
   // ---- 合言葉まわり(必ずいちばん最後に置くこと) ----
   //

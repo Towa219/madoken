@@ -134,15 +134,17 @@
     "owl": "pets/owl.png",
     "hawk": "pets/hawk.png",
     "dove": "pets/dove.png",
-    "crow": "pets/crow.png"
+    "crow": "pets/crow.png",
+    "bluebird": "pets/bluebird.png"
   },
   "petScales": {
     "sparrow": 1.0,
-    "lark": 1.052,
+    "lark": 1.053,
     "swallow": 0.836,
-    "owl": 1.241,
-    "hawk": 0.969,
+    "owl": 1.244,
+    "hawk": 0.97,
     "dove": 0.999,
-    "crow": 1.111
+    "crow": 1.114,
+    "bluebird": 1.091
   }
 }

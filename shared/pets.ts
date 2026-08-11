@@ -20,7 +20,8 @@
 // ---------------------------------------------------------------- 種類
 
 export type PetSpeciesId =
-  | 'sparrow' | 'lark' | 'swallow' | 'owl' | 'hawk' | 'dove' | 'crow';
+  | 'sparrow' | 'lark' | 'swallow' | 'owl' | 'hawk' | 'dove' | 'crow'
+  | 'bluebird';   // ごく稀にしか出ない8種目
 
 export interface PetSpecies {
   id: PetSpeciesId;
@@ -79,11 +80,31 @@ export const PET_SPECIES: Record<PetSpeciesId, PetSpecies> = {
     note: '賢く、HPもMPも伸びる。ただし大人になるのが遅い',
     warmNeeded: 4, chickDays: 7, lifeDays: 20,
   },
+  // ★ この1種だけ合計30で、上の「18〜26」の枠を超えている。
+  //   ごく稀にしか出ず、狙って増やすこともできないので例外にしてある。
+  //   それでも底上げはHPの7%ほどに留めてあり、「これが無いと戦えない」
+  //   にはならない。ここを超える鳥をもう1種足してはいけない。
+  bluebird: {
+    id: 'bluebird', name: 'アオイトリ', emoji: '🐦', hp: 18, mp: 12,
+    note: '幸運を運ぶという。めったに姿を見せず、長く生きる',
+    warmNeeded: 3, chickDays: 4, lifeDays: 30,
+  },
 };
 
 export const PET_SPECIES_ORDER: PetSpeciesId[] = [
-  'sparrow', 'lark', 'swallow', 'owl', 'hawk', 'dove', 'crow',
+  'sparrow', 'lark', 'swallow', 'owl', 'hawk', 'dove', 'crow', 'bluebird',
 ];
+
+// 普通に出てよい種類(アオイトリを除く)。
+// ★ 交配の突然変異でこの一覧から選ぶ。PET_SPECIES_ORDER をそのまま使うと
+//   アオイトリが8分の1で出てしまい、「ごく稀」でなくなる。
+export const COMMON_SPECIES: PetSpeciesId[] =
+  PET_SPECIES_ORDER.filter(id => id !== 'bluebird');
+
+// アオイトリが出る確率。卵を出す時と、交配で変異する時の両方で使う。
+// ★ 上げすぎないこと。珍しさそのものが値打ちなので、
+//   手に入りやすくすると他の6種を育てる理由が消える。
+export const BLUEBIRD_RATE = 0.03;
 
 // ---------------------------------------------------------------- 個体値
 //
@@ -293,10 +314,11 @@ export interface BreedResult {
 
 // 交配の結果を決める。判定はサーバーで行い、rnd はサーバーが渡す。
 export function breed(a: Pet, b: Pet, rnd: () => number = Math.random): BreedResult {
-  const mutate = rnd() < BREED_MUTATE_RATE;
   let species: PetSpeciesId;
-  if (mutate) {
-    species = PET_SPECIES_ORDER[Math.floor(rnd() * PET_SPECIES_ORDER.length)];
+  if (rnd() < BLUEBIRD_RATE) {
+    species = 'bluebird';               // 親が何であれ、ごく稀に生まれる
+  } else if (rnd() < BREED_MUTATE_RATE) {
+    species = COMMON_SPECIES[Math.floor(rnd() * COMMON_SPECIES.length)];
   } else {
     species = rnd() < 0.5 ? a.species : b.species;
   }
@@ -413,6 +435,10 @@ export function eggSpeciesForBoss(
   const early: PetSpeciesId[] = ['sparrow', 'lark', 'dove'];
   const mid: PetSpeciesId[] = ['swallow', 'dove', 'lark', 'hawk'];
   const deep: PetSpeciesId[] = ['owl', 'hawk', 'crow', 'swallow'];
+  // ★ 深さに関わらず、まずアオイトリの抽選を行う。
+  //   深いボスだけに出すと「浅いうちは引く意味がない」になり、
+  //   卵をひとつ温める時のわくわくが段階で目減りする。
+  if (rnd() < BLUEBIRD_RATE) return 'bluebird';
   const pool = stage >= 35 ? deep : stage >= 20 ? mid : early;
   return pool[Math.floor(rnd() * pool.length)];
 }
@@ -440,9 +466,14 @@ export interface EggHint {
 }
 
 const EGG_LOOK: Record<PetSpeciesId, Omit<EggHint, 'warmNeeded'>> = {
-  // 小さい・白・無地 … ツバメ / フクロウ
+  // 小さい・白・無地 … ツバメ / フクロウ / アオイトリ
+  //
+  // ★ アオイトリにだけ違う殻を与えてはいけない。殻を見た時点で
+  //   「当たりだ」と分かってしまい、孵る瞬間の見せ場が消える。
+  //   温める回数も3回にして、他の2種と見分けが付かないようにしてある。
   swallow: { size: '小さい', shell: '白', shellCss: '#f4f2ec', pattern: '無地' },
   owl: { size: '小さい', shell: '白', shellCss: '#f4f2ec', pattern: '無地' },
+  bluebird: { size: '小さい', shell: '白', shellCss: '#f4f2ec', pattern: '無地' },
   // ふつう・クリーム・斑点 … スズメ / ヒバリ
   sparrow: { size: 'ふつう', shell: 'クリーム', shellCss: '#efe0c0', pattern: '斑点' },
   lark: { size: 'ふつう', shell: 'クリーム', shellCss: '#efe0c0', pattern: '斑点' },

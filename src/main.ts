@@ -22,6 +22,7 @@ import { installNoZoom } from './nozoom';
 import { currentAllyCharId, renderAllyPicker } from './allypick';
 import { ALLY_RP_MUL } from '../shared/allies';
 import { renderTips } from './tips';
+import { renderChanges } from './changes';
 import { initShare } from './share';
 import { loadArtwork } from './artwork';
 import { initCharPicker, renderCharPickers } from './character';
@@ -306,6 +307,7 @@ function main(): void {
   // サーバーの起床を待ちつつ、初回なら名前を決めてもらう。
   // (名前が決まってからオンラインを初期化 = そのまま自動接続される)
   renderTips();
+  renderChanges();   // 最近の変更点(古いものは自動で消える)
   // public/img/ に画像があれば読み込む(無ければ図形描画のまま)。
   // 読み終わってからキャラ選択欄を描き直すと、立ち絵付きの選択肢になる。
   void loadArtwork().then(() => renderCharPickers());

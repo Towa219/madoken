@@ -1207,3 +1207,27 @@ button.tab[data-badge]::after {
 .hatch-bird .pet-bird, .hatch-bird .pet-bird-emoji {
   filter: drop-shadow(0 0 22px rgba(255, 228, 150, 0.75));
 }
+
+/* 最近の変更点(流れる帯)。
+ * Tips と並ぶので、色を変えて別物と分かるようにする
+ * (同じ色だとTipsが2行に増えたようにしか見えない)。 */
+#changes-bar {
+  overflow: hidden; white-space: nowrap;
+  background: linear-gradient(90deg, #16281f, #1c3528, #16281f);
+  border-bottom: 1px solid #2f5c44;
+  color: #b8ecd0; font-size: 11px; padding: 4px 0;
+}
+#changes-bar .changes-track {
+  display: inline-block; white-space: nowrap;
+  animation: changes-scroll 52s linear infinite;
+}
+#changes-bar .changes-track span { padding-right: 80px; }
+#changes-bar:hover .changes-track { animation-play-state: paused; }
+@keyframes changes-scroll {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  #changes-bar .changes-track { animation: none; }
+  #changes-bar { white-space: normal; }
+}

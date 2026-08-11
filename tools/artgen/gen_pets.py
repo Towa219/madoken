@@ -130,6 +130,16 @@ PETS = {
         'neg': ('penguin, owl, eagle, white bird, brown bird, hooked beak, crest, '
                 'silhouette, flat black, pure black, backlit, bat wings'),
     },
+    'bluebird': {
+        'seed': 0,
+        'name': 'アオイトリ',
+        # ★ 幸運の青い鳥。ごく稀にしか出ないので、ひと目で「当たり」と
+        #   分かる見た目にする。他の7種と色がはっきり違うことが最優先。
+        'prompt': ('bluebird, brilliant vivid blue feathers, glowing blue plumage, '
+                   'pale cream belly, small round body, short beak, sparkling'),
+        'neg': ('penguin, owl, eagle, crow, brown bird, white bird, black bird, '
+                'gray bird, swallow, dull colors, red, orange'),
+    },
 }
 
 
@@ -139,7 +149,7 @@ def gen_pet(key, seed):
     prompt = f"{gen.QUALITY}, {STYLE}, {p['prompt']}, {VIEW}, {p.get('bg', gen.FLAT_BG)}"
     neg = f"{gen.NEGATIVE}, {PET_NEGATIVE}, {p['neg']}"
     img = gen.generate(prompt, 1024, 1024, seed, neg)
-    cut = gen.cutout(img)
+    cut = clean_alpha(gen.cutout(img))
     gen.check_cutout(cut, f'pet:{key}')
     out = gen.fit_height(gen.recenter(gen.trim(cut)), PET_HEIGHT)
     # ★ 「右向き」と書いても左を向く種類がある。生成で当てにいくより
@@ -168,7 +178,7 @@ def try_pet(key, count, seed0):
     for i in range(count):
         seed = seed0 + i * 101
         print(f'  {p["name"]} 候補{i + 1}(種 {seed})…')
-        cut = gen.cutout(gen.generate(prompt, 1024, 1024, seed, neg))
+        cut = clean_alpha(gen.cutout(gen.generate(prompt, 1024, 1024, seed, neg)))
         img = gen.fit_height(gen.recenter(gen.trim(cut)), PET_HEIGHT)
         img.save(os.path.join(outdir, f'{key}_{i + 1}_{seed}.png'))
         imgs.append(img)
@@ -181,6 +191,23 @@ def try_pet(key, count, seed0):
     path = os.path.join(outdir, f'_{key}_一覧.png')
     sheet.save(path)
     print(f'  候補を並べた: {path}')
+
+
+def clean_alpha(img, floor=0.14):
+    """ごく薄い不透明度を落とす。切り抜きの取りこぼしを消すため。
+
+    ★ しきい値で切ってはいけない。輪郭の滑らかさ(アンチエイリアス)まで
+      ギザギザになる。薄い側だけを押し下げて伸ばし直す。
+    ★ アオイトリで背景の白が13%の濃さで残り、暗い戦闘背景では
+      鳥のまわりが白くぼやけて見えた。
+    """
+    import numpy as np
+    from PIL import Image
+    a = np.array(img).astype(np.float32)
+    al = a[..., 3] / 255.0
+    al = np.clip((al - floor) / (1.0 - floor), 0.0, 1.0)
+    a[..., 3] = al * 255.0
+    return Image.fromarray(a.astype(np.uint8), 'RGBA')
 
 
 def pet_scales(pets):
