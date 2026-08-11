@@ -600,6 +600,9 @@ button.tab:disabled { opacity: 0.4; cursor: not-allowed; }
 }
 .member-count { font-size: 11px; color: #8888aa; margin-left: 4px; }
 
+/* チャット入力欄の行(.chat-row はログ1行用の別物なので id にしてある) */
+#chat-input-row { display: flex; gap: 8px; }
+
 #chat-log {
   height: 300px; overflow-y: auto; background: #101020; border: 1px solid #2a2a45;
   border-radius: 6px; padding: 8px; margin-bottom: 8px; font-size: 13px;

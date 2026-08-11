@@ -53,7 +53,7 @@
         <button id="tab-book" class="tab">発見図鑑</button>
         <button id="tab-manual" class="tab">説明書</button>
         <!-- ペットは試験中。管理者モードに入っている間だけ出る(src/admin.ts) -->
-        <button id="tab-pet" class="tab hidden" title="試験中">🐦 ペット</button>
+        <button id="tab-pet" class="tab hidden" title="試験中">ペット</button>
         <button id="tab-settings" class="tab" title="引き継ぎ・初期化">⚙ 設定</button>
       </nav>
     </header>
@@ -76,7 +76,10 @@
         <h2>素材庫</h2>
         <div id="inv-grid"></div>
         <div id="gather-box">
-          <button id="btn-gather"></button>
+          <!-- 文言は起動時に renderGather (src/lab.ts) が費用付きで書き換える。
+               ここに初期文言を置くのは、空ボタンだと支援技術に名前が無いと
+               警告される(アクセシビリティ)ため。 -->
+          <button id="btn-gather">採取に出る</button>
           <div id="gather-bar" class="hidden"><div id="gather-bar-fill"></div></div>
           <p class="note">採取: ランダムなエレメントを1個入手(光・闇は出にくい)</p>
         </div>
@@ -371,7 +374,7 @@
           <div id="online-members"></div>
           <h2>ロビーチャット</h2>
           <div id="chat-log"></div>
-          <div style="display:flex; gap:8px">
+          <div id="chat-input-row">
             <input id="chat-input" maxlength="200" placeholder="メッセージを入力">
             <button id="btn-chat-send">送信</button>
           </div>
