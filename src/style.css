@@ -1191,3 +1191,19 @@ button.tab[data-badge]::after {
   margin: 0; color: #ffe9b8; font-size: 20px; font-weight: bold;
   text-shadow: 0 2px 12px rgba(0, 0, 0, 0.8);
 }
+
+/* ペットの鳥の絵。素材が無い環境では絵文字に落ちる(.pet-bird-emoji)。 */
+.pet-bird {
+  width: auto; vertical-align: middle;
+  image-rendering: auto;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.6));
+}
+.pet-bird-emoji { line-height: 1; }
+/* 絵と文字を横に並べる見出し。絵の下端と文字の中心を揃える。 */
+.pet-head { display: flex; align-items: center; gap: 8px; }
+
+/* 孵化演出の鳥は絵を入れる箱になったので、字送りの余白を消す。 */
+.hatch-bird { line-height: 0; }
+.hatch-bird .pet-bird, .hatch-bird .pet-bird-emoji {
+  filter: drop-shadow(0 0 22px rgba(255, 228, 150, 0.75));
+}

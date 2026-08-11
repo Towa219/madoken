@@ -10,6 +10,7 @@ import {
 } from '../shared/pets';
 import type { EggHint, Pet, WirePet } from '../shared/pets';
 import { adminKeyForRequest, isAdmin } from './admin';
+import { petArtUrl } from './artwork';
 import { playSfx } from './sound';
 import { state } from './state';
 
@@ -53,6 +54,23 @@ function button(label: string, run: () => Promise<void>, disabled = false, title
   b.addEventListener('click', () => void run()); return b;
 }
 
+// 鳥の絵。素材が無い環境では絵文字に落とす(他の絵と同じ考え方)。
+function birdImg(species: string, size: number): HTMLElement {
+  const src = petArtUrl(species);
+  if (src) {
+    const img = document.createElement('img');
+    img.src = src; img.alt = '';
+    img.className = 'pet-bird';
+    img.style.height = `${size}px`;
+    return img;
+  }
+  const span = document.createElement('span');
+  span.className = 'pet-bird-emoji';
+  span.style.fontSize = `${size}px`;
+  span.textContent = PET_SPECIES[species as keyof typeof PET_SPECIES]?.emoji ?? '';
+  return span;
+}
+
 // ---------------------------------------------------------------- 孵化の場面
 //
 // 揺れる → ひびが入る → 光があふれる → 鳥が現れる → 名前が決まる。
@@ -82,7 +100,7 @@ async function hatchScene(pet: Pet, hint: EggHint | undefined): Promise<void> {
 
   const flash = document.createElement('div'); flash.className = 'hatch-flash';
   const bird = document.createElement('div'); bird.className = 'hatch-bird';
-  bird.textContent = sp.emoji;
+  bird.append(birdImg(pet.species, 110));
   const caption = document.createElement('p'); caption.className = 'hatch-caption';
 
   arena.append(egg, flash, bird);
@@ -109,7 +127,7 @@ async function hatchScene(pet: Pet, hint: EggHint | undefined): Promise<void> {
     // 生まれた種類の声を鳴らす。音の名前は種類の id に揃えてある
     // (tools/soundgen/gen_sfx.py の bird_*)。無ければ playSfx は黙る。
     playSfx(`bird_${pet.species}`);
-    caption.textContent = `${sp.emoji} ${sp.name} が生まれた！`;
+    caption.textContent = `${sp.name} が生まれた！`;
     await sleep(HATCH_MS.show);
 
     // 名前はサーバーが決めて返してきている。ここでは知らせるだけ。
@@ -226,8 +244,12 @@ function petCard(pet: Pet, now: number, board: WirePet[]): HTMLElement {
   const sp = PET_SPECIES[pet.species]; const stage = stageOf(pet, now); const bonus = bonusOf(pet, now);
   const box = document.createElement('div'); box.className = 'panel';
   const h = document.createElement('h3');
-  h.textContent = `${sp.emoji} ${petDisplayName(pet)}　${sp.name}・${pet.sex === 'm' ? '♂' : '♀'}`;
-  if (pet.chosen) h.textContent += '　【連れている】';
+  h.className = 'pet-head';
+  h.append(birdImg(pet.species, 34));
+  const 見出し = document.createElement('span');
+  見出し.textContent = `${petDisplayName(pet)}　${sp.name}・${pet.sex === 'm' ? '♂' : '♀'}`
+    + (pet.chosen ? '　【連れている】' : '');
+  h.append(見出し);
   box.append(h);
   const info = document.createElement('p'); info.className = 'note';
   const remaining = stage === 'dead' ? '' : duration(pet.hatchedAt + lifetimeMsOf(pet) - now);
@@ -312,9 +334,16 @@ export async function renderPets(): Promise<void> {
     for (const pet of board) {
       const born = grown(pet);
       const p = document.createElement('p'); p.className = 'note';
-      p.textContent = born
-        ? `${PET_SPECIES[born.species].emoji} ${petDisplayName(born)}（${born.ownerName}） ${born.sex === 'm' ? '♂' : '♀'}・${STAGE_NAME[stageOf(born, now)]}`
-        : `🥚 ${wireDisplayName(pet)}（${pet.ownerName}）・卵`;
+      if (born) {
+        p.className = 'note pet-head';
+        p.append(birdImg(born.species, 24));
+        const t = document.createElement('span');
+        t.textContent = `${petDisplayName(born)}（${born.ownerName}） `
+          + `${born.sex === 'm' ? '♂' : '♀'}・${STAGE_NAME[stageOf(born, now)]}`;
+        p.append(t);
+      } else {
+        p.textContent = `🥚 ${wireDisplayName(pet)}（${pet.ownerName}）・卵`;
+      }
       list.append(p);
     }
     const tools = document.createElement('div'); tools.className = 'panel';

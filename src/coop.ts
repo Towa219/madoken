@@ -14,7 +14,7 @@ import {
   COUNT_STYLE, makeEnemySprite, makePlayerSprite, makeProjectileGfx,
   setEnemySpritePose, setPlayerSpritePose, START_LABEL,
 } from './battle';
-import { backgroundArt } from './artwork';
+import { backgroundArt, petArt } from './artwork';
 import { clampCharId } from '../shared/characters';
 import { spellCooldown, spellDisplayName } from '../shared/spellcraft';
 import { grantBossReward, markGained, showToast } from './lab';
@@ -81,7 +81,8 @@ export class CoopView {
   // どのポーズを取るかはサーバーが決めて配るので、誰の画面でも同じ絵になる。
   private pViews = new Map<
     string,
-    { cont: Container; art: Container; nameT: Text; castT: Text; buffT: Text; petT: Text }
+    { cont: Container; art: Container; nameT: Text; castT: Text; buffT: Text;
+      petBox: Container; petKey: string }
   >();
   private eViews: {
     cont: Container; body: Graphics | Sprite; def: EnemyDef;
@@ -915,10 +916,11 @@ export class CoopView {
         buffT.anchor.set(0.5);
         buffT.position.set(0, -cs(105));
         cont.addChild(buffT);
-        const petT = new Text({ text: '', style: { fontSize: 20, fontFamily: 'Meiryo, sans-serif' } });
-        petT.anchor.set(0.5); petT.position.set(0, -cs(150)); cont.addChild(petT);
+        // 連れているペットを乗せる入れ物。中身は種類が分かってから入れる。
+        const petBox = new Container();
+        petBox.position.set(0, -cs(152)); cont.addChild(petBox);
         this.entityLayer.addChild(cont);
-        v = { cont, art, nameT, castT, buffT, petT };
+        v = { cont, art, nameT, castT, buffT, petBox, petKey: '' };
         this.pViews.set(sid, v);
       }
       v.cont.position.set(PLAYER_XS[p.slot] ?? 110, GROUND_Y);
@@ -938,9 +940,27 @@ export class CoopView {
       if (p.vigorBonus > 0) buffs.push(`♥+${p.vigorBonus}`);
       if (p.mpRegenBonus > 0) buffs.push(`✦MP+${Number(p.mpRegenBonus).toFixed(1)}`);
       v.buffT.text = buffs.join(' ');
-      const species = String(p.petSpecies ?? '') as keyof typeof PET_SPECIES;
-      v.petT.text = species && PET_SPECIES[species] ? PET_SPECIES[species].emoji : '';
-      v.petT.y = -cs(150) + Math.sin(performance.now() / 450 + p.slot) * 3;
+      // 連れているペット。種類が変わった時だけ絵を作り直す
+      // (毎フレーム作ると、鳥1羽のために60回/秒テクスチャを張り替えることになる)
+      const species = String(p.petSpecies ?? '');
+      if (species !== v.petKey) {
+        v.petKey = species;
+        v.petBox.removeChildren();
+        const sp = species ? petArt(species, cs(46)) : null;
+        if (sp) v.petBox.addChild(sp);
+        else if (species && PET_SPECIES[species as keyof typeof PET_SPECIES]) {
+          // 絵が無い環境では絵文字で出す(素材未導入でも動く作りに合わせる)
+          const t = new Text({
+            text: PET_SPECIES[species as keyof typeof PET_SPECIES].emoji,
+            style: {
+              fontSize: 30, fontFamily: 'Meiryo, sans-serif',
+              dropShadow: { color: 0x000000, alpha: 0.9, blur: 5, distance: 0, angle: 0 },
+            },
+          });
+          t.anchor.set(0.5); v.petBox.addChild(t);
+        }
+      }
+      v.petBox.y = -cs(152) + Math.sin(performance.now() / 450 + p.slot) * 3;
     });
     for (const [sid, v] of this.pViews) {
       if (!seen.has(sid)) {

@@ -39,6 +39,10 @@ export interface PetSpecies {
 //   26 が上限で、そこには タカ(HP特化) ハト(頑丈) カラス(両方) が並ぶ。
 //   カラスは尖っていないぶん一番使いやすいので、育ちを遅くして釣り合わせた。
 //   賢い鳥ほど大人になるのが遅い、という実際の性質にも合っている。
+// ★ emoji は必ず種類ごとに違う字にすること。
+//   ヒバリとハトが同じ U+1F54A で、異体字セレクタの有無しか違わず、
+//   画面では見分けが付かなかった(共闘の絵を撮って気づいた)。
+//   ツバメだけは合う絵文字が無く、やむなくペンギンを当てている。
 export const PET_SPECIES: Record<PetSpeciesId, PetSpecies> = {
   sparrow: {
     id: 'sparrow', name: 'スズメ', emoji: '🐦', hp: 12, mp: 5,
@@ -46,7 +50,7 @@ export const PET_SPECIES: Record<PetSpeciesId, PetSpecies> = {
     warmNeeded: 3, chickDays: 4, lifeDays: 20,
   },
   lark: {
-    id: 'lark', name: 'ヒバリ', emoji: '🕊️', hp: 8, mp: 9,
+    id: 'lark', name: 'ヒバリ', emoji: '🐤', hp: 8, mp: 9,
     note: '均等寄りのMP型。朝に強い',
     warmNeeded: 3, chickDays: 4, lifeDays: 20,
   },
@@ -66,7 +70,7 @@ export const PET_SPECIES: Record<PetSpeciesId, PetSpecies> = {
     warmNeeded: 3, chickDays: 4, lifeDays: 15,
   },
   dove: {
-    id: 'dove', name: 'ハト', emoji: '🕊', hp: 16, mp: 8,
+    id: 'dove', name: 'ハト', emoji: '🕊️', hp: 16, mp: 8,
     note: '頑丈で長生き',
     warmNeeded: 3, chickDays: 4, lifeDays: 24,
   },

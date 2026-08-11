@@ -60,3 +60,8 @@ __pycache__/
 # test/*_shot.ts を走らせれば作り直せるので履歴には持たない。
 # 名刺と動画で「生成物を積んで .git を膨らませた」失敗をここでも繰り返さない。
 test/out/
+
+# ペットの鳥の候補(下見用の生成物)。
+# 採用した1枚は public/img/pets/ にあり、種は gen_pets.py に記録済みなので
+# --all で作り直せる。候補まで持つと履歴が膨らむだけ。
+tools/artgen/_pet_candidates/

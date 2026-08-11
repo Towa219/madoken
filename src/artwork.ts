@@ -35,6 +35,7 @@ interface Manifest {
   projectiles?: Partial<Record<ElementId, string>>;
   playerPoses?: Partial<Record<MotionPose, string[]>>;
   enemyPoses?: Partial<Record<MotionPose, Partial<Record<EnemyShape, string>>>>;
+  pets?: Record<string, string>;         // ペットの鳥7種(sparrow/lark/…)
 }
 
 const BASE = 'img/';
@@ -63,6 +64,7 @@ export async function loadArtwork(): Promise<void> {
   for (const f of Object.values(manifest.backgrounds ?? {})) if (f) files.push(f);
   for (const f of Object.values(manifest.enemies ?? {})) if (f) files.push(f);
   for (const f of Object.values(manifest.projectiles ?? {})) if (f) files.push(f);
+  for (const f of Object.values(manifest.pets ?? {})) if (f) files.push(f);
 
   await Promise.all(files.map(async f => {
     try {
@@ -145,6 +147,22 @@ export function playerArtUrl(charId: number): string | null {
 export function enemyArt(shape: EnemyShape, targetHeight: number): Sprite | null {
   const sp = make(manifest?.enemies?.[shape]);
   return sp ? bottomAnchored(sp, targetHeight) : null;
+}
+
+// ペットの鳥(無ければ null)。キャラの頭上に乗せるので、
+// 足元ではなく中心を原点にする。
+export function petArt(species: string, targetHeight: number): Sprite | null {
+  const sp = make(manifest?.pets?.[species]);
+  if (!sp) return null;
+  sp.scale.set(targetHeight / (sp.texture.height || 1));
+  sp.anchor.set(0.5, 0.5);
+  return sp;
+}
+
+// 画面(HTML)側で <img> として出すための場所。無ければ null。
+export function petArtUrl(species: string): string | null {
+  const file = manifest?.pets?.[species];
+  return file ? url(file) : null;
 }
 
 // ===== ポーズ =====

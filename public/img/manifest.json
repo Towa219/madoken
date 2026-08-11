@@ -126,5 +126,14 @@
       "eye": "enemy/eye_hurt.png",
       "fish": "enemy/fish_hurt.png"
     }
+  },
+  "pets": {
+    "sparrow": "pets/sparrow.png",
+    "lark": "pets/lark.png",
+    "swallow": "pets/swallow.png",
+    "owl": "pets/owl.png",
+    "hawk": "pets/hawk.png",
+    "dove": "pets/dove.png",
+    "crow": "pets/crow.png"
   }
 }
