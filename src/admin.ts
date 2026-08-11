@@ -36,11 +36,35 @@ export function adminKeyForRequest(): string {
   return adminKey;
 }
 
+// 隠しコマンド: 画面下の版番号を続けて叩くと、設定に「管理者」の欄が現れる。
+//
+// ★ 常に見えるボタンにすると、押した人に機能の存在が知られてしまう。
+//   合言葉が無ければ何も起きないとはいえ、試験中の機能は
+//   そもそも気づかれないほうがよい。
+// ★ 版番号を選んだ理由: どのタブでも画面下に必ずあり、指でも押せて、
+//   偶然7回続けて叩くことがない。
+const REVEAL_TAPS = 7;
+const REVEAL_WINDOW_MS = 4000;
+let taps = 0;
+let firstTapAt = 0;
+
+function onFooterTap(): void {
+  const now = Date.now();
+  if (now - firstTapAt > REVEAL_WINDOW_MS) { taps = 0; firstTapAt = now; }
+  taps++;
+  if (taps < REVEAL_TAPS) return;
+  taps = 0;
+  $('#admin-panel').classList.remove('hidden');
+  showToast('設定の一番下に「管理者」が現れました。');
+}
+
 // 管理者かどうかで、出したり隠したりするもの。
 // 「ペット」タブは管理者の間だけ現れる。
 function applyAdminUi(): void {
   const on = isAdmin();
   $('#tab-pet').classList.toggle('hidden', !on);
+  // 管理者でいる間は、抜けられるように欄を出しておく
+  if (on) $('#admin-panel').classList.remove('hidden');
   $('#admin-state').textContent = on
     ? '管理者モード: 入り(タブに「ペット」が出ています)'
     : '';
@@ -78,10 +102,17 @@ function adminOff(): void {
   try { sessionStorage.removeItem(KEY_STORE); } catch { /* 無視 */ }
   $('#admin-msg').textContent = '';
   applyAdminUi();
+  // 抜けたら欄ごと隠す。入り直すには、また版番号を叩いてもらう。
+  $('#admin-panel').classList.add('hidden');
+  $('#admin-form').classList.add('hidden');
   showToast('管理者モードを抜けました。');
 }
 
 export function initAdmin(): void {
+  // 版番号は renderFooter が innerHTML ごと書き換えるので、
+  // 中の要素ではなく親(#app-footer)で受ける。書き換えても外れない。
+  $('#app-footer').addEventListener('click', onFooterTap);
+
   $('#btn-admin').addEventListener('click', () => {
     const form = $('#admin-form');
     form.classList.toggle('hidden');

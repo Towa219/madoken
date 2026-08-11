@@ -224,8 +224,9 @@
       </section>
 
       <!-- 管理者モード。試験中の機能(ペット)を作者だけが触るための入口。
-           合言葉はサーバー(ADMIN_KEY)が照合する。ここに合言葉は書かない。 -->
-      <section class="panel" id="admin-panel">
+           合言葉はサーバー(ADMIN_KEY)が照合する。ここに合言葉は書かない。
+           普段は隠してある。画面下の版番号を7回叩くと現れる(src/admin.ts)。 -->
+      <section class="panel hidden" id="admin-panel">
         <h2>管理者</h2>
         <p class="note">
           試験中の機能を出すための入口です。合言葉が要ります。

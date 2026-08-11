@@ -78,9 +78,25 @@ async function main(): Promise<void> {
 
     await check('普段は「ペット」タブが出ていない', false);
 
-    // 設定タブ → 管理者ボタン
+    // 設定タブへ。まだ「管理者」の欄は隠れているはず
     await ev('document.querySelector("#tab-settings").click()');
     await sleep(900);
+    const hiddenAtFirst = await ev<boolean>(
+      'document.querySelector("#admin-panel").classList.contains("hidden")');
+    if (!hiddenAtFirst) ng++;
+    console.log(`  ${hiddenAtFirst ? 'OK ' : 'NG '} 普段は「管理者」の欄も隠れている`);
+
+    // 隠しコマンド: 画面下の版番号を7回叩く
+    await ev(`(() => {
+      const f = document.querySelector('#app-footer');
+      for (let i = 0; i < 7; i++) f.click();
+    })()`);
+    await sleep(500);
+    const revealed = await ev<boolean>(
+      '!document.querySelector("#admin-panel").classList.contains("hidden")');
+    if (!revealed) ng++;
+    console.log(`  ${revealed ? 'OK ' : 'NG '} 版番号を7回叩くと「管理者」が現れる`);
+
     await ev('document.querySelector("#btn-admin").click()');
     await sleep(400);
 
