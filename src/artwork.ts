@@ -36,6 +36,7 @@ interface Manifest {
   playerPoses?: Partial<Record<MotionPose, string[]>>;
   enemyPoses?: Partial<Record<MotionPose, Partial<Record<EnemyShape, string>>>>;
   pets?: Record<string, string>;         // ペットの鳥7種(sparrow/lark/…)
+  petScales?: Record<string, number>;    // 種類ごとの表示倍率(面積を揃えるため)
 }
 
 const BASE = 'img/';
@@ -149,12 +150,21 @@ export function enemyArt(shape: EnemyShape, targetHeight: number): Sprite | null
   return sp ? bottomAnchored(sp, targetHeight) : null;
 }
 
+// 種類ごとの表示倍率。絵の面積が揃うように gen_pets.py が決めている。
+//
+// ★ 高さだけで揃えると、翼を畳んだ鳥と広げた鳥で画面を占める量が
+//   まるで違う。ハトが大きすぎる、と言われて分かった。
+export function petScale(species: string): number {
+  return manifest?.petScales?.[species] ?? 1;
+}
+
 // ペットの鳥(無ければ null)。キャラの頭上に乗せるので、
 // 足元ではなく中心を原点にする。
 export function petArt(species: string, targetHeight: number): Sprite | null {
   const sp = make(manifest?.pets?.[species]);
   if (!sp) return null;
-  sp.scale.set(targetHeight / (sp.texture.height || 1));
+  const h = targetHeight * petScale(species);
+  sp.scale.set(h / (sp.texture.height || 1));
   sp.anchor.set(0.5, 0.5);
   return sp;
 }

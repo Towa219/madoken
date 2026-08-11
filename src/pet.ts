@@ -10,7 +10,7 @@ import {
 } from '../shared/pets';
 import type { EggHint, Pet, WirePet } from '../shared/pets';
 import { adminKeyForRequest, isAdmin } from './admin';
-import { petArtUrl } from './artwork';
+import { petArtUrl, petScale } from './artwork';
 import { playSfx } from './sound';
 import { state } from './state';
 
@@ -61,7 +61,7 @@ function birdImg(species: string, size: number): HTMLElement {
     const img = document.createElement('img');
     img.src = src; img.alt = '';
     img.className = 'pet-bird';
-    img.style.height = `${size}px`;
+    img.style.height = `${Math.round(size * petScale(species))}px`;
     return img;
   }
   const span = document.createElement('span');

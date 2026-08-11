@@ -41,6 +41,53 @@ app.get('/api/ranking', (_req, res) => {
     .catch(() => res.json({ persistent, entries: [] }));
 });
 
+// ===== 合言葉の総当たり対策 =====
+//
+// ★ 入口ごとに別々の判定を書いてはいけない。
+//   もともと歯止めは /api/admin/check にしか無く、/api/pet/* は
+//   素の文字列比較だけだった。check を避けてペットの入口を叩けば、
+//   ロックされずに何度でも試せる状態だった(2026-08-11に気づいた)。
+//   ADMIN_KEY はランキングの削除や名前の禁止と同じ鍵なので、
+//   破られるとペットだけの被害では済まない。
+//
+// ★ 数えるのは「外れた回数」。当たれば記録を消す。
+//   正しく使っている人が締め出されないようにするため。
+const adminTries = new Map<string, { n: number; until: number }>();
+const ADMIN_MAX_TRIES = 5;
+const ADMIN_LOCK_MS = 10 * 60_000;
+
+type KeyVerdict = 'ok' | 'bad' | 'locked' | 'unset';
+
+function verifyAdminKey(req: express.Request, given: string): KeyVerdict {
+  const adminKey = process.env.ADMIN_KEY;
+  if (!adminKey) return 'unset';
+  const who = String(req.ip ?? 'unknown');
+  const now = Date.now();
+  const rec = adminTries.get(who);
+  if (rec && rec.until > now) return 'locked';
+  if (given !== adminKey) {
+    // ★ 「まだ一度もロックされていない(until === 0)」と
+    //   「ロックが明けた(until > 0 かつ過去)」を区別すること。
+    //   元は `rec.until <= now ? 0 : rec.n` と書いてあったが、
+    //   ロックしていない記録は until が 0 なので必ず真になり、
+    //   外すたびに回数が 0 へ戻って永久にロックされなかった。
+    //   歯止めがある顔をして、実際には無制限に試せていた。
+    const 続き = rec && rec.until === 0 ? rec.n : 0;
+    const n = 続き + 1;
+    adminTries.set(who, { n, until: n >= ADMIN_MAX_TRIES ? now + ADMIN_LOCK_MS : 0 });
+    return 'bad';
+  }
+  adminTries.delete(who);
+  return 'ok';
+}
+
+// ロック中に返す文言。あと何分待てばよいかまで出す。
+function lockedMessage(req: express.Request): string {
+  const rec = adminTries.get(String(req.ip ?? 'unknown'));
+  const min = rec ? Math.max(1, Math.ceil((rec.until - Date.now()) / 60_000)) : 1;
+  return `試行が多すぎます。約${min}分あけてください。`;
+}
+
 // ===== ランキングの管理(ADMIN_KEY が要る) =====
 //
 // 不適切な名前が載った時に、記録を消して名前そのものを塞ぐための入口。
@@ -51,28 +98,30 @@ app.get('/api/ranking', (_req, res) => {
 //   禁止名 GET  /api/admin/ban?key=KEY
 //          POST /api/admin/ban  {key, name, action: 'add' | 'remove'}
 function adminOk(req: express.Request, res: express.Response): boolean {
-  const adminKey = process.env.ADMIN_KEY;
-  if (!adminKey) {
-    res.status(403).json({ error: 'ADMIN_KEY が未設定です(Renderの環境変数に足してください)' });
-    return false;
-  }
   const given = String(req.query.key ?? (req.body as { key?: unknown })?.key ?? '');
-  if (given !== adminKey) {
-    res.status(403).json({ error: 'キーが違います' });
-    return false;
-  }
-  return true;
+  const v = verifyAdminKey(req, given);
+  if (v === 'ok') return true;
+  res.status(403).json({
+    error: v === 'unset' ? 'ADMIN_KEY が未設定です(Renderの環境変数に足してください)'
+      : v === 'locked' ? lockedMessage(req)
+      : 'キーが違います',
+  });
+  return false;
 }
 
 type PetBody = { key?: unknown; name?: unknown; petId?: unknown; partnerId?: unknown };
 
+// ペットの入口も同じ判定を通す。ここだけ素の比較にしてはいけない
+// (総当たりの抜け道になる。上の verifyAdminKey の注記を参照)。
 function petAdminOk(req: express.Request, res: express.Response): boolean {
   const given = String((req.body as { key?: unknown })?.key ?? '');
-  if (!process.env.ADMIN_KEY || given !== process.env.ADMIN_KEY) {
-    res.status(403).json({ error: 'ペット機能には正しい管理者の合言葉が必要です。' });
-    return false;
-  }
-  return true;
+  const v = verifyAdminKey(req, given);
+  if (v === 'ok') return true;
+  res.status(403).json({
+    error: v === 'locked' ? lockedMessage(req)
+      : 'ペット機能には正しい管理者の合言葉が必要です。',
+  });
+  return false;
 }
 
 function petName(body: PetBody, res: express.Response): string | null {
@@ -322,40 +371,17 @@ app.post('/api/admin/ban', (req, res) => {
 // ★ 総当たりを防ぐ。
 //   合言葉は短いので、放っておくと片端から試される。
 //   同じ相手からの失敗が続いたら、しばらく受け付けない。
-const adminTries = new Map<string, { n: number; until: number }>();
-const ADMIN_MAX_TRIES = 5;
-const ADMIN_LOCK_MS = 10 * 60_000;
-
 app.post('/api/admin/check', (req, res) => {
-  const adminKey = process.env.ADMIN_KEY;
-  if (!adminKey) {
-    res.json({ ok: false, error: 'ADMIN_KEY が未設定です(Renderの環境変数に足してください)' });
-    return;
-  }
-  const who = String(req.ip ?? 'unknown');
-  const now = Date.now();
-  const rec = adminTries.get(who);
-  if (rec && rec.until > now) {
-    const min = Math.ceil((rec.until - now) / 60_000);
-    res.json({ ok: false, error: `試行が多すぎます。約${min}分あけてください。` });
-    return;
-  }
-  const given = String((req.body as { key?: unknown })?.key ?? '');
-  if (given !== adminKey) {
-    const n = (rec && rec.until <= now ? 0 : rec?.n ?? 0) + 1;
-    adminTries.set(who, {
-      n,
-      until: n >= ADMIN_MAX_TRIES ? now + ADMIN_LOCK_MS : 0,
-    });
-    res.json({ ok: false, error: '合言葉が違います。' });
-    return;
-  }
-  adminTries.delete(who);
-  res.json({ ok: true });
+  const v = verifyAdminKey(req, String((req.body as { key?: unknown })?.key ?? ''));
+  if (v === 'ok') { res.json({ ok: true }); return; }
+  res.json({
+    ok: false,
+    error: v === 'unset' ? 'ADMIN_KEY が未設定です(Renderの環境変数に足してください)'
+      : v === 'locked' ? lockedMessage(req)
+      : '合言葉が違います。',
+  });
 });
 
-// 接続ログの閲覧(管理用)。ADMIN_KEY 環境変数を設定した場合のみ有効。
-// 設定しない場合でも、接続は標準出力に流れるのでRenderのログ画面で読める。
 app.get('/api/connlog', (req, res) => {
   const adminKey = process.env.ADMIN_KEY;
   if (!adminKey) {

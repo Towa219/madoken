@@ -68,13 +68,6 @@ async function 性別の卵(name: string, sex?: Pet['sex']): Promise<WirePet> {
 
 async function 実行(): Promise<void> {
   console.log('ペットAPI検証を開始します。');
-  for (const path of 経路) {
-    const 無し = await 通信(path, '権限試験', {}, null);
-    確認(無し.状態 === 403, `合言葉なし /api/pet/${path} → 実測 ${無し.状態}`);
-    const 誤り = await 通信(path, '権限試験', {}, '違う合言葉');
-    確認(誤り.状態 === 403, `誤った合言葉 /api/pet/${path} → 実測 ${誤り.状態}`);
-  }
-
   // ---- 卵のうちは種類が届かない ----
   const 秘密名 = `伏せ試験${Date.now()}`;
   const 生卵 = await 卵をひとつ(秘密名);
@@ -256,6 +249,30 @@ async function 実行(): Promise<void> {
   const 老拒否 = await 通信('breed', 老一名, { petId: 老一.id, partnerId: 老二.id });
   確認(老拒否.状態 === 400 && String(老拒否.データ.error).includes('年を取りすぎ'),
     `老鳥は産めない → 実測 ${String(老拒否.データ.error)}`);
+
+  // ---- 合言葉まわり(必ずいちばん最後に置くこと) ----
+  //
+  // ★ ここから先は、わざと合言葉を外して叩く。
+  //   歯止めが効くと5回でこのIPがロックされ、以降の通信は
+  //   正しい合言葉でも通らなくなる。先に置くと後続が全滅する
+  //   (歯止めを直した日に実際にそうなった)。
+  for (const path of 経路) {
+    const 無し = await 通信(path, '権限試験', {}, null);
+    確認(無し.状態 === 403, `合言葉なし /api/pet/${path} → 実測 ${無し.状態}`);
+    const 誤り = await 通信(path, '権限試験', {}, '違う合言葉');
+    確認(誤り.状態 === 403, `誤った合言葉 /api/pet/${path} → 実測 ${誤り.状態}`);
+  }
+
+
+  // 外し続けた結果、ロックされているはず。
+  // ★ 入口ごとに数えていたら、ここで別の入口が通ってしまう。
+  //   ペットの入口で外した回数が、ランキング側の入口にも効くことを見る。
+  const ロック中 = await fetch(`${基点}/api/admin/check`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ key: 合言葉 }),
+  }).then(r => r.json()) as { ok?: boolean; error?: string };
+  確認(ロック中.ok !== true && String(ロック中.error).includes('試行が多すぎます'),
+    `外し続けると、正しい合言葉でも別の入口が通らなくなる → 実測 ${String(ロック中.error)}`);
 
   if (失敗数) { console.error(`検証終了: ${失敗数}件失敗しました。`); process.exit(1); }
   console.log('検証終了: 全項目に合格しました。');

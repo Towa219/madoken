@@ -135,5 +135,14 @@
     "hawk": "pets/hawk.png",
     "dove": "pets/dove.png",
     "crow": "pets/crow.png"
+  },
+  "petScales": {
+    "sparrow": 1.0,
+    "lark": 1.052,
+    "swallow": 0.836,
+    "owl": 1.241,
+    "hawk": 0.969,
+    "dove": 0.999,
+    "crow": 1.111
   }
 }

@@ -22,6 +22,8 @@ const KEY = process.env.ADMIN_KEY ?? 'test1234';
 const PORT = 9491;
 const OUT = join(process.cwd(), 'tools', 'shots');
 const NAME = `pb${Math.random().toString(36).slice(2, 6)}`;
+// 撮りたい鳥。指定しなければボスの池から出た1羽になる。
+const 種 = process.env.PET_SPECIES ?? '';
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 
 function seedSave() {
@@ -116,17 +118,32 @@ async function main(): Promise<void> {
         });
         return { 状態: r.status, データ: await r.json() };
       };
-      const 発行 = await call('grant', { stage: 30 });
-      if (発行.状態 !== 200) return '卵を出せない: ' + JSON.stringify(発行.データ);
-      let pet = 発行.データ.pet;
-      for (let i = 0; i < 6; i++) {
+      const 欲しい = ${JSON.stringify(種)};
+      let pet = null;
+      for (let 試行 = 0; 試行 < 40; 試行++) {
+        const 発行 = await call('grant', { stage: 30 });
+        if (発行.状態 !== 200) return '卵を出せない: ' + JSON.stringify(発行.データ);
+        const 卵 = 発行.データ.pet;
+        if (!欲しい) { pet = 卵; break; }
+        // 卵のうちは種類が伏せられているので、孵してから確かめる
+        let 今 = 卵;
+        for (let i = 0; i < 6; i++) {
+          await call('advance', { days: 1 });
+          const w = await call('warm', { petId: 今.id });
+          if (w.状態 !== 200) return '温められない: ' + JSON.stringify(w.データ);
+          今 = w.データ.pet;
+          if (w.データ.hatched) break;
+        }
+        if (今.species === 欲しい) { pet = 今; break; }
+        await call('release', { petId: 今.id });
+      }
+      if (!pet) return '欲しい鳥が出なかった: ' + 欲しい;
+      while (!pet.species) {
         await call('advance', { days: 1 });
         const w = await call('warm', { petId: pet.id });
         if (w.状態 !== 200) return '温められない: ' + JSON.stringify(w.データ);
         pet = w.データ.pet;
-        if (w.データ.hatched) break;
       }
-      if (!pet.species) return '孵らなかった';
       // 雛のままだと効果が半分なので、成鳥まで進める
       await call('advance', { days: 8 });
       const c = await call('choose', { petId: pet.id });
@@ -190,7 +207,7 @@ async function main(): Promise<void> {
     })()`);
     console.log(`  戦闘の画面: ${配布}`);
 
-    await shot('pet_battle_共闘');
+    await shot(`pet_battle_共闘${種 ? '_' + 種 : ''}`);
 
     // ★ 通常ステージ(単騎)でも必ず撮ること。
     //   共闘だけを撮っていたせいで「単騎には一切入っていない」ことに
@@ -222,7 +239,7 @@ async function main(): Promise<void> {
     console.log(`  単騎の開始ボタン: ${出撃}`);
     if (!出撃.startsWith('OK')) ng++;
     await sleep(6500);
-    await shot('pet_battle_単騎');
+    await shot(`pet_battle_単騎${種 ? '_' + 種 : ''}`);
     console.log('  ※ 共闘と単騎の両方で、頭の上に鳥が出ているか絵を見ること');
 
     ws.close();

@@ -946,7 +946,7 @@ export class CoopView {
       if (species !== v.petKey) {
         v.petKey = species;
         v.petBox.removeChildren();
-        const sp = species ? petArt(species, cs(46)) : null;
+        const sp = species ? petArt(species, cs(32)) : null;
         if (sp) v.petBox.addChild(sp);
         else if (species && PET_SPECIES[species as keyof typeof PET_SPECIES]) {
           // 絵が無い環境では絵文字で出す(素材未導入でも動く作りに合わせる)

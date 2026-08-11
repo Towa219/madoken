@@ -378,7 +378,7 @@ export class BattleManager {
     this.petCont = null;
     const 連れ = battlePet();
     if (連れ) {
-      const sp = petArt(連れ.species, cs(46));
+      const sp = petArt(連れ.species, cs(32));
       if (sp) {
         const box = new Container();
         box.addChild(sp);

@@ -12,11 +12,15 @@
 #   画面上まったく見分けが付かず、ツバメには合う絵文字が無いので
 #   ペンギンを当てるしかなかった。7種を描き分けるには絵を持つしかない。
 #
-# ★ 正面寄りで描かせる。真横にしてはいけない。
-#   最初は敵キャラに倣って「from side, facing right」で作ったが、
-#   フクロウの顔盤も、タカの鋭い目も、ハトの丸い胸も、真横からは
-#   見えず、どれも同じ茶色い塊になった(実際に生成して確認)。
-#   頭上に置くアイコンなので、敵の方を向いている必要もない。
+# ★ positive に perched と書いてはいけない。木の止まり木ごと描かれる。
+#   ツバメとハトの足元に木片が付き、空中に浮いて見えた(実画面で確認)。
+#   「翼を畳む」は wings closed against the body で足りる。
+#
+# ★ 斜め右向きで描かせる。真横でも正面でもいけない。
+#   真横: フクロウの顔盤もタカの鋭い目も見えず、どれも茶色い塊になった。
+#   正面: 特徴は出るが、キャラが右(敵の方)を向いているのに鳥だけ
+#         こちらを見ていて、並べると明らかにちぐはぐだった。
+#   斜め右向きなら、顔の特徴を残したまま向きが揃う。
 
 import argparse
 import os
@@ -40,13 +44,17 @@ PET_HEIGHT = 160
 STYLE = ('anime style, game asset, cel shading, crisp lineart, vivid colors, '
          'fantasy, chibi, cute, simple shape, readable silhouette')
 
-VIEW = ('no humans, a single small bird, full body, front view, facing viewer, '
-        'standing, wings folded, looking at viewer, bright even lighting')
+VIEW = ('no humans, a single small bird, full body, three-quarter view, '
+        'facing right, looking to the right, standing on the ground, '
+        'wings closed against the body, wings folded, '
+        'bright even lighting')
 
 # 鳥どうしが似ないための否定指定。
 PET_NEGATIVE = (
     'multiple birds, flock, two birds, spread wings, outstretched wings, '
-    'flying, wide wingspan, cage, branch, perch stand, nest, egg, '
+    'open wings, wings up, raised wings, flapping, wingspan, flying, gliding, '
+    'cage, branch, perch stand, wooden perch, stick, post, pole, log, '
+    'stand, pedestal, nest, egg, '
     'human, hands, person, realistic photo, photorealistic'
 )
 
@@ -58,14 +66,14 @@ PET_NEGATIVE = (
 # 候補を見比べて選んだので、これを変えると別の鳥になる。
 PETS = {
     'sparrow': {
-        'seed': 7000,
+        'seed': 10000,
         'name': 'スズメ',
         'prompt': ('sparrow, brown and beige feathers, black cheek patch, '
                    'cream white chest, round plump body, short beak, short tail'),
         'neg': 'penguin, owl, eagle, crow, white bird, long tail, crest',
     },
     'lark': {
-        'seed': 8001,
+        'seed': 10101,
         'name': 'ヒバリ',
         # ★ スズメと見分けが付かないので、冠羽と「黄色」で分ける。
         #   最初は「細身・長い脚・直立」で体つきを変えようとしたが、
@@ -77,28 +85,31 @@ PETS = {
                 'girl, woman, dress, standing person'),
     },
     'swallow': {
-        'seed': 7101,
+        'seed': 27303,
+        'flip': True,   # この種は左を向くので反転する
         'name': 'ツバメ',
-        'prompt': ('swallow, navy blue back, white belly, red orange throat, '
-                   'forked tail, slim sleek body, pointed wings'),
-        'neg': 'penguin, owl, eagle, round body, plump, short tail, flightless, brown bird',
+        # ★ ツバメは飛ぶ姿ばかり出る。翼を畳んで地面に降りている指定を強める。
+        'prompt': ('swallow bird, navy blue back, white belly, red orange throat and face, '
+                   'forked tail, slim body, sitting on the ground, tucked wings, resting'),
+        'neg': ('penguin, owl, eagle, round body, plump, short tail, flightless, brown bird, '
+                'flying, in flight, mid-air, wings spread, butterfly, insect, moth'),
     },
     'owl': {
-        'seed': 7303,
+        'seed': 10101,
         'name': 'フクロウ',
         'prompt': ('owl, brown feathers, big round yellow eyes, pale round face, '
                    'small hooked beak, fluffy round body, ear tufts'),
         'neg': 'penguin, eagle, sparrow, small eyes, long beak, slim body, perch, pole, stand',
     },
     'hawk': {
-        'seed': 7303,
+        'seed': 10202,
         'name': 'タカ',
         'prompt': ('hawk, sharp hooked yellow beak, glaring yellow eyes, '
                    'brown feathers, cream barred chest, strong talons, proud stance'),
         'neg': 'penguin, owl, big round eyes, cute, plump, chick, tiny, black bird',
     },
     'dove': {
-        'seed': 7803,
+        'seed': 12202,
         'name': 'ハト',
         # ★ 白い鳥を白背景で描かせてはいけない。切り抜きが鳥ごと消す
         #   (実際に4枚とも消えた)。背景だけ色を変える。
@@ -108,7 +119,7 @@ PETS = {
         'neg': 'penguin, owl, eagle, brown bird, black bird, crest, dark feathers',
     },
     'crow': {
-        'seed': 7202,
+        'seed': 10101,
         'name': 'カラス',
         # ★ 真っ黒だとシルエットになり、暗い戦闘背景では消える。
         #   艶と目の光を入れて、黒の中に形が見えるようにする。
@@ -131,6 +142,11 @@ def gen_pet(key, seed):
     cut = gen.cutout(img)
     gen.check_cutout(cut, f'pet:{key}')
     out = gen.fit_height(gen.recenter(gen.trim(cut)), PET_HEIGHT)
+    # ★ 「右向き」と書いても左を向く種類がある。生成で当てにいくより
+    #   反転したほうが確実で速い。鳥は左右がほぼ対称なので粗は出ない。
+    if p.get('flip'):
+        from PIL import Image as _I
+        out = out.transpose(_I.FLIP_LEFT_RIGHT)
     gen.check_centered(out, f'pet:{key}')
     os.makedirs(PETS_DIR, exist_ok=True)
     return gen.save(out, f'pets/{key}.png')
@@ -167,6 +183,34 @@ def try_pet(key, count, seed0):
     print(f'  候補を並べた: {path}')
 
 
+def pet_scales(pets):
+    """種類ごとの表示倍率を、絵の面積が揃うように決める。
+
+    ★ 高さで揃えてはいけない。翼を畳んだ鳥と広げた鳥では、同じ高さでも
+      画面を占める量がまるで違う。ハトとツバメだけ大きく見えた原因がこれ
+      (遊んだ人に「ハトが大きすぎる」と指摘されて分かった)。
+
+    ★ 面積の平方根で揃える。面積そのもので割ると、細長い鳥が
+      極端に拡大されて枠からはみ出す。
+    """
+    import numpy as np
+    from PIL import Image
+    面積 = {}
+    for key in pets:
+        im = Image.open(os.path.join(PETS_DIR, f'{key}.png')).convert('RGBA')
+        a = np.array(im)
+        ink = (a[..., 3] > 40).sum()
+        # 元画像の高さで正規化しておく(生成の切り詰めで高さが揃っていても
+        # 幅は種類ごとに違うため、比較できる形に直す)
+        面積[key] = ink / (im.height * im.height)
+    基準 = sorted(面積.values())[len(面積) // 2]        # 真ん中の鳥を1.00にする
+    out = {}
+    for key, v in 面積.items():
+        s = (基準 / v) ** 0.5 if v > 0 else 1.0
+        out[key] = round(max(0.7, min(1.4, s)), 3)      # 効かせすぎない
+    return out
+
+
 def write_manifest():
     """置かれている鳥だけを manifest.json の pets へ登録する。
 
@@ -184,8 +228,10 @@ def write_manifest():
             if os.path.exists(os.path.join(PETS_DIR, f'{k}.png'))}
     if pets:
         m['pets'] = pets
+        m['petScales'] = pet_scales(pets)
     else:
         m.pop('pets', None)
+        m.pop('petScales', None)
     with open(path, 'w', encoding='utf-8') as f:
         json.dump(m, f, ensure_ascii=False, indent=2)
     print(f'manifest.json を更新した(鳥 {len(pets)}種 / 全{len(PETS)}種)。')
