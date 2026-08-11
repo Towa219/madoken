@@ -80,9 +80,10 @@ export function renderManual(): void {
   ③ <b>魔法の分解</b>(素材1個につき約${Math.round(DISASSEMBLE_RATE * 100)}%で回収。強化・品質が高いほど戻りやすい)<br>
   通常ステージのクリアでは素材は手に入らず、研究Pだけが増えます。</p>
   <p class="man-note">総数は増えませんが、<b>錬成</b>で偏りを直せます。
-  余った素材${TRANSMUTE_COST}個がランダムな1個に変わり、研究Pはかかりません。
-  使うのは手持ちが最も多い種類で、<b>使った種類以外</b>が出ます。
-  貴重な光・闇は、他の素材が尽きるまで使われません。</p>
+  素材${TRANSMUTE_COST}個がランダムな1個に変わり、研究Pはかかりません。
+  <b>使う種類は自分で選びます</b>(${TRANSMUTE_COST}個以上ある素材から選択)。
+  出るのは<b>使った種類以外</b>なので、余っている素材を減らして
+  足りない素材に換えられます。</p>
 </section>
 
 <section class="man-sec">
@@ -118,7 +119,7 @@ export function renderManual(): void {
   <h3>戦闘</h3>
   <ul>
     <li>3→2→1のカウントダウン後に開始。キー<b>1〜4</b>かボタンで詠唱します(順番は魔導書の並び順)</li>
-    <li>自分はHP${PLAYER_MAX_HP} / MP${PLAYER_MAX_MP}。MPは毎秒3回復するので、撃ち続けると息切れします</li>
+    <li>自分はHP${PLAYER_MAX_HP} / MP${PLAYER_MAX_MP}。MPは毎秒${PLAYER_MP_REGEN}回復するので、撃ち続けると息切れします</li>
     <li>敵には<b>5段階の属性相性</b>があります: ◎2.0倍 / ○1.5倍 / −等倍 / △0.6倍 / ✕0.25倍</li>
     <li>敵カードの<b>攻撃属性</b>を見て、その属性の耐性(護符)を張ると被害を抑えられます</li>
     <li>敵は通常${ENEMIES.length}種+ボス${BOSSES.length}種。ステージが上がるほど強い種類が出ます(敵HPは基礎の${ENEMY_HP_MUL}倍から、さらにステージ補正)</li>

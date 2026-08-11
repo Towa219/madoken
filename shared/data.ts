@@ -63,6 +63,14 @@ export const REVIVE_HP_RATE = 0.5;
 // 「いちばん強い効果がいちばん安い」ことになる。
 export const REVIVE_MANA_FLOOR = 70;
 
+// MPの自然回復(毎秒)。src/battle.ts と CoopRoom.ts の両方で使う。
+//
+// ★ RECIPES より前に置くこと。瞑想系の説明文がこの値を埋め込んでいるので、
+//   後ろで定義すると「宣言前に使っている」で型検査に落ちる。
+//   説明文に数字を直書きすると、値を変えた時に文章だけ古くなる
+//   (実際、実装が6になった後も説明書と系統の説明が「毎秒3」のままだった)。
+export const PLAYER_MP_REGEN = 6;
+
 export const RECIPES: RecipeDef[] = [
   // --- 基本系統(2素材で成立。最初のスロット数でも発見できる入門枠) ---
   {
@@ -146,7 +154,7 @@ export const RECIPES: RecipeDef[] = [
   {
     id: 'meisou', name: '瞑想系', spellNoun: '瞑想',
     hint: '氷の静けさに光を灯せば、心は澄み魔力が湧く (氷×2+光×1以上)',
-    desc: '攻撃せず、MPの自然回復を20秒間だけ引き上げる(通常は毎秒3)。'
+    desc: `攻撃せず、MPの自然回復を20秒間だけ引き上げる(通常は毎秒${PLAYER_MP_REGEN})。`
       + '長期戦で魔法を撃ち続けるための系統。',
     check: c => n(c, 'ice') >= 2 && n(c, 'light') >= 1,
     apply: s => { s.kind = 'focus'; },
@@ -670,7 +678,7 @@ export const PLAYER_MAX_HP = 260;
 // MPは最大値より自然回復が効く。回復3/秒に対し詠唱1回で30〜40使うので、
 // 数発撃つと枯れて回復待ちになっていた。最大値だけ上げても先延ばしにしかならない。
 export const PLAYER_MAX_MP = 150;
-export const PLAYER_MP_REGEN = 6;   // 毎秒。src/battle.ts と CoopRoom.ts の両方で使う
+// PLAYER_MP_REGEN は RECIPES より前(瞑想系の説明が使うため)に置いてある。
 // 決闘は読み合いのぶんさらに長め。
 //
 // 相手は敵と違って回復も護盾も耐性も使ってくるので、一撃の重さで決まると

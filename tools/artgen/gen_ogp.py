@@ -136,9 +136,18 @@ def main():
     text((66, 566), 'madoken.onrender.com', font(FONT_B, 30),
          (176, 210, 255, 255), off=2)
 
-    out = os.path.join(IMG, 'ogp.png')
-    canvas.convert('RGB').save(out, quality=95)
-    print(f'{out}  {W}x{H}  {os.path.getsize(out) / 1024:.0f} KB')
+    # ★ 2か所へ書き出すこと(2026-08-11)。
+    #   public/img/ogp.png … ゲーム本体(madoken.onrender.com)が使う
+    #   docs/ogp.png       … 入口ページ(towa219.github.io/madoken/)が使う
+    #   以前は public 側だけ書き出しており、系統数を29へ直した時に
+    #   入口側だけ28のまま古い絵が残った。共有で出るのは入口側なので、
+    #   直したつもりで古いカードが出続けることになる。
+    rgb = canvas.convert('RGB')
+    for out in (os.path.join(IMG, 'ogp.png'),
+                os.path.join(PROJECT, 'docs', 'ogp.png')):
+        os.makedirs(os.path.dirname(out), exist_ok=True)
+        rgb.save(out, quality=95)
+        print(f'{out}  {W}x{H}  {os.path.getsize(out) / 1024:.0f} KB')
 
 
 if __name__ == '__main__':
