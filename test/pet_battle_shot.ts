@@ -31,7 +31,8 @@ function seedSave() {
     version: 1, nickname: NAME, nickToken: `tok_${NAME}`, charId: 0, researchP: 100,
     inventory: { fire: 9, water: 9, wind: 9, earth: 9, thunder: 9, ice: 9, light: 9, dark: 9 },
     spells: [{
-      id: 's1', name: '', recipe: { fire: 2, earth: 2 }, discoveries: [],
+      // 土2 = 範囲攻撃。半径230で隣の敵まで巻き込むはず。
+      id: 's1', name: '', recipe: { earth: 2 }, discoveries: [],
       level: 0, rarity: 'normal', stats: {}, equipCount: 1,
     }],
     equipped: ['s1'],
@@ -240,6 +241,42 @@ async function main(): Promise<void> {
     if (!出撃.startsWith('OK')) ng++;
     await sleep(6500);
     await shot(`pet_battle_単騎${種 ? '_' + 種 : ''}`);
+
+    // ★ 土の範囲攻撃を実際に撃つ。半径の数字が正しくても、
+    //   当たり判定に使われていなければ意味がない。
+    //   撃った直後のダメージ表示が2つ出るかを見る。
+    const 撃つ = await ev<string>(`(() => {
+      const b = [...document.querySelectorAll('#spell-bar button, .spell-btn')]
+        .filter(x => !x.disabled && x.offsetParent !== null);
+      if (!b.length) return '魔法のボタンが無い';
+      // ★ 魔法は click ではなく pointerdown で撃つ(src/battle.ts)。
+      //   ダブルタップ拡大よけで2回目のタップの click が消えるため。
+      //   click() を送っても何も起きず、8秒待っても敵のHPは1も減らない(実測)。
+      b[0].dispatchEvent(new PointerEvent('pointerdown', { button: 0, bubbles: true }));
+      return 'OK:' + (b[0].textContent || '').trim().slice(0, 24);
+    })()`);
+    console.log(`  魔法を撃つ: ${撃つ}`);
+    const 撃つ前 = await ev<{ name: string; x: number; hp: number }[]>('window.__enemyDebug');
+    // ★ 詠唱1.3秒 + 弾の飛行(プレイヤー196 → 敵660 で 464px / 弾速260 = 1.8秒)。
+    //   3.2秒では着弾の直前で、HPがまだ減っていなかった(実測)。
+    // ★ 詠唱1.3秒 + 弾の飛行(196→660 で464px / 弾速260 = 1.8秒)。
+    //   3.2秒では着弾の直前でまだ減っていなかった(実測)。
+    await sleep(5500);
+    const 撃った後 = await ev<{ name: string; x: number; hp: number }[]>('window.__enemyDebug');
+    await shot('pet_battle_土の範囲');
+
+    if (撃つ前 && 撃った後) {
+      const 減った = 撃った後.filter((e, i) => e.hp < (撃つ前[i]?.hp ?? 0));
+      for (const e of 撃った後) {
+        const 前 = 撃つ前.find(p => p.name === e.name)?.hp ?? 0;
+        console.log(`     ${e.name}(x=${e.x}) HP ${前} → ${e.hp}`);
+      }
+      const 間隔 = 撃った後.length >= 2
+        ? Math.abs(撃った後[1].x - 撃った後[0].x) : 0;
+      console.log(`     敵の間隔=${間隔}px / 減った敵=${減った.length}体`);
+      if (減った.length >= 2) console.log('  OK  土の範囲攻撃が2体に当たった');
+      else { console.log(`  NG  1体にしか当たっていない(範囲が効いていない)`); ng++; }
+    } else { console.log('  NG  敵の様子を読めなかった'); ng++; }
     console.log('  ※ 共闘と単騎の両方で、頭の上に鳥が出ているか絵を見ること');
 
     ws.close();

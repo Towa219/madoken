@@ -540,6 +540,7 @@ export class BattleManager {
     // 連れているペットを頭上でゆっくり上下させる。
     // 止まっていると背景の絵に貼り付いて見えるので、少しだけ動かす。
     if (this.petCont) this.petCont.y = cy(152) + Math.sin(this.time * 2.2) * 3;
+    this.noteEnemyDebug();
 
     // 勝敗確定後の余韻
     if (this.endResult !== null) {
@@ -1014,6 +1015,16 @@ export class BattleManager {
     d.mpRegenBonus = a.mpRegenBonus;
     d.powerMul = a.powerMul;
     d.power0 = Math.round(a.spells[0]?.stats.power ?? 0);
+  }
+
+  // 敵のHPを検証から覗けるようにする(window.__enemyDebug)。
+  //
+  // ★ 範囲攻撃が本当に隣まで当たっているかは、画面写真では確かめられない。
+  //   弾の飛行中に撮ってしまうし、ダメージ表示はすぐ消える。
+  //   test/pet_battle_shot.ts がここを読んで、2体とも減ったかを見る。
+  private noteEnemyDebug(): void {
+    (window as unknown as { __enemyDebug?: unknown }).__enemyDebug =
+      this.enemies.map(e => ({ name: e.def.name, x: e.x, hp: Math.round(e.hp), maxHp: e.maxHp }));
   }
 
   private allyDebug(): AllyDebug {

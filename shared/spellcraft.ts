@@ -53,6 +53,19 @@ export function computeSpell(counts: ElementCounts): CraftResult {
   s.castTime -= 0.2 * c('wind');
   s.projSpeed += 70 * c('wind') + 130 * c('thunder');
   s.critRate += 8 * c('thunder');
+
+  // 土 = 範囲攻撃の属性。
+  //
+  // ★ 土だけ持ち味が無かった。威力+5は8属性中4番目で、代わりの性質が
+  //   1つも無く、3個そろえて地震系にするまで何も起きない。
+  //   これが「土の魔法が弱すぎる」の正体だった(2026-08-11に指摘)。
+  //
+  // ★ 半径は 150 未満だと一切意味がない。敵の並びは
+  //   3体 [580, 725, 865](間隔145と140)、2体 [660, 850](間隔190)。
+  //   隣に届かない半径は、当たり判定に一度も関与しない。
+  //   土1個から隣へ届くよう、底上げ110 + 1個あたり60 とする。
+  //     土1 → 170(隣1体) / 土2 → 230 / 土3 → 290(3体すべて)
+  if (c('earth') > 0) s.radius += 110 + 60 * c('earth');
   s.slow += 14 * c('ice');
   s.lifesteal += 8 * c('light');
   s.selfDamage += 4 * c('dark');
@@ -75,6 +88,15 @@ export function computeSpell(counts: ElementCounts): CraftResult {
   s.power = Math.max(1, Math.round(s.power));
   s.projSpeed = Math.round(s.projSpeed);
   s.critRate = Math.min(80, Math.round(s.critRate));
+  // 半径は攻撃にしか意味が無い。土で組んだ盾や回復に
+  // 「爆発170」と出てしまうので、攻撃以外では消す。
+  // ★ ここは系統(kind)が決まる RECIPES の適用より後でなければならない。
+  if (s.kind !== 'attack') s.radius = 0;
+  // 地震系は弾を撃たずに敵全体へ当てる。半径は使われないので消す。
+  // ★ 残すと魔導値が「全体2.2倍」と「範囲1.7倍」で二重に膨らみ、
+  //   さらに弾を撃たない魔法に「爆発290」と表示されてしまう。
+  if (s.quake) s.radius = 0;
+  s.radius = Math.round(s.radius);
 
   // 防御・支援系の性能は威力から換算
   if (s.kind === 'shield') s.barrier = Math.round(s.power * 2.2);
@@ -533,7 +555,10 @@ export function spellMagicValue(raw: SpellStats): number {
   if (s.kind === 'attack') {
     let eff = s.power * (1 + s.critRate / 100);
     if (s.quake) eff *= 2.2;              // 敵全体を巻き込む
-    if (s.radius > 0) eff *= 1.35;
+    // ★ 半径の大小を反映する。一律1.35倍だと、隣に届かない半径90でも
+    //   3体を巻き込む半径290でも同じ評価になってしまう。
+    //   150 でようやく隣1体に届くので、そこを1.35倍の基準にする。
+    if (s.radius > 0) eff *= 1 + Math.min(2, s.radius / 150) * 0.35;
     if (s.pierce) eff *= 1.3;
     eff *= 1 + s.chain * 0.25;
     if (s.freeze > 0) eff *= 1 + s.freeze * 0.12;

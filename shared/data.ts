@@ -28,7 +28,7 @@ export const ELEMENTS: Record<ElementId, ElementDef> = {
   wind:    { name: '風', emoji: '🌪️', color: 0x66dd99, cssColor: '#66dd99',
              desc: '詠唱-0.2秒 / 弾速+70 / 威力+3' },
   earth:   { name: '土', emoji: '⛰️', color: 0xcc9955, cssColor: '#cc9955',
-             desc: '威力+5 / 消費MP+3' },
+             desc: '威力+5 / 消費MP+3 / 範囲攻撃(1個で隣に届く)' },
   thunder: { name: '雷', emoji: '⚡', color: 0xffdd44, cssColor: '#ffdd44',
              desc: '威力+7 / 弾速+130 / 会心+8% / MP+4' },
   ice:     { name: '氷', emoji: '❄️', color: 0x99eeff, cssColor: '#99eeff',
@@ -98,9 +98,11 @@ export const RECIPES: RecipeDef[] = [
   {
     id: 'bakuretsu', name: '爆裂系', spellNoun: '爆裂弾',
     hint: '火を極めし者に訪れる (火×3以上)',
+    // ★ 半径90は敵の間隔(140〜190)に届かず、一度も発動していなかった。
+    //   「範囲内の敵すべてを巻き込む」と書いてあるのに当たらない状態。
     desc: '着弾点が爆発し、範囲内の敵すべてを巻き込む。威力1.2倍。',
     check: c => n(c, 'fire') >= 3,
-    apply: s => { s.radius += 90; s.power *= 1.2; },
+    apply: s => { s.radius += 160; s.power *= 1.2; },
   },
   {
     id: 'rensa', name: '連鎖系', spellNoun: '連鎖雷',
