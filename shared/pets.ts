@@ -28,7 +28,7 @@
 //     ・「ペット」タブが誰にでも出る(src/admin.ts)
 //     ・説明書にペットの節が出る(src/manual.ts)
 //   合わせて src/changes.ts に1件書くこと(触れるようになった告知)。
-export const PETS_PUBLIC = false;
+export const PETS_PUBLIC = true;
 
 // ---------------------------------------------------------------- 種類
 

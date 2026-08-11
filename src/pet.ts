@@ -5,7 +5,8 @@
 //   なので卵は必ず hint を見て描く。PET_SPECIES[pet.species] は
 //   孵ったあとにしか使えない。
 import {
-  BREED_MAX_COUNT, MAX_PETS, PET_SPECIES, STAGE_NAME, WARM_INTERVAL_MS, bonusOf, breedLeft,
+  BREED_MAX_COUNT, MAX_PETS, PET_SPECIES, PETS_PUBLIC, STAGE_NAME, WARM_INTERVAL_MS,
+  bonusOf, breedLeft,
   breedWaitMs, canBreed, chosenPetOf, lifetimeMsOf, petDisplayName, stageOf, wireDisplayName,
 } from '../shared/pets';
 import type { EggHint, Pet, WirePet } from '../shared/pets';
@@ -217,7 +218,10 @@ function setBadge(n: number): void {
 }
 
 async function refreshBadge(): Promise<void> {
-  if (!isAdmin() || !state.nickname) { setBadge(0); 連れている = null; return; }
+  // 公開したら誰でも。それまでは管理者だけ。
+  if (!(PETS_PUBLIC || isAdmin()) || !state.nickname) {
+    setBadge(0); 連れている = null; return;
+  }
   try {
     const data = await call('list', { board: false });
     const now = data.now ?? Date.now();
@@ -382,7 +386,9 @@ async function act(path: string, extra: Record<string, unknown>): Promise<void> 
 
 export async function renderPets(): Promise<void> {
   const list = $('#pet-list'); const msg = $('#pet-msg'); list.replaceChildren();
-  if (!isAdmin()) { msg.textContent = '管理者モードでのみ利用できます。'; return; }
+  if (!(PETS_PUBLIC || isAdmin())) {
+    msg.textContent = '管理者モードでのみ利用できます。'; return;
+  }
   if (!state.nickname) { msg.textContent = '先にニックネームを決めてください。'; return; }
   msg.textContent = '読み込み中…';
   try {
@@ -415,6 +421,10 @@ export async function renderPets(): Promise<void> {
       }
       list.append(p);
     }
+    // ★ ここから下は管理者だけ。卵を無から出す・時間を飛ばす道具なので、
+    //   公開後も一般には出さない(サーバーも合言葉で弾くが、押せるボタンが
+    //   見えていること自体が不自然)。
+    if (!isAdmin()) { msg.textContent = ''; return; }
     const tools = document.createElement('div'); tools.className = 'panel';
     const title = document.createElement('h3'); title.textContent = '管理者用'; tools.append(title);
     const stage = document.createElement('input');
