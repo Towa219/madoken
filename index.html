@@ -52,6 +52,8 @@
         <button id="tab-shop" class="tab">交易所</button>
         <button id="tab-book" class="tab">発見図鑑</button>
         <button id="tab-manual" class="tab">説明書</button>
+        <!-- ペットは試験中。管理者モードに入っている間だけ出る(src/admin.ts) -->
+        <button id="tab-pet" class="tab hidden" title="試験中">🐦 ペット</button>
         <button id="tab-settings" class="tab" title="引き継ぎ・初期化">⚙ 設定</button>
       </nav>
     </header>
@@ -126,6 +128,20 @@
     </main>
 
     <!-- ===== 設定 ===== -->
+    <!-- ペット(試験中)。管理者モードの間だけタブが出る。
+         中身はこれから作る。まずは器だけ置いて、道筋を通す。 -->
+    <main id="pet-screen" class="hidden">
+      <section class="panel">
+        <h2>🐦 ペット <small>試験中</small></h2>
+        <p class="note">
+          ここにペットの一覧が並びます。まだ中身はありません。<br>
+          卵はボスを倒すと手に入る予定です(5の倍数のステージ・初回のみ)。
+        </p>
+        <div id="pet-list"></div>
+        <div id="pet-msg" class="note"></div>
+      </section>
+    </main>
+
     <main id="settings-screen" class="hidden">
       <section class="panel" id="char-panel">
         <h2>キャラクター</h2>
@@ -205,6 +221,24 @@
         <div id="share-buttons"></div>
         <div id="share-msg" class="note"></div>
         <div id="support-box" class="hidden"></div>
+      </section>
+
+      <!-- 管理者モード。試験中の機能(ペット)を作者だけが触るための入口。
+           合言葉はサーバー(ADMIN_KEY)が照合する。ここに合言葉は書かない。 -->
+      <section class="panel" id="admin-panel">
+        <h2>管理者</h2>
+        <p class="note">
+          試験中の機能を出すための入口です。合言葉が要ります。
+        </p>
+        <button id="btn-admin" type="button">管理者モード</button>
+        <button id="btn-admin-off" type="button" class="hidden">管理者モードを抜ける</button>
+        <div id="admin-form" class="hidden">
+          <input id="admin-key" type="password" autocomplete="off"
+                 placeholder="合言葉" aria-label="管理者の合言葉">
+          <button id="btn-admin-go" type="button" class="primary">確認</button>
+        </div>
+        <div id="admin-state" class="note"></div>
+        <div id="admin-msg" class="note"></div>
       </section>
     </main>
 

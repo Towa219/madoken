@@ -24,6 +24,7 @@ import { renderTips } from './tips';
 import { initShare } from './share';
 import { loadArtwork } from './artwork';
 import { initCharPicker, renderCharPickers } from './character';
+import { initAdmin } from './admin';
 import { initSound, initSoundUI, playBgm, playSfx, renderSoundUI } from './sound';
 import { combatPower } from '../shared/spellcraft';
 import { BUILD_DATE, COPYRIGHT, VERSION } from '../shared/version';
@@ -40,7 +41,7 @@ let lastStage = 1;
 
 // ===== タブ切替 =====
 
-type Tab = 'lab' | 'book' | 'battle' | 'shop' | 'manual' | 'settings';
+type Tab = 'lab' | 'book' | 'battle' | 'shop' | 'manual' | 'pet' | 'settings';
 
 // 戦闘中(ソロ・共闘・決闘)はタブを移動させない。
 // 移動できると、進行中の戦闘が見えないまま進んでしまう。
@@ -51,7 +52,7 @@ function battleInProgress(): boolean {
 // 画面に並んでいる順(index.html の nav と同じにしておく)
 const TAB_BUTTONS = [
   '#tab-lab', '#tab-battle', '#tab-shop', '#tab-book', '#tab-manual',
-  '#tab-settings',
+  '#tab-pet', '#tab-settings',
 ];
 
 // 戦闘中・取引中は、今表示しているタブ以外を押せなくする
@@ -85,6 +86,7 @@ function forceBattleTab(): void {
   $('#book-screen').classList.add('hidden');
   $('#shop-screen').classList.add('hidden');
   $('#manual-screen').classList.add('hidden');
+  $('#pet-screen').classList.add('hidden');
   $('#settings-screen').classList.add('hidden');
   $('#battle-screen').classList.remove('hidden');
   for (const sel of TAB_BUTTONS) {
@@ -113,12 +115,14 @@ function switchTab(tab: Tab): void {
   $('#battle-screen').classList.toggle('hidden', tab !== 'battle');
   $('#shop-screen').classList.toggle('hidden', tab !== 'shop');
   $('#manual-screen').classList.toggle('hidden', tab !== 'manual');
+  $('#pet-screen').classList.toggle('hidden', tab !== 'pet');
   $('#settings-screen').classList.toggle('hidden', tab !== 'settings');
   $('#tab-lab').classList.toggle('active', tab === 'lab');
   $('#tab-book').classList.toggle('active', tab === 'book');
   $('#tab-battle').classList.toggle('active', tab === 'battle');
   $('#tab-shop').classList.toggle('active', tab === 'shop');
   $('#tab-manual').classList.toggle('active', tab === 'manual');
+  $('#tab-pet').classList.toggle('active', tab === 'pet');
   $('#tab-settings').classList.toggle('active', tab === 'settings');
   if (tab === 'shop') { enterShop(); renderTradePanel(); }
   // 交易所から出たらロビーの曲に戻す(専用BGMを引きずらない)
@@ -330,6 +334,7 @@ function main(): void {
   $('#tab-lab').addEventListener('click', () => switchTab('lab'));
   $('#tab-book').addEventListener('click', () => switchTab('book'));
   $('#tab-manual').addEventListener('click', () => switchTab('manual'));
+  $('#tab-pet').addEventListener('click', () => switchTab('pet'));
   $('#tab-battle').addEventListener('click', () => switchTab('battle'));
   $('#tab-shop').addEventListener('click', () => switchTab('shop'));
   $('#tab-settings').addEventListener('click', () => switchTab('settings'));
@@ -391,6 +396,7 @@ function main(): void {
   initCharPicker('#char-picker');    // 設定タブ
   initCharPicker('#welcome-chars');  // 初回起動
   initShare();
+  initAdmin();   // 「ペット」タブは管理者モードの間だけ出る(試験中)
   updateTopbar();
   renderLab();
   renderFooter();

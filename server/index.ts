@@ -109,6 +109,49 @@ app.post('/api/admin/ban', (req, res) => {
   })().catch(() => res.status(500).json({ error: '操作に失敗しました' }));
 });
 
+// 管理者モードの合言葉を確かめる。
+//
+// ★ なぜサーバーで確かめるのか
+//   このリポジトリは公開なので、クライアント側に書いた判定はソースを読めば
+//   誰でも突破できる。管理者モードで触れるもの(ペットなど)は戦闘の強さや
+//   他人との交配に関わるため、判定はサーバーに置く。
+//   鍵は Render の環境変数にだけあり、リポジトリには入っていない。
+//
+// ★ 総当たりを防ぐ。
+//   合言葉は短いので、放っておくと片端から試される。
+//   同じ相手からの失敗が続いたら、しばらく受け付けない。
+const adminTries = new Map<string, { n: number; until: number }>();
+const ADMIN_MAX_TRIES = 5;
+const ADMIN_LOCK_MS = 10 * 60_000;
+
+app.post('/api/admin/check', (req, res) => {
+  const adminKey = process.env.ADMIN_KEY;
+  if (!adminKey) {
+    res.json({ ok: false, error: 'ADMIN_KEY が未設定です(Renderの環境変数に足してください)' });
+    return;
+  }
+  const who = String(req.ip ?? 'unknown');
+  const now = Date.now();
+  const rec = adminTries.get(who);
+  if (rec && rec.until > now) {
+    const min = Math.ceil((rec.until - now) / 60_000);
+    res.json({ ok: false, error: `試行が多すぎます。約${min}分あけてください。` });
+    return;
+  }
+  const given = String((req.body as { key?: unknown })?.key ?? '');
+  if (given !== adminKey) {
+    const n = (rec && rec.until <= now ? 0 : rec?.n ?? 0) + 1;
+    adminTries.set(who, {
+      n,
+      until: n >= ADMIN_MAX_TRIES ? now + ADMIN_LOCK_MS : 0,
+    });
+    res.json({ ok: false, error: '合言葉が違います。' });
+    return;
+  }
+  adminTries.delete(who);
+  res.json({ ok: true });
+});
+
 // 接続ログの閲覧(管理用)。ADMIN_KEY 環境変数を設定した場合のみ有効。
 // 設定しない場合でも、接続は標準出力に流れるのでRenderのログ画面で読める。
 app.get('/api/connlog', (req, res) => {
