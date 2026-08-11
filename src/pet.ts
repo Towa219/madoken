@@ -10,6 +10,7 @@ import {
 } from '../shared/pets';
 import type { EggHint, Pet, WirePet } from '../shared/pets';
 import { adminKeyForRequest, isAdmin } from './admin';
+import { askConfirm } from './confirm';
 import { petArtUrl, petScale } from './artwork';
 import { playSfx } from './sound';
 import { state } from './state';
@@ -264,7 +265,12 @@ function eggCard(pet: WirePet, now: number): HTMLElement {
     why.textContent = ' まだ温められません。'; actions.append(why);
   }
   actions.append(button('手放す', async () => {
-    if (confirm('この卵を手放しますか？')) await act('release', { petId: pet.id });
+    const ok = await askConfirm({
+      title: 'この卵を手放す?',
+      body: '何の鳥が生まれるかは分かりません。一度手放すと戻せません。',
+      yes: '手放す', danger: true,
+    });
+    if (ok) await act('release', { petId: pet.id });
   }));
   box.append(actions); return box;
 }
@@ -301,10 +307,26 @@ function petCard(pet: Pet, now: number, board: WirePet[]): HTMLElement {
     () => act('choose', { petId: pet.chosen ? '' : pet.id }), pet.boarded || stage === 'dead',
     pet.boarded ? '交配所へ預けている間は連れて行けません。' : stage === 'dead' ? 'もう天へ行ってしまいました。' : ''));
   actions.append(button('手放す', async () => {
-    if (confirm(`${petDisplayName(pet)}を手放しますか？`)) await act('release', { petId: pet.id });
+    const ok = await askConfirm({
+      title: `${petDisplayName(pet)}を手放す?`,
+      body: '一度手放すと戻せません。',
+      yes: '手放す', danger: true,
+    });
+    if (ok) await act('release', { petId: pet.id });
   }));
-  actions.append(button(pet.boarded ? '交配所から引き取る' : '交配所へ預ける',
-    () => act(pet.boarded ? 'unboard' : 'board', { petId: pet.id })));
+  actions.append(button(pet.boarded ? '交配所から引き取る' : '交配所へ預ける', async () => {
+    if (pet.boarded) { await act('unboard', { petId: pet.id }); return; }
+    // ★ 預ける操作そのものが「他の人に使われてよい」という承諾になる。
+    //   相手側のデータへ書き込む裏付けがこの承諾なので、必ずここで取る。
+    const ok = await askConfirm({
+      title: `${petDisplayName(pet)}を交配所へ預ける?`,
+      body: '<b>他の研究者があなたの鳥と交配できるようになります。</b><br>'
+        + 'そのたびに、あなたにもお礼の卵が1つ届きます。<br>'
+        + '預けている間は戦闘に連れて行けません。いつでも引き取れます。',
+      yes: '預ける',
+    });
+    if (ok) await act('board', { petId: pet.id });
+  }));
   if (!pet.boarded) {
     for (const wirePartner of board) {
       if (wirePartner.ownerName === state.nickname) continue;
