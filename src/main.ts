@@ -4,6 +4,7 @@ import { BattleManager } from './battle';
 import { ELEMENTS, EQUIP_MAX, isBossStage } from '../shared/data';
 import { initLab, renderLab, showToast } from './lab';
 import { renderManual } from './manual';
+import { renderPets } from './pet';
 import {
   initDuelCall, initOnline, coopTryCast, duelTryCast, inBattleView,
   setBattleTabOpener,
@@ -128,6 +129,7 @@ function switchTab(tab: Tab): void {
   // 交易所から出たらロビーの曲に戻す(専用BGMを引きずらない)
   else if (prev === 'shop') playBgm('lobby');
   if (tab === 'manual') renderManual();
+  if (tab === 'pet') void renderPets();
   if (tab === 'settings') {
     renderCloudStatus();
     renderCharPickers();

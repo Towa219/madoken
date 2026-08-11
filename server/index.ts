@@ -18,6 +18,12 @@ import { presenceSnapshot } from './presence';
 import { checkName, claimName, forceReleaseName, releaseName } from './names';
 import { deleteSave, getSave, putSave } from './save';
 import { BUILD_DATE, VERSION } from '../shared/version';
+import {
+  BREED_EGG_HOURS, DAY_MS, MAX_PETS, canBreed, canWarm, countHeld, breed,
+  eggSpeciesForBoss, maskPet, warmLeft, wildGene,
+} from '../shared/pets';
+import type { Pet } from '../shared/pets';
+import { boardPet, listBoard, listPets, savePets, unboardPet } from './pets';
 
 const { Server } = colyseusPkg;
 const { WebSocketTransport } = wsTransportPkg;
@@ -57,6 +63,156 @@ function adminOk(req: express.Request, res: express.Response): boolean {
   }
   return true;
 }
+
+type PetBody = { key?: unknown; name?: unknown; petId?: unknown; partnerId?: unknown };
+
+function petAdminOk(req: express.Request, res: express.Response): boolean {
+  const given = String((req.body as { key?: unknown })?.key ?? '');
+  if (!process.env.ADMIN_KEY || given !== process.env.ADMIN_KEY) {
+    res.status(403).json({ error: 'ペット機能には正しい管理者の合言葉が必要です。' });
+    return false;
+  }
+  return true;
+}
+
+function petName(body: PetBody, res: express.Response): string | null {
+  const name = String(body.name ?? '').trim();
+  if (!name) { res.status(400).json({ error: 'ニックネームを入力してください。' }); return null; }
+  return name;
+}
+
+function newEgg(ownerName: string, species: Pet['species'], now: number): Pet {
+  return {
+    id: crypto.randomUUID(), ownerName, species, name: '', sex: Math.random() < 0.5 ? 'm' : 'f',
+    hpGene: wildGene(), mpGene: wildGene(), lifeGene: wildGene(), warmCount: 0,
+    lastWarmAt: now, hatchedAt: 0, boarded: false, parents: null, bornAt: now,
+  };
+}
+
+// ★ 端末へ返すペットは必ず maskPet を通す。
+//   卵のうちは species を落として「何が生まれるか」を伏せるため。
+//   画面側で隠すだけだと、開発者ツールで JSON を覗けば読めてしまう。
+const wire = (pets: Pet[]) => pets.map(maskPet);
+
+app.post('/api/pet/list', (req, res) => {
+  if (!petAdminOk(req, res)) return;
+  const name = petName(req.body as PetBody, res); if (!name) return;
+  void Promise.all([listPets(name), listBoard()])
+    .then(([pets, board]) => res.json({
+      ok: true, pets: wire(pets), board: wire(board), now: Date.now(),
+    }))
+    .catch(() => res.status(500).json({ error: 'ペット一覧を読み込めませんでした。' }));
+});
+
+app.post('/api/pet/grant', (req, res) => {
+  if (!petAdminOk(req, res)) return;
+  const body = req.body as PetBody & { stage?: unknown };
+  const name = petName(body, res); if (!name) return;
+  void (async () => {
+    const pets = await listPets(name);
+    if (countHeld(pets) >= MAX_PETS) { res.status(400).json({ error: '手持ちのペットが上限です。' }); return; }
+    const now = Date.now();
+    const pet = newEgg(name, eggSpeciesForBoss(Number(body.stage) || 0), now);
+    pets.push(pet); await savePets(name, pets); res.json({ ok: true, pet: maskPet(pet) });
+  })().catch(() => res.status(500).json({ error: '卵を追加できませんでした。' }));
+});
+
+app.post('/api/pet/warm', (req, res) => {
+  if (!petAdminOk(req, res)) return;
+  const body = req.body as PetBody; const name = petName(body, res); if (!name) return;
+  void (async () => {
+    const pets = await listPets(name); const pet = pets.find(p => p.id === String(body.petId ?? ''));
+    if (!pet || pet.boarded) { res.status(404).json({ error: '温める卵が見つかりません。' }); return; }
+    const now = Date.now();
+    if (!canWarm(pet, now)) { res.status(400).json({ error: 'まだ温められる時間ではありません。' }); return; }
+    pet.warmCount += 1; pet.lastWarmAt = now;
+    // ここで孵る。孵った時だけ species が端末へ届く ― 見せ場はこの一回だけ。
+    const hatched = warmLeft(pet) === 0;
+    if (hatched) pet.hatchedAt = now;
+    await savePets(name, pets);
+    res.json({ ok: true, pet: maskPet(pet), hatched });
+  })().catch(() => res.status(500).json({ error: '卵を温められませんでした。' }));
+});
+
+app.post('/api/pet/rename', (req, res) => {
+  if (!petAdminOk(req, res)) return;
+  const body = req.body as PetBody & { petName?: unknown }; const name = petName(body, res); if (!name) return;
+  const nextName = String(body.petName ?? '').trim();
+  if (Array.from(nextName).length > 8) { res.status(400).json({ error: '名前は全角8文字までです。' }); return; }
+  void (async () => {
+    const pets = await listPets(name); const pet = pets.find(p => p.id === String(body.petId ?? ''));
+    if (!pet) { res.status(404).json({ error: 'ペットが見つかりません。' }); return; }
+    pet.name = nextName; await savePets(name, pets); res.json({ ok: true, pet: maskPet(pet) });
+  })().catch(() => res.status(500).json({ error: '名前を変更できませんでした。' }));
+});
+
+app.post('/api/pet/release', (req, res) => {
+  if (!petAdminOk(req, res)) return;
+  const body = req.body as PetBody; const name = petName(body, res); if (!name) return;
+  void (async () => {
+    const pets = await listPets(name); const pet = pets.find(p => p.id === String(body.petId ?? ''));
+    if (!pet) { res.status(404).json({ error: 'ペットが見つかりません。' }); return; }
+    if (pet.boarded) await unboardPet(name, pet.id);
+    await savePets(name, (await listPets(name)).filter(p => p.id !== pet.id)); res.json({ ok: true });
+  })().catch(() => res.status(500).json({ error: 'ペットを手放せませんでした。' }));
+});
+
+for (const [pathName, action] of [
+  ['/api/pet/board', boardPet], ['/api/pet/unboard', unboardPet],
+] as const) {
+  app.post(pathName, (req, res) => {
+    if (!petAdminOk(req, res)) return;
+    const body = req.body as PetBody; const name = petName(body, res); if (!name) return;
+    void action(name, String(body.petId ?? '')).then(ok => {
+      if (!ok) res.status(400).json({ error: 'ペットの預け入れ状態を変更できません。' });
+      else res.json({ ok: true });
+    }).catch(() => res.status(500).json({ error: '交配所を更新できませんでした。' }));
+  });
+}
+
+app.post('/api/pet/breed', (req, res) => {
+  if (!petAdminOk(req, res)) return;
+  const body = req.body as PetBody; const name = petName(body, res); if (!name) return;
+  void (async () => {
+    const pets = await listPets(name);
+    if (countHeld(pets) >= MAX_PETS) { res.status(400).json({ error: '手持ちのペットが上限です。' }); return; }
+    const mine = pets.find(p => p.id === String(body.petId ?? '') && !p.boarded);
+    const partner = (await listBoard()).find(p => p.id === String(body.partnerId ?? ''));
+    if (!mine || !partner) { res.status(404).json({ error: '親にするペットが見つかりません。' }); return; }
+    if (partner.ownerName === name) { res.status(400).json({ error: '自分が預けたペットは相手に選べません。' }); return; }
+    const ownerPets = await listPets(partner.ownerName);
+    if (countHeld(ownerPets) >= MAX_PETS) {
+      res.status(400).json({ error: '預けた側がお礼の卵を受け取れる上限を超えています。' }); return;
+    }
+    const now = Date.now(); const reason = canBreed(mine, partner, now);
+    if (reason) { res.status(400).json({ error: reason }); return; }
+    const result = breed(mine, partner); const readyAt = now + BREED_EGG_HOURS * 60 * 60 * 1000;
+    const child: Pet = { ...newEgg(name, result.species, readyAt), ...result, parents: [mine.id, partner.id] };
+    pets.push(child); await savePets(name, pets);
+    const thanksResult = breed(partner, mine);
+    ownerPets.push({ ...newEgg(partner.ownerName, thanksResult.species, readyAt), ...thanksResult,
+      parents: [partner.id, mine.id] });
+    await savePets(partner.ownerName, ownerPets);
+    res.json({ ok: true, pet: maskPet(child), readyAt });
+  })().catch(() => res.status(500).json({ error: '交配できませんでした。' }));
+});
+
+app.post('/api/pet/advance', (req, res) => {
+  if (!petAdminOk(req, res)) return;
+  const body = req.body as PetBody & { days?: unknown }; const name = petName(body, res); if (!name) return;
+  const days = Number(body.days);
+  if (!Number.isFinite(days) || days < 0) { res.status(400).json({ error: '進める日数が正しくありません。' }); return; }
+  void (async () => {
+    const pets = await listPets(name); const shift = days * DAY_MS;
+    for (const pet of pets) {
+      pet.bornAt -= shift; pet.lastWarmAt -= shift;
+      if (pet.hatchedAt > 0) pet.hatchedAt -= shift;
+    }
+    await savePets(name, pets);
+    for (const pet of pets.filter(p => p.boarded)) { await unboardPet(name, pet.id); await boardPet(name, pet.id); }
+    res.json({ ok: true, pets: wire(pets) });
+  })().catch(() => res.status(500).json({ error: '時刻を進められませんでした。' }));
+});
 
 app.get('/api/admin/ranking', (req, res) => {
   if (!adminOk(req, res)) return;

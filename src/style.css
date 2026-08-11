@@ -1035,3 +1035,125 @@ button.tab:disabled { opacity: 0.4; cursor: not-allowed; }
 @media (max-width: 560px) {
   #duel-call { flex-wrap: wrap; font-size: 13px; padding: 10px 12px; }
 }
+
+/* ---------------------------------------------------------------- 孵化の場面
+ *
+ * 卵が揺れる → ひびが入る → 光があふれる → 鳥が現れる → 名前を付ける。
+ * 絵の素材は使わず、図形と絵文字だけで作る。鳥の種類が増えても
+ * ここへ手を入れずに済む。
+ */
+.hatch-veil {
+  position: fixed; inset: 0; z-index: 90;
+  display: flex; align-items: center; justify-content: center;
+  background: radial-gradient(circle at 50% 45%, #1a1636 0%, #06050f 70%);
+  animation: hatch-veil-in 0.4s ease;
+  /* 光は画面より大きく広がる。はみ出しをここで切らないと巻物が出る。 */
+  overflow: hidden;
+}
+@keyframes hatch-veil-in { from { opacity: 0; } to { opacity: 1; } }
+
+.hatch-stage {
+  width: min(92vw, 460px);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 14px; text-align: center;
+}
+
+/* 卵・光・鳥だけを重ねる枠。文字と入力欄はこの下へ普通に流す。 */
+.hatch-arena {
+  position: relative; width: 200px; height: 210px; flex: 0 0 auto;
+  display: flex; align-items: center; justify-content: center;
+}
+
+/* 卵 */
+.hatch-egg {
+  position: relative; width: 118px; height: 152px;
+  border-radius: 50% 50% 48% 48% / 62% 62% 38% 38%;
+  box-shadow: inset -14px -18px 30px rgba(0, 0, 0, 0.28),
+              inset 12px 14px 26px rgba(255, 255, 255, 0.4),
+              0 14px 40px rgba(0, 0, 0, 0.55);
+  transition: opacity 0.45s ease, transform 0.45s ease;
+}
+.hatch-egg.is-shaking { animation: hatch-shake 0.62s ease-in-out infinite; }
+.hatch-egg.is-breaking { animation: hatch-shake 0.22s ease-in-out infinite; }
+.hatch-egg.is-gone { opacity: 0; transform: scale(1.5); }
+
+@keyframes hatch-shake {
+  0%, 100% { transform: rotate(0deg) translateY(0); }
+  20%      { transform: rotate(-7deg) translateY(-5px); }
+  50%      { transform: rotate(0deg) translateY(2px); }
+  80%      { transform: rotate(7deg) translateY(-5px); }
+}
+
+/* ひび。幅0から広げて「割れていく」ように見せる。
+ *
+ * ★ 稲妻のような細い折れ線にする。太い帯を切り抜くと、
+ *   殻に開いた穴のように見えてしまう(最初はそうなっていた)。
+ *   下の多角形は、同じ折れ線を少し横へずらして往復させたもの。 */
+.hatch-crack {
+  position: absolute; left: 50%; top: 22%; width: 0; height: 58%;
+  transform: translateX(-50%);
+  background: linear-gradient(180deg, #3a2b46 0%, #241a30 55%, #120c1c 100%);
+  clip-path: polygon(
+    52% 0%, 22% 16%, 70% 31%, 26% 47%, 74% 63%, 30% 80%, 60% 100%,
+    72% 100%, 42% 80%, 86% 63%, 38% 47%, 82% 31%, 34% 16%, 64% 0%
+  );
+  transition: width 0.9s ease;
+}
+.hatch-crack.is-open { width: 54px; }
+
+/* 光 */
+.hatch-flash {
+  position: absolute; left: 50%; top: 50%; width: 10px; height: 10px;
+  transform: translate(-50%, -50%) scale(0); opacity: 0;
+  border-radius: 50%;
+  background: radial-gradient(circle, #fffdf2 0%, #ffe9a8 34%, rgba(255, 214, 120, 0) 72%);
+  pointer-events: none;
+}
+.hatch-flash.is-burst { animation: hatch-burst 0.9s ease-out forwards; }
+/* ★ 倍率は画面を覆いきる大きさにする。46倍(=460px)では、ただの
+ *   丸い光が真ん中に出るだけで「あふれる」に見えなかった(実測で確認)。 */
+@keyframes hatch-burst {
+  0%   { transform: translate(-50%, -50%) scale(0); opacity: 0; }
+  22%  { opacity: 1; }
+  100% { transform: translate(-50%, -50%) scale(220); opacity: 0; }
+}
+
+/* 生まれた鳥 */
+.hatch-bird {
+  position: absolute; left: 50%; top: 46%;
+  transform: translate(-50%, -50%) scale(0.2); opacity: 0;
+  font-size: 96px; line-height: 1;
+  filter: drop-shadow(0 0 22px rgba(255, 228, 150, 0.75));
+}
+.hatch-bird.is-here { animation: hatch-bird-in 0.9s cubic-bezier(0.2, 1.5, 0.4, 1) forwards; }
+@keyframes hatch-bird-in {
+  0%   { transform: translate(-50%, -50%) scale(0.2); opacity: 0; }
+  60%  { transform: translate(-50%, -62%) scale(1.18); opacity: 1; }
+  100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+}
+
+/* 文字と入力欄は普通に流す。重ね置きにすると命名欄と字が重なる。
+ * min-height を持たせて、文字が消える瞬間に下が跳ねないようにする。 */
+.hatch-caption {
+  margin: 0; min-height: 24px;
+  color: #ffeec4; font-size: 17px; font-weight: bold;
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.8);
+}
+
+/* 名前を付ける欄 */
+.hatch-form {
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  animation: hatch-veil-in 0.5s ease;
+}
+.hatch-form .note { margin: 0; max-width: 320px; color: #d9d2ee; }
+.hatch-form input {
+  width: 220px; text-align: center; font-size: 16px;
+}
+
+@media (max-width: 560px) {
+  .hatch-arena { width: 170px; height: 180px; }
+  .hatch-egg { width: 96px; height: 126px; }
+  .hatch-crack.is-open { width: 44px; }
+  .hatch-bird { font-size: 76px; }
+  .hatch-caption { font-size: 15px; }
+}
