@@ -10,6 +10,7 @@ import {
 } from '../shared/data';
 import { ENHANCE_MAX, trueName } from '../shared/spellcraft';
 import type { ElementCounts, ElementId } from '../shared/types';
+import { fitTickerSpeed } from './changes';
 
 // 日付から安定した数値を作る
 function seedOf(dateKey: string): number {
@@ -94,4 +95,6 @@ export function renderTips(): void {
   // 同じ文を2つ並べて途切れずに流れるようにする
   bar.innerHTML =
     `<div class="tips-track"><span>${text}</span><span>${text}</span></div>`;
+  // 流れる速さは文の長さから決める(最近の変更点の帯と同じ速さに揃える)。
+  fitTickerSpeed(bar.querySelector('.tips-track'));
 }

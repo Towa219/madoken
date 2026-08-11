@@ -70,6 +70,24 @@ export function recentChanges(now = new Date()): ChangeNote[] {
     .slice();
 }
 
+// 帯が流れる速さ(1秒あたりの画素数)。
+//
+// ★ 時間を固定にしてはいけない。translateX(-50%) を何秒でやるかを
+//   決め打ちにすると、文が短い日はのろのろ、長い日は速く流れる。
+//   同じ帯なのに日によって速さが変わるうえ、Tips のように
+//   1文しか出ない日は極端に遅くなる(「遅い」と言われた原因)。
+//   幅を測って、いつも同じ速さになるようにする。
+export const TICKER_SPEED = 55;
+
+// 中身の幅から流れる時間を決める。帯を組み立てた直後に呼ぶ。
+export function fitTickerSpeed(track: HTMLElement | null): void {
+  if (!track) return;
+  // 同じ文を2つ並べてあるので、1周ぶんは全体の半分。
+  const 幅 = track.scrollWidth / 2;
+  if (幅 <= 0) return;
+  track.style.animationDuration = `${Math.max(8, Math.round(幅 / TICKER_SPEED))}s`;
+}
+
 // 画面上部の流れる帯を作る。出すものが無ければ帯ごと隠す。
 export function renderChanges(now = new Date()): void {
   const bar = document.querySelector('#changes-bar');
@@ -88,4 +106,5 @@ export function renderChanges(now = new Date()): void {
   // ★ innerHTML に本文を差し込まないこと。変更点は手で書く文章なので、
   //   将来ここに記号や引用符が入っても壊れないよう textContent で入れる。
   for (const span of bar.querySelectorAll('span')) span.textContent = text;
+  fitTickerSpeed(bar.querySelector('.changes-track'));
 }

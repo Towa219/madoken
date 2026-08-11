@@ -289,7 +289,9 @@ button.tab:disabled { opacity: 0.4; cursor: not-allowed; }
 }
 #tips-bar .tips-track {
   display: inline-block; white-space: nowrap;
-  animation: tips-scroll 42s linear infinite;
+  /* 時間は src/tips.ts が幅から計算して入れる(いつも同じ速さにするため)。
+     ここの値は、その計算が働かなかった時の保険。 */
+  animation: tips-scroll 24s linear infinite;
 }
 #tips-bar .tips-track span { padding-right: 80px; }
 #tips-bar:hover .tips-track { animation-play-state: paused; }
@@ -1213,13 +1215,16 @@ button.tab[data-badge]::after {
  * (同じ色だとTipsが2行に増えたようにしか見えない)。 */
 #changes-bar {
   overflow: hidden; white-space: nowrap;
-  background: linear-gradient(90deg, #16281f, #1c3528, #16281f);
-  border-bottom: 1px solid #2f5c44;
-  color: #b8ecd0; font-size: 11px; padding: 4px 0;
+  /* ★ 紫のTipsと縦に並ぶので、暗すぎると2行に増えたようにしか見えない。
+     背景と縁をはっきり緑に寄せる。 */
+  background: linear-gradient(90deg, #17332a, #1f4a37, #17332a);
+  border-bottom: 1px solid #3f7d5c;
+  color: #c8f5da; font-size: 11px; padding: 4px 0;
 }
 #changes-bar .changes-track {
   display: inline-block; white-space: nowrap;
-  animation: changes-scroll 52s linear infinite;
+  /* 時間は src/changes.ts が幅から計算して入れる。ここは保険。 */
+  animation: changes-scroll 24s linear infinite;
 }
 #changes-bar .changes-track span { padding-right: 80px; }
 #changes-bar:hover .changes-track { animation-play-state: paused; }
