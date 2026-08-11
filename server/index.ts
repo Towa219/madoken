@@ -20,7 +20,7 @@ import { deleteSave, getSave, putSave } from './save';
 import { BUILD_DATE, VERSION } from '../shared/version';
 import {
   BREED_EGG_HOURS, DAY_MS, MAX_PETS, canBreed, canWarm, countHeld, breed,
-  canChoose, eggSpeciesForBoss, maskPet, warmLeft, wildGene, WARM_INTERVAL_MS,
+  canChoose, eggSpeciesForBoss, maskPet, pickPetName, warmLeft, wildGene, WARM_INTERVAL_MS,
 } from '../shared/pets';
 import type { Pet } from '../shared/pets';
 import { boardPet, listBoard, listPets, savePets, unboardPet } from './pets';
@@ -129,22 +129,23 @@ app.post('/api/pet/warm', (req, res) => {
     pet.warmCount += 1; pet.lastWarmAt = now;
     // ここで孵る。孵った時だけ species が端末へ届く ― 見せ場はこの一回だけ。
     const hatched = warmLeft(pet) === 0;
-    if (hatched) pet.hatchedAt = now;
+    if (hatched) {
+      pet.hatchedAt = now;
+      // 名前はここで決める。持ち主には選ばせない(交配所で他人にも見えるため)。
+      pet.name = pickPetName(pets.filter(p => p !== pet).map(p => p.name));
+    }
     await savePets(name, pets);
     res.json({ ok: true, pet: maskPet(pet), hatched });
   })().catch(() => res.status(500).json({ error: '卵を温められませんでした。' }));
 });
 
+// 名前は生まれた時にサーバーが決める。付け替えはできない。
+//
+// ★ 経路ごと消してはいけない。消すと静的配信の受け皿に落ちて index.html が
+//   200 で返り、古い画面からは「成功した」ように見えてしまう。
 app.post('/api/pet/rename', (req, res) => {
   if (!petAdminOk(req, res)) return;
-  const body = req.body as PetBody & { petName?: unknown }; const name = petName(body, res); if (!name) return;
-  const nextName = String(body.petName ?? '').trim();
-  if (Array.from(nextName).length > 8) { res.status(400).json({ error: '名前は全角8文字までです。' }); return; }
-  void (async () => {
-    const pets = await listPets(name); const pet = pets.find(p => p.id === String(body.petId ?? ''));
-    if (!pet) { res.status(404).json({ error: 'ペットが見つかりません。' }); return; }
-    pet.name = nextName; await savePets(name, pets); res.json({ ok: true, pet: maskPet(pet) });
-  })().catch(() => res.status(500).json({ error: '名前を変更できませんでした。' }));
+  res.status(400).json({ error: '名前は生まれた時に決まります。付け替えはできません。' });
 });
 
 app.post('/api/pet/choose', (req, res) => {

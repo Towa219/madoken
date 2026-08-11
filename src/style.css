@@ -1184,3 +1184,10 @@ button.tab[data-badge]::after {
 @media (prefers-reduced-motion: reduce) {
   button.tab[data-badge]::after { animation: none; }
 }
+
+/* 生まれた鳥に決まった名前。入力欄は置かない ―
+   ペットの名前は交配所で他人にも見えるので、付けさせない作りにした。 */
+.hatch-name {
+  margin: 0; color: #ffe9b8; font-size: 20px; font-weight: bold;
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.8);
+}

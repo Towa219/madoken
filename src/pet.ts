@@ -55,7 +55,7 @@ function button(label: string, run: () => Promise<void>, disabled = false, title
 
 // ---------------------------------------------------------------- 孵化の場面
 //
-// 揺れる → ひびが入る → 光があふれる → 鳥が現れる → 名前を付ける。
+// 揺れる → ひびが入る → 光があふれる → 鳥が現れる → 名前が決まる。
 // 絵は用意せず、CSS の図形と絵文字だけで作る。素材が増えないぶん、
 // あとから種類を足しても勝手に付いてくる。
 
@@ -112,28 +112,22 @@ async function hatchScene(pet: Pet, hint: EggHint | undefined): Promise<void> {
     caption.textContent = `${sp.emoji} ${sp.name} が生まれた！`;
     await sleep(HATCH_MS.show);
 
-    // ここで名前を付ける。空のまま決めれば種類名がそのまま名前になる。
+    // 名前はサーバーが決めて返してきている。ここでは知らせるだけ。
+    //
+    // ★ 入力させないこと。ペットの名前は交配所で他人にも見えるので、
+    //   付けさせるとそこが不適切な名前の出口になる。
     const form = document.createElement('div'); form.className = 'hatch-form';
+    const 名 = document.createElement('p'); 名.className = 'hatch-name';
+    名.textContent = `名前は「${petDisplayName(pet)}」`;
     const label = document.createElement('p'); label.className = 'note';
-    label.textContent = `${sp.note}　名前を付けてあげてください（全角8文字まで・空のままでも可）。`;
-    const input = document.createElement('input');
-    input.type = 'text'; input.maxLength = 8; input.placeholder = sp.name;
-    input.setAttribute('aria-label', 'ペットの名前');
+    label.textContent = sp.note;
     const ok = document.createElement('button'); ok.textContent = 'この子を迎える';
-    form.append(label, input, ok); stageBox.append(form);
-    input.focus();
+    form.append(名, label, ok); stageBox.append(form);
+    ok.focus();
 
     await new Promise<void>(resolve => {
-      const done = () => { resolve(); };
-      ok.addEventListener('click', done);
-      input.addEventListener('keydown', e => { if (e.key === 'Enter') done(); });
+      ok.addEventListener('click', () => { resolve(); });
     });
-
-    const chosen = input.value.trim();
-    if (chosen) {
-      try { await call('rename', { petId: pet.id, petName: chosen }); }
-      catch { /* 名前が付かなくても、生まれたことは変わらない */ }
-    }
   } finally {
     veil.remove();
   }
@@ -255,10 +249,6 @@ function petCard(pet: Pet, now: number, board: WirePet[]): HTMLElement {
   actions.append(button(pet.chosen ? '連れているのをやめる' : '連れて行く',
     () => act('choose', { petId: pet.chosen ? '' : pet.id }), pet.boarded || stage === 'dead',
     pet.boarded ? '交配所へ預けている間は連れて行けません。' : stage === 'dead' ? 'もう天へ行ってしまいました。' : ''));
-  actions.append(button('名前を変える', async () => {
-    const value = prompt('新しい名前を入力してください（全角8文字まで）。', pet.name);
-    if (value !== null) await act('rename', { petId: pet.id, petName: value });
-  }));
   actions.append(button('手放す', async () => {
     if (confirm(`${petDisplayName(pet)}を手放しますか？`)) await act('release', { petId: pet.id });
   }));
@@ -345,7 +335,7 @@ declare global {
 window.__hatchDemo = async (species: string) => {
   const sp = PET_SPECIES[species as Pet['species']] ?? PET_SPECIES.sparrow;
   await hatchScene({
-    id: 'demo', ownerName: state.nickname, species: sp.id, name: '', sex: 'f',
+    id: 'demo', ownerName: state.nickname, species: sp.id, name: 'ピピ', sex: 'f',
     hpGene: 50, mpGene: 50, lifeGene: 50, warmCount: sp.warmNeeded,
     lastWarmAt: 0, hatchedAt: 1, boarded: false, chosen: false,
     breedCount: 0, lastBredAt: 0, parents: null, bornAt: 0,

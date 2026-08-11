@@ -7,7 +7,7 @@
 //   画面で隠すだけでは意味が無い(開発者ツールで JSON を覗けば読める)ので、
 //   サーバーの返事そのものに species が入っていないことを確かめる。
 import {
-  BREED_JITTER, BREED_MAX_COUNT, MAX_PETS, PET_SPECIES, PET_SPECIES_ORDER,
+  BREED_JITTER, BREED_MAX_COUNT, MAX_PETS, PET_NAMES, PET_SPECIES, PET_SPECIES_ORDER,
   adultDaysOf, partyBonusOf, stageOf,
 } from '../shared/pets';
 import type { Pet, WirePet } from '../shared/pets';
@@ -113,6 +113,15 @@ async function 実行(): Promise<void> {
   確認(孵ったと言われたか, '最後の温めで hatched: true が返る(演出の合図)');
   確認(Boolean(卵.species) && PET_SPECIES_ORDER.includes(卵.species!),
     `孵った瞬間に種類が明かされる → 実測 ${String(卵.species)}`);
+
+  // ★ 名前は孵った瞬間にサーバーが決める。持ち主には選ばせない
+  //   (交配所で他人にも見えるので、入力させると不適切な名前の出口になる)。
+  確認(PET_NAMES.includes(卵.name),
+    `名前が一覧の中から自動で決まる → 実測 「${卵.name}」`);
+  const 改名 = await 通信('rename', 孵化名, { petId: 卵.id, petName: 'すきな名前' });
+  確認(改名.状態 === 400, `正しい合言葉でも名前は変えられない → 実測 ${改名.状態}`);
+  確認((await 一覧(孵化名)).find(p => p.id === 卵.id)?.name === 卵.name,
+    '断られた後も名前が書き換わっていない');
 
   const 孵化一覧 = await 一覧(孵化名);
   確認((孵化一覧[0]?.hatchedAt ?? 0) > 0, '規定回数の温めで孵化する');
