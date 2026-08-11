@@ -179,6 +179,26 @@ export function inBattleView(): boolean {
     || !$('#battle-view').classList.contains('hidden');
 }
 
+// 戦闘の画面(共闘・決闘)へ移るための入口。main.ts が起動時に渡す。
+//
+// ★ なぜ関数を受け取る形にするか
+//   #coop-view / #duel-view は #battle-screen の中にある。
+//   hidden を外しても、別のタブ(研究室など)を開いていると
+//   #battle-screen ごと隠れていて何も見えない ―
+//   「受けて立つ」を研究室で押すと研究室のままだった原因はこれ。
+//   タブを切り替えるのは main.ts の仕事だが、main.ts が lobby.ts を
+//   読み込んでいるので、こちらから import すると循環参照になる。
+let goBattleTab: (() => void) | null = null;
+
+export function setBattleTabOpener(fn: () => void): void {
+  goBattleTab = fn;
+}
+
+// 戦闘画面を出す前に必ず呼ぶ。どのタブから始めても戦闘が見えるようにする。
+function openBattleTab(): void {
+  goBattleTab?.();
+}
+
 // ロビー側(接続欄・ロビー)の表示を今の状態に合わせる。
 //
 // 「戦闘」と「オンライン」を1つの画面にまとめたので、戦っている間は
@@ -642,6 +662,7 @@ async function joinDuel(): Promise<void> {
     });
     $('#lobby-msg').textContent = '';
     hideDuelCall();          // 自分が入ったら、もう呼び出しは要らない
+    openBattleTab();         // 研究室などから受けても戦闘画面へ移る
     $('#duel-view').classList.remove('hidden');
     syncLobbyVisibility();
     playBgm('duel');
@@ -670,6 +691,7 @@ async function joinDuel(): Promise<void> {
 function enterCoop(room: Room, stage: number): void {
   $('#lobby-msg').textContent = '';
   playBgm(isBossStage(stage) ? bossBgmFor(stage) : 'battle');
+  openBattleTab();           // 決闘と同じ理由。どのタブから始めても見えるように
   $('#coop-view').classList.remove('hidden');
   syncLobbyVisibility();
   void coop.start(room, () => {

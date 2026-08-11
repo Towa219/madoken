@@ -6,6 +6,7 @@ import { initLab, renderLab, showToast } from './lab';
 import { renderManual } from './manual';
 import {
   initDuelCall, initOnline, coopTryCast, duelTryCast, inBattleView,
+  setBattleTabOpener,
   releaseNickname, renderNickField, syncLobbyVisibility,
 } from './lobby';
 import { selectedStage, setSelectedStage } from './stage';
@@ -70,6 +71,26 @@ function updateTabLock(): void {
 
 // 今どのタブを見ているか。交易所から出た時に曲を戻すために覚えておく。
 let curTab: Tab = 'lab';
+
+// 共闘・決闘が始まった時に、戦闘タブへ強制的に移す。
+//
+// ★ switchTab を使ってはいけない。
+//   あれは「戦闘中は移動できない」で弾く作りなので、
+//   まさに戦闘が始まった瞬間に呼ぶと自分で自分を止めてしまう。
+//   ここは画面の表示だけを切り替える(移動の可否は問わない)。
+function forceBattleTab(): void {
+  if (curTab === 'battle') return;
+  curTab = 'battle';
+  $('#lab-screen').classList.add('hidden');
+  $('#book-screen').classList.add('hidden');
+  $('#shop-screen').classList.add('hidden');
+  $('#manual-screen').classList.add('hidden');
+  $('#settings-screen').classList.add('hidden');
+  $('#battle-screen').classList.remove('hidden');
+  for (const sel of TAB_BUTTONS) {
+    $(sel).classList.toggle('active', sel === '#tab-battle');
+  }
+}
 
 function switchTab(tab: Tab): void {
   // 戦闘中の移動を止める(ボタンを無効にしているが、念のためここでも弾く)
@@ -304,6 +325,8 @@ function main(): void {
   initTrade();
   installNoZoom();
 
+  // 共闘・決闘が始まったら戦闘タブへ移す(研究室などで受けても見えるように)
+  setBattleTabOpener(forceBattleTab);
   $('#tab-lab').addEventListener('click', () => switchTab('lab'));
   $('#tab-book').addEventListener('click', () => switchTab('book'));
   $('#tab-manual').addEventListener('click', () => switchTab('manual'));
