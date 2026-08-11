@@ -2,6 +2,7 @@
 
 import { Client } from 'colyseus.js';
 import type { Room } from 'colyseus.js';
+import { adminKeyForRequest } from './admin';
 import { CoopView } from './coop';
 import { DuelView } from './duel';
 import { spellDisplayName } from '../shared/spellcraft';
@@ -442,6 +443,7 @@ async function createRoom(): Promise<void> {
     const room = await client.create('coop', {
       name: nick, spells, stage, maxStage: state.maxStage,
       nickToken: state.nickToken, charId: state.charId,
+      adminKey: adminKeyForRequest(),
     });
     enterCoop(room, stage);
   } catch (err) {
@@ -469,6 +471,7 @@ async function joinRoom(roomId: string, roomStage: number): Promise<void> {
     const room = await client.joinById(roomId, {
       name: nick, spells, maxStage: state.maxStage,
       nickToken: state.nickToken, charId: state.charId,
+      adminKey: adminKeyForRequest(),
     });
     enterCoop(room, roomStage);
   } catch (err) {

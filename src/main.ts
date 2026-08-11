@@ -4,7 +4,7 @@ import { BattleManager } from './battle';
 import { ELEMENTS, EQUIP_MAX, isBossStage } from '../shared/data';
 import { initLab, renderLab, showToast } from './lab';
 import { renderManual } from './manual';
-import { renderPets } from './pet';
+import { renderPets, startPetWatch } from './pet';
 import {
   initDuelCall, initOnline, coopTryCast, duelTryCast, inBattleView,
   setBattleTabOpener,
@@ -399,6 +399,7 @@ function main(): void {
   initCharPicker('#welcome-chars');  // 初回起動
   initShare();
   initAdmin();   // 「ペット」タブは管理者モードの間だけ出る(試験中)
+  startPetWatch();  // 温められる卵・交配の相手ができたらタブに数字を出す
   updateTopbar();
   renderLab();
   renderFooter();

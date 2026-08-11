@@ -5,11 +5,12 @@
 //   なので卵は必ず hint を見て描く。PET_SPECIES[pet.species] は
 //   孵ったあとにしか使えない。
 import {
-  PET_SPECIES, STAGE_NAME, WARM_INTERVAL_MS, bonusOf, canBreed, lifetimeMsOf,
-  petDisplayName, stageOf, wireDisplayName,
+  BREED_MAX_COUNT, MAX_PETS, PET_SPECIES, STAGE_NAME, WARM_INTERVAL_MS, bonusOf, breedLeft,
+  breedWaitMs, canBreed, lifetimeMsOf, petDisplayName, stageOf, wireDisplayName,
 } from '../shared/pets';
 import type { EggHint, Pet, WirePet } from '../shared/pets';
 import { adminKeyForRequest, isAdmin } from './admin';
+import { playSfx } from './sound';
 import { state } from './state';
 
 const $ = <T extends HTMLElement = HTMLElement>(sel: string) => document.querySelector(sel) as T;
@@ -105,6 +106,9 @@ async function hatchScene(pet: Pet, hint: EggHint | undefined): Promise<void> {
     await sleep(HATCH_MS.burst);
 
     bird.classList.add('is-here');
+    // 生まれた種類の声を鳴らす。音の名前は種類の id に揃えてある
+    // (tools/soundgen/gen_sfx.py の bird_*)。無ければ playSfx は黙る。
+    playSfx(`bird_${pet.species}`);
     caption.textContent = `${sp.emoji} ${sp.name} が生まれた！`;
     await sleep(HATCH_MS.show);
 
@@ -133,6 +137,60 @@ async function hatchScene(pet: Pet, hint: EggHint | undefined): Promise<void> {
   } finally {
     veil.remove();
   }
+}
+
+// ---------------------------------------------------------------- タブの知らせ
+//
+// 「今できることがある」時だけ、タブに数字を出す。
+//
+// ★ 温めは20時間おきにしか進まない。気づかないと丸一日ぶん止まる。
+//   時間で来るものなので、こちらから知らせないと取り返しがつかない。
+// ★ 交配所は他人が動かす。自分が何もしなくても相手が増えるので、
+//   開きっぱなしでも気づけるよう時々見に行く。
+// ★ 押しても断られるものは数えない。手持ちが上限で卵を貰えない時や、
+//   交配の回数を使い切った鳥しか居ない時は、印を出さない。
+
+const WATCH_INTERVAL_MS = 60 * 1000;
+let watchTimer = 0;
+
+function actionableCount(pets: WirePet[], board: WirePet[], now: number): number {
+  let n = 0;
+  for (const p of pets) {                       // 温められる卵
+    if (p.hatchedAt <= 0 && !p.boarded && now - p.lastWarmAt >= WARM_INTERVAL_MS) n++;
+  }
+  // 交配。手持ちに空きが無ければ卵を受け取れないので、その時は数えない。
+  if (pets.filter(p => !p.boarded).length < MAX_PETS) {
+    const 相手 = board
+      .map(grown)
+      .filter((q): q is Pet => q !== null && q.ownerName !== state.nickname);
+    for (const wp of pets) {
+      const mine = grown(wp);
+      if (!mine || mine.boarded) continue;
+      if (相手.some(q => canBreed(mine, q, now) === null)) n++;
+    }
+  }
+  return n;
+}
+
+function setBadge(n: number): void {
+  const tab = document.querySelector('#tab-pet');
+  if (!tab) return;
+  if (n > 0) tab.setAttribute('data-badge', String(n));
+  else tab.removeAttribute('data-badge');
+}
+
+async function refreshBadge(): Promise<void> {
+  if (!isAdmin() || !state.nickname) { setBadge(0); return; }
+  try {
+    const data = await call('list');
+    setBadge(actionableCount(data.pets ?? [], data.board ?? [], data.now ?? Date.now()));
+  } catch { /* 繋がらない時は黙る。印が出ないだけで害は無い */ }
+}
+
+export function startPetWatch(): void {
+  if (watchTimer) return;
+  watchTimer = window.setInterval(() => { void refreshBadge(); }, WATCH_INTERVAL_MS);
+  void refreshBadge();
 }
 
 // ---------------------------------------------------------------- 一覧
@@ -175,13 +233,28 @@ function petCard(pet: Pet, now: number, board: WirePet[]): HTMLElement {
   const box = document.createElement('div'); box.className = 'panel';
   const h = document.createElement('h3');
   h.textContent = `${sp.emoji} ${petDisplayName(pet)}　${sp.name}・${pet.sex === 'm' ? '♂' : '♀'}`;
+  if (pet.chosen) h.textContent += '　【連れている】';
   box.append(h);
   const info = document.createElement('p'); info.className = 'note';
   const remaining = stage === 'dead' ? '' : duration(pet.hatchedAt + lifetimeMsOf(pet) - now);
   info.textContent = `段階: ${STAGE_NAME[stage]}　HP +${bonus.hp} / MP +${bonus.mp}　${remaining}`;
   box.append(info);
 
+  // 交配の残り。押してから断られるのでは遅いので、先に出しておく。
+  if (stage === 'adult' || stage === 'elder') {
+    const 待ち = breedWaitMs(pet, now);
+    const b = document.createElement('p'); b.className = 'note';
+    b.textContent = stage === 'elder'
+      ? `交配: 年を取りすぎてもう産めない`
+      : `交配: あと${breedLeft(pet)}回（一生に${BREED_MAX_COUNT}回まで）`
+        + (待ち > 0 ? `　休み中 ${duration(待ち)}` : '');
+    box.append(b);
+  }
+
   const actions = document.createElement('div');
+  actions.append(button(pet.chosen ? '連れているのをやめる' : '連れて行く',
+    () => act('choose', { petId: pet.chosen ? '' : pet.id }), pet.boarded || stage === 'dead',
+    pet.boarded ? '交配所へ預けている間は連れて行けません。' : stage === 'dead' ? 'もう天へ行ってしまいました。' : ''));
   actions.append(button('名前を変える', async () => {
     const value = prompt('新しい名前を入力してください（全角8文字まで）。', pet.name);
     if (value !== null) await act('rename', { petId: pet.id, petName: value });
@@ -235,6 +308,7 @@ export async function renderPets(): Promise<void> {
   try {
     const data = await call('list');
     const pets = data.pets ?? []; const board = data.board ?? []; const now = data.now ?? Date.now();
+    setBadge(actionableCount(pets, board, now));   // 同じ返事で印も直す
     const mineTitle = document.createElement('h3'); mineTitle.textContent = '手持ち'; list.append(mineTitle);
     if (!pets.length) {
       const empty = document.createElement('p'); empty.className = 'note';
@@ -273,6 +347,7 @@ window.__hatchDemo = async (species: string) => {
   await hatchScene({
     id: 'demo', ownerName: state.nickname, species: sp.id, name: '', sex: 'f',
     hpGene: 50, mpGene: 50, lifeGene: 50, warmCount: sp.warmNeeded,
-    lastWarmAt: 0, hatchedAt: 1, boarded: false, parents: null, bornAt: 0,
+    lastWarmAt: 0, hatchedAt: 1, boarded: false, chosen: false,
+    breedCount: 0, lastBredAt: 0, parents: null, bornAt: 0,
   }, undefined);
 };

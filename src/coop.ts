@@ -21,6 +21,7 @@ import { grantBossReward, markGained, showToast } from './lab';
 import { addElements, equippedSpells, markBossCleared, notify, state } from './state';
 import type { ElementId, Spell } from '../shared/types';
 import { playBgm, playSfx, startSfxLoop, stopAllSfxLoops, stopSfxLoop } from './sound';
+import { PET_SPECIES } from '../shared/pets';
 
 const W = 960;
 const H = 540;
@@ -80,7 +81,7 @@ export class CoopView {
   // どのポーズを取るかはサーバーが決めて配るので、誰の画面でも同じ絵になる。
   private pViews = new Map<
     string,
-    { cont: Container; art: Container; nameT: Text; castT: Text; buffT: Text }
+    { cont: Container; art: Container; nameT: Text; castT: Text; buffT: Text; petT: Text }
   >();
   private eViews: {
     cont: Container; body: Graphics | Sprite; def: EnemyDef;
@@ -524,6 +525,13 @@ export class CoopView {
     });
 
     // ステージクリア: 報酬を受け取り、自動で次ステージへ(サーバー主導)
+    // ボスの卵は、クリアの知らせとは別便で遅れて届く(保存を待たせないため)
+    room.onMessage('bossegg', (m: { egg?: 'received' | 'already' | 'full' | 'error' }) => {
+      if (m.egg === 'received') showToast('ボスが卵を落とした！ ペットの欄で温められます。');
+      else if (m.egg === 'full') showToast('手持ちが上限のため、ボスの卵を受け取れませんでした。');
+      else if (m.egg === 'error') showToast('ボスの卵を受け取れませんでした。');
+    });
+
     room.onMessage('stageclear', (m: {
       stage: number; drops: ElementId[]; rp: number; boss?: boolean;
     }) => {
@@ -907,8 +915,10 @@ export class CoopView {
         buffT.anchor.set(0.5);
         buffT.position.set(0, -cs(105));
         cont.addChild(buffT);
+        const petT = new Text({ text: '', style: { fontSize: 20, fontFamily: 'Meiryo, sans-serif' } });
+        petT.anchor.set(0.5); petT.position.set(0, -cs(150)); cont.addChild(petT);
         this.entityLayer.addChild(cont);
-        v = { cont, art, nameT, castT, buffT };
+        v = { cont, art, nameT, castT, buffT, petT };
         this.pViews.set(sid, v);
       }
       v.cont.position.set(PLAYER_XS[p.slot] ?? 110, GROUND_Y);
@@ -928,6 +938,9 @@ export class CoopView {
       if (p.vigorBonus > 0) buffs.push(`♥+${p.vigorBonus}`);
       if (p.mpRegenBonus > 0) buffs.push(`✦MP+${Number(p.mpRegenBonus).toFixed(1)}`);
       v.buffT.text = buffs.join(' ');
+      const species = String(p.petSpecies ?? '') as keyof typeof PET_SPECIES;
+      v.petT.text = species && PET_SPECIES[species] ? PET_SPECIES[species].emoji : '';
+      v.petT.y = -cs(150) + Math.sin(performance.now() / 450 + p.slot) * 3;
     });
     for (const [sid, v] of this.pViews) {
       if (!seen.has(sid)) {

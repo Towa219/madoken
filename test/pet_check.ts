@@ -6,12 +6,17 @@
 // ★ 卵の中身が本当に伏せられているかも、ここで見る。
 //   画面で隠すだけでは意味が無い(開発者ツールで JSON を覗けば読める)ので、
 //   サーバーの返事そのものに species が入っていないことを確かめる。
-import { BREED_JITTER, MAX_PETS, PET_SPECIES, PET_SPECIES_ORDER } from '../shared/pets';
+import {
+  BREED_JITTER, BREED_MAX_COUNT, MAX_PETS, PET_SPECIES, PET_SPECIES_ORDER,
+  adultDaysOf, partyBonusOf, stageOf,
+} from '../shared/pets';
 import type { Pet, WirePet } from '../shared/pets';
+import { PLAYER_MAX_HP, PLAYER_MAX_MP } from '../shared/data';
+import { Client } from 'colyseus.js';
 
 const 基点 = process.env.PET_TEST_URL ?? 'http://localhost:2567';
 const 合言葉 = process.env.ADMIN_KEY ?? 'test1234';
-const 経路 = ['list', 'grant', 'warm', 'rename', 'release', 'board', 'unboard', 'breed', 'advance'];
+const 経路 = ['list', 'grant', 'warm', 'rename', 'release', 'board', 'unboard', 'breed', 'advance', 'choose'];
 let 失敗数 = 0;
 
 function 合格(文: string): void { console.log(`合格: ${文}`); }
@@ -118,6 +123,50 @@ async function 実行(): Promise<void> {
     && 現在 - 孵化個体.hatchedAt < PET_SPECIES[孵化個体.species].chickDays * 24 * 60 * 60 * 1000;
   確認(chick, '孵化直後の段階が chick である');
 
+  // ---- 連れて行く個体と共闘ボーナス ----
+  const 選択名 = `選択試験${Date.now()}`;
+  const 未孵化 = await 卵をひとつ(選択名);
+  const 卵拒否 = await 通信('choose', 選択名, { petId: 未孵化.id });
+  確認(卵拒否.状態 === 400 && String(卵拒否.データ.error).includes('卵'), '卵は日本語の理由付きで選べない');
+  let 一羽目 = await 孵化(選択名, 未孵化);
+  const 二つ目の卵 = await 卵をひとつ(選択名); let 二羽目 = await 孵化(選択名, 二つ目の卵);
+  確認((await 通信('choose', 選択名, { petId: 一羽目.id })).状態 === 200, '1羽目を連れて行ける');
+  await 通信('choose', 選択名, { petId: 二羽目.id });
+  let 選択一覧 = await 一覧(選択名);
+  確認(選択一覧.find(p => p.id === 二羽目.id)?.chosen === true
+    && 選択一覧.filter(p => p.chosen).length === 1, '別の1羽を選ぶと他のchosenがfalseになる');
+  const 預け拒否前 = await 通信('board', 選択名, { petId: 二羽目.id });
+  確認(預け拒否前.状態 === 200 && !(await 一覧(選択名)).find(p => p.id === 二羽目.id)?.chosen,
+    '連れている個体を預けるとchosenが外れる');
+  const 預け拒否 = await 通信('choose', 選択名, { petId: 二羽目.id });
+  確認(預け拒否.状態 === 400 && String(預け拒否.データ.error).includes('交配所'), '預けた個体は日本語の理由付きで選べない');
+  await 通信('choose', 選択名, { petId: 一羽目.id });
+  await 通信('release', 選択名, { petId: 一羽目.id });
+  確認((await 一覧(選択名)).every(p => !p.chosen), '連れている個体を手放すとchosenが残らない');
+
+  const 死亡名 = `死亡試験${Date.now()}`; const 死亡卵 = await 卵をひとつ(死亡名);
+  let 死亡鳥 = await 孵化(死亡名, 死亡卵);
+  await 通信('advance', 死亡名, { days: 100 });
+  const 死亡拒否 = await 通信('choose', 死亡名, { petId: 死亡鳥.id });
+  確認(死亡拒否.状態 === 400 && String(死亡拒否.データ.error).includes('天'), '死んだ個体は日本語の理由付きで選べない');
+
+  const 共闘名 = `共${Date.now().toString().slice(-8)}`; const 共闘卵 = await 卵をひとつ(共闘名);
+  const 共闘鳥 = await 孵化(共闘名, 共闘卵);
+  await 通信('choose', 共闘名, { petId: 共闘鳥.id });
+  const 共闘ペット = await 一覧(共闘名) as Pet[]; const 期待 = partyBonusOf(共闘ペット, Date.now());
+  const 登録ID = `pet-check-${Date.now()}`;
+  await fetch(`${基点}/api/name/claim`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: 共闘名, token: 登録ID }) });
+  const ws = 基点.replace(/^http/, 'ws'); const 接続 = new Client(ws);
+  const 部屋 = await 接続.create('coop', { name: 共闘名, nickToken: 登録ID, maxStage: 1, stage: 1, spells: [], charId: 0, adminKey: 合言葉 });
+  let 自分: any;
+  for (let i = 0; i < 20 && !自分; i++) {
+    await new Promise(resolve => setTimeout(resolve, 50));
+    自分 = (部屋.state as any).players?.get(部屋.sessionId);
+  }
+  確認(自分.maxHp === PLAYER_MAX_HP + 期待.hp && 自分.maxMp === PLAYER_MAX_MP + 期待.mp
+    && 自分.hp === 自分.maxHp && 自分.mp === 自分.maxMp, '共闘へ実際に入りpartyBonusOfが最大HP/MPと開始値に乗る');
+  await 部屋.leave();
+
   const 上限名 = `上限試験${Date.now()}`;
   for (let i = 0; i < MAX_PETS; i++) await 通信('grant', 上限名, { stage: 1 });
   確認((await 通信('grant', 上限名, { stage: 1 })).状態 === 400, 'MAX_PETSを超える卵は断られる');
@@ -142,6 +191,62 @@ async function 実行(): Promise<void> {
   }
   const お礼 = await 一覧(親二名);
   確認(お礼.some(p => p.parents?.includes(親一.id)), '預けた側にもお礼の卵が追加される');
+
+  // ---- 交配の歯止め(間隔・回数・老鳥) ----
+  // ★ 歯止めが無いと同じ1組から無限に卵を作れる。3方向すべて塞げているか見る。
+  const 再交配 = await 通信('breed', 親一名, { petId: 親一.id, partnerId: 親二.id });
+  確認(再交配.状態 === 400 && String(再交配.データ.error).includes('休んでいる'),
+    `産んだ直後は間隔で断られる → 実測 ${String(再交配.データ.error)}`);
+
+  const 親一記録 = (await 一覧(親一名)).find(p => p.id === 親一.id);
+  確認(親一記録?.breedCount === 1, `交配の回数が親に記録される → 実測 ${String(親一記録?.breedCount)}`);
+  const 親二記録 = (await 一覧(親二名)).find(p => p.id === 親二.id);
+  確認(親二記録?.breedCount === 1,
+    `預けた側の親にも回数が付く → 実測 ${String(親二記録?.breedCount)}`);
+  const 交配所記録 = ((await 通信('list', 親一名)).データ.board as WirePet[])
+    .find(p => p.id === 親二.id);
+  確認(交配所記録?.breedCount === 1,
+    `交配所に置いてある写しにも回数が移る → 実測 ${String(交配所記録?.breedCount)}`);
+
+  // 間隔を飛ばして、回数の上限まで産ませる
+  for (let i = 1; i < BREED_MAX_COUNT; i++) {
+    await 通信('advance', 親一名, { days: 1 }); await 通信('advance', 親二名, { days: 1 });
+    // 手持ちの空きを作る(卵が溜まると上限で断られ、回数の検証にならない)
+    for (const p of await 一覧(親一名)) if (p.id !== 親一.id) await 通信('release', 親一名, { petId: p.id });
+    for (const p of await 一覧(親二名)) {
+      if (p.id !== 親二.id && !p.boarded) await 通信('release', 親二名, { petId: p.id });
+    }
+    確認((await 通信('breed', 親一名, { petId: 親一.id, partnerId: 親二.id })).状態 === 200,
+      `間隔を空ければ${i + 1}回目も産める`);
+  }
+  await 通信('advance', 親一名, { days: 1 }); await 通信('advance', 親二名, { days: 1 });
+  for (const p of await 一覧(親一名)) if (p.id !== 親一.id) await 通信('release', 親一名, { petId: p.id });
+  const 打ち止め = await 通信('breed', 親一名, { petId: 親一.id, partnerId: 親二.id });
+  確認(打ち止め.状態 === 400 && String(打ち止め.データ.error).includes('もう産めない'),
+    `一生に${BREED_MAX_COUNT}回で打ち止めになる → 実測 ${String(打ち止め.データ.error)}`);
+
+  // 老鳥は産めない(別の組で確かめる)
+  const 老一名 = `老一${Date.now()}`; const 老二名 = `老二${Date.now()}`;
+  const 老卵一 = await 性別の卵(老一名);
+  const 老卵二 = await 性別の卵(老二名, 老卵一.sex === 'm' ? 'f' : 'm');
+  const 老一 = await 孵化(老一名, 老卵一); const 老二 = await 孵化(老二名, 老卵二);
+  // 老鳥の期間へ正確に入れる。
+  // ★ 「lifeDays の1.3倍くらい」で当てにいくと、遺伝子(0.8〜1.2倍)次第で
+  //   死んだ後まで飛んでしまい、別の理由で断られて検証にならない(実測)。
+  //   その個体の adultDaysOf を使って、成鳥が終わった直後を狙う。
+  for (const [n, b] of [[老一名, 老一], [老二名, 老二]] as [string, Pet][]) {
+    const 老いる日 = PET_SPECIES[b.species].chickDays + adultDaysOf(b);
+    await 通信('advance', n, { days: 老いる日 + 0.5 });
+  }
+  for (const [n, b] of [[老一名, 老一], [老二名, 老二]] as [string, Pet][]) {
+    const 今 = (await 一覧(n)).find(p => p.id === b.id) as Pet;
+    確認(stageOf(今, Date.now()) === 'elder',
+      `${n}の鳥が老鳥になっている → 実測 ${stageOf(今, Date.now())}`);
+  }
+  await 通信('board', 老二名, { petId: 老二.id });
+  const 老拒否 = await 通信('breed', 老一名, { petId: 老一.id, partnerId: 老二.id });
+  確認(老拒否.状態 === 400 && String(老拒否.データ.error).includes('年を取りすぎ'),
+    `老鳥は産めない → 実測 ${String(老拒否.データ.error)}`);
 
   if (失敗数) { console.error(`検証終了: ${失敗数}件失敗しました。`); process.exit(1); }
   console.log('検証終了: 全項目に合格しました。');

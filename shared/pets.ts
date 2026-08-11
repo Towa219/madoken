@@ -152,6 +152,11 @@ export interface Pet {
   hatchedAt: number;        // 0 ならまだ卵
   // 交配所へ預けているか。預けている間は戦闘に連れて行けない。
   boarded: boolean;
+  // 戦闘に連れて行く1羽。持ち主につき1羽だけ true。
+  chosen: boolean;
+  // 交配の履歴
+  breedCount: number;       // これまでに何回産んだか
+  lastBredAt: number;       // 最後に交配した時刻(0なら未交配)
   // 親(図鑑と遺伝の記録用。居なければ空)
   parents: [string, string] | null;
   bornAt: number;           // 卵として生まれた時刻
@@ -223,6 +228,38 @@ export function countHeld(pets: Pet[]): number {
   return pets.filter(p => !p.boarded).length;
 }
 
+// ---------------------------------------------------------------- 連れて行く
+//
+// 戦闘に出せるのは1羽だけ。断る理由を日本語で返す(通れば null)。
+//
+// ★ 卵と死んだ個体は連れて行けない。どちらも底上げが0なので、
+//   連れて行けても何も起きず、「効かない」と誤解される。
+export function canChoose(pet: Pet, now: number): string | null {
+  if (pet.boarded) return '交配所へ預けている間は連れて行けない。';
+  const st = stageOf(pet, now);
+  if (st === 'egg') return 'まだ卵。孵ってからにする。';
+  if (st === 'dead') return 'もう天へ行ってしまった。';
+  return null;
+}
+
+// 今どれを連れているか。誰も選んでいなければ null。
+//
+// ★ 印が2羽以上に付いていても、最初の1羽だけを見る。
+//   保存が途中で止まった時に「2羽ぶん効く」ようにはしない。
+export function chosenPetOf(pets: Pet[], now: number): Pet | null {
+  for (const p of pets) {
+    if (p.chosen && canChoose(p, now) === null) return p;
+  }
+  return null;
+}
+
+// 連れているペットぶんの底上げ。誰も居なければ 0。
+// 共闘のサーバーと画面の両方がこれを使う(数字を二重に書かないため)。
+export function partyBonusOf(pets: Pet[], now: number): PetBonus {
+  const pet = chosenPetOf(pets, now);
+  return pet ? bonusOf(pet, now) : { hp: 0, mp: 0 };
+}
+
 // ---------------------------------------------------------------- 交配
 
 // 子の遺伝子は「両親の平均 ± ゆらぎ」。
@@ -270,13 +307,56 @@ export function breed(a: Pet, b: Pet, rnd: () => number = Math.random): BreedRes
 
 // 交配できる組み合わせか。
 // 死んだ個体・卵・雛は親になれない(成鳥と老鳥だけ)。
+// ---------------------------------------------------------------- 交配の歯止め
+//
+// ★ 歯止めが1つも無いと、同じ1組から無限に卵を作れてしまう(2026-08-11に発覚)。
+//   良い遺伝子の親を1組そろえた時点で、理想の子が出るまで連打すればよくなり、
+//   遺伝も寿命も意味を失う。だから3つの向きから同時に塞ぐ。
+//
+//   間隔  … 産んだ直後は打てない。連打を止める
+//   回数  … 一生に産める数を区切る。良い親も使い切る
+//   老鳥  … 老いたら産めない。老いる前に次の代へ繋ぐ判断が要る
+//
+//   1つだけでは漏れる。間隔だけなら時間をかければ無限、回数だけなら
+//   1日で使い切れ、老鳥だけなら成鳥のあいだの連打が残る。
+
+// 産んでから次に産めるまで。温めと同じ間隔にして、生活の周期を1本に揃える。
+export const BREED_COOLDOWN_MS = 20 * 60 * 60 * 1000;
+
+// 一生に産める回数。
+export const BREED_MAX_COUNT = 3;
+
+export function breedLeft(pet: Pet): number {
+  return Math.max(0, BREED_MAX_COUNT - pet.breedCount);
+}
+
+// 次に産めるようになるまでの残り時間(ms)。0なら今すぐ産める。
+export function breedWaitMs(pet: Pet, now: number): number {
+  if (pet.lastBredAt <= 0) return 0;
+  return Math.max(0, pet.lastBredAt + BREED_COOLDOWN_MS - now);
+}
+
 export function canBreed(a: Pet, b: Pet, now: number): string | null {
   if (a.id === b.id) return '同じ個体どうしは交配できない。';
   if (a.sex === b.sex) return '♂と♀の組み合わせが要る。';
   for (const p of [a, b]) {
     const st = stageOf(p, now);
-    if (st !== 'adult' && st !== 'elder') {
-      return `${petDisplayName(p)}はまだ交配できない(成鳥から)。`;
+    // ★ 老鳥は産めない。以前は elder も通していた。
+    if (st !== 'adult') {
+      // 死んだ個体に「まだ成鳥ではない」と出してはいけない。
+      // 待てば産めるように読めてしまう(実測で気づいた)。
+      const なぜ = st === 'elder' ? '年を取りすぎている'
+        : st === 'dead' ? 'もう天へ行ってしまった'
+        : 'まだ成鳥ではない';
+      return `${petDisplayName(p)}は交配できない(${なぜ})。`;
+    }
+    if (breedLeft(p) <= 0) {
+      return `${petDisplayName(p)}はもう産めない(一生に${BREED_MAX_COUNT}回まで)。`;
+    }
+    const 待ち = breedWaitMs(p, now);
+    if (待ち > 0) {
+      const 時 = Math.ceil(待ち / (60 * 60 * 1000));
+      return `${petDisplayName(p)}は休んでいる(あと約${時}時間)。`;
     }
   }
   return null;

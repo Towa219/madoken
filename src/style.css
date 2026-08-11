@@ -1160,3 +1160,27 @@ button.tab:disabled { opacity: 0.4; cursor: not-allowed; }
   .hatch-bird { font-size: 76px; }
   .hatch-caption { font-size: 15px; }
 }
+
+/* タブに出す知らせ。
+ *
+ * 温められる卵ができた時と、交配できる相手が交配所に入った時に数字が出る。
+ * 数はやることの数(温められる卵の数 + 交配できる自分の鳥の数)。
+ * 押しても断られるものは数に入れない ― 出しても徒労にさせないため。 */
+button.tab { position: relative; }
+button.tab[data-badge]::after {
+  content: attr(data-badge);
+  position: absolute; top: -7px; right: -7px;
+  min-width: 18px; height: 18px; padding: 0 4px;
+  border-radius: 9px; background: #d13a63; border: 1px solid #ff8fac;
+  color: #fff6f8; font-size: 11px; font-weight: bold; line-height: 16px;
+  text-align: center; pointer-events: none;
+  box-shadow: 0 2px 8px rgba(255, 80, 120, 0.5);
+  animation: tab-badge-in 0.4s cubic-bezier(0.2, 1.5, 0.4, 1);
+}
+@keyframes tab-badge-in {
+  from { transform: scale(0); }
+  to   { transform: scale(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  button.tab[data-badge]::after { animation: none; }
+}

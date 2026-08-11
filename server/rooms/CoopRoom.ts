@@ -31,6 +31,8 @@ import {
 } from '../../shared/data';
 import type { AffinityGrade, EnemyDef } from '../../shared/data';
 import type { ElementCounts, ElementId, SpellStats } from '../../shared/types';
+import { chosenPetOf, partyBonusOf } from '../../shared/pets';
+import { grantBossEggOnce, listPets } from '../pets';
 
 export const PLAYER_XS = [110, 165, 220];
 
@@ -48,6 +50,7 @@ class PlayerS extends Schema {
   declare ready: boolean;
   declare slot: number;
   declare charId: number;     // 選んだキャラクター(得意エレメントで威力が変わる)
+  declare petSpecies: string; // 連れている鳥。いなければ空文字
   declare castingIdx: number; // -1=非詠唱
   declare castName: string;   // 詠唱中の魔法名(全員に見える)
   declare wardPct: number;    // 属性耐性(%)。0=なし
@@ -61,7 +64,7 @@ class PlayerS extends Schema {
 defineTypes(PlayerS, {
   name: 'string', hp: 'number', maxHp: 'number', mp: 'number', maxMp: 'number',
   shield: 'number', hate: 'number', alive: 'boolean', ready: 'boolean', slot: 'number',
-  charId: 'number',
+  charId: 'number', petSpecies: 'string',
   castingIdx: 'number', castT: 'number', castTotal: 'number', castName: 'string',
   wardPct: 'number', atkBoost: 'number', vigorBonus: 'number',
   mpRegenBonus: 'number', pose: 'number',
@@ -125,6 +128,7 @@ interface PInternal {
   score: number;     // 戦闘スコア(クリアステージ×10+与ダメ/20)
   submitted: boolean; // ランキング送信済みか(二重送信防止)
   poseT: number;      // 一瞬のポーズ(撃った・被弾)の残り時間
+  petAdmin: boolean;  // 正しい管理者合言葉で参加した人だけ卵を受け取れる
 }
 
 interface EInternal {
@@ -188,15 +192,25 @@ export class CoopRoom extends Room<CoopState> {
     this.setSimulationInterval(dtMs => this.update(dtMs / 1000), 50);
   }
 
-  onJoin(
+  async onJoin(
     client: Client,
-    options: { name?: unknown; spells?: unknown; charId?: unknown },
-  ): void {
+    options: { name?: unknown; spells?: unknown; charId?: unknown; adminKey?: unknown },
+  ): Promise<void> {
     const p = new PlayerS();
     p.name = clampNickname(options?.name) || '名無し';
     p.charId = clampCharId(options?.charId);
-    p.maxHp = PLAYER_MAX_HP; p.hp = PLAYER_MAX_HP;
-    p.maxMp = PLAYER_MAX_MP; p.mp = PLAYER_MAX_MP;
+    p.petSpecies = '';
+    const petAdmin = Boolean(process.env.ADMIN_KEY)
+      && String(options?.adminKey ?? '') === process.env.ADMIN_KEY;
+    let hpBonus = 0; let mpBonus = 0;
+    if (petAdmin) {
+      const pets = await listPets(p.name); const now = Date.now();
+      const bonus = partyBonusOf(pets, now);
+      hpBonus = bonus.hp; mpBonus = bonus.mp;
+      p.petSpecies = chosenPetOf(pets, now)?.species ?? '';
+    }
+    p.maxHp = PLAYER_MAX_HP + hpBonus; p.hp = p.maxHp;
+    p.maxMp = PLAYER_MAX_MP + mpBonus; p.mp = p.maxMp;
     p.shield = 0;
     p.hate = 0;
     p.alive = true; p.ready = false;
@@ -252,7 +266,7 @@ export class CoopRoom extends Room<CoopState> {
       wardAttr: null, wardPct: 0, wardT: 0,
       atkBoost: 0, atkBoostT: 0, vigorBonus: 0, vigorT: 0,
       mpRegenBonus: 0, mpRegenT: 0,
-      score: 0, submitted: false, poseT: 0,
+      score: 0, submitted: false, poseT: 0, petAdmin,
     });
   }
 
@@ -1081,7 +1095,16 @@ export class CoopRoom extends Room<CoopState> {
             drops.push(pool[Math.floor(Math.random() * pool.length)]);
           }
         }
+        // ★ クリアの知らせは、卵の保存を待たずに先に送る。
+        //   待たせると、Upstash が遅い時に素材と研究Pの表示が届かないまま
+        //   4秒後の自動送りが来てしまう。卵は後から別便で知らせればよい。
         client.send('stageclear', { stage, drops, rp, boss });
+        if (boss && stage > 0 && stage % 5 === 0 && internal?.petAdmin) {
+          const who = this.state.players.get(client.sessionId)?.name ?? '';
+          void grantBossEggOnce(who, stage)
+            .then(egg => { try { client.send('bossegg', { stage, egg }); } catch { /* 抜けた後 */ } })
+            .catch(() => { try { client.send('bossegg', { stage, egg: 'error' }); } catch { /* 同上 */ } });
+        }
       }
       this.pending.push({ t: 4, fn: () => this.nextStage() });
       return;

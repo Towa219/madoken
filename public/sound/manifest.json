@@ -19,6 +19,13 @@
     "gacha": 1.07
   },
   "sfx": {
+    "bird_crow": "sfx/bird_crow.wav",
+    "bird_dove": "sfx/bird_dove.wav",
+    "bird_hawk": "sfx/bird_hawk.wav",
+    "bird_lark": "sfx/bird_lark.wav",
+    "bird_owl": "sfx/bird_owl.wav",
+    "bird_sparrow": "sfx/bird_sparrow.wav",
+    "bird_swallow": "sfx/bird_swallow.wav",
     "buff": "sfx/buff.wav",
     "cast": "sfx/cast.wav",
     "casting": "sfx/casting.wav",

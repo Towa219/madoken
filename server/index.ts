@@ -20,7 +20,7 @@ import { deleteSave, getSave, putSave } from './save';
 import { BUILD_DATE, VERSION } from '../shared/version';
 import {
   BREED_EGG_HOURS, DAY_MS, MAX_PETS, canBreed, canWarm, countHeld, breed,
-  eggSpeciesForBoss, maskPet, warmLeft, wildGene,
+  canChoose, eggSpeciesForBoss, maskPet, warmLeft, wildGene, WARM_INTERVAL_MS,
 } from '../shared/pets';
 import type { Pet } from '../shared/pets';
 import { boardPet, listBoard, listPets, savePets, unboardPet } from './pets';
@@ -85,7 +85,8 @@ function newEgg(ownerName: string, species: Pet['species'], now: number): Pet {
   return {
     id: crypto.randomUUID(), ownerName, species, name: '', sex: Math.random() < 0.5 ? 'm' : 'f',
     hpGene: wildGene(), mpGene: wildGene(), lifeGene: wildGene(), warmCount: 0,
-    lastWarmAt: now, hatchedAt: 0, boarded: false, parents: null, bornAt: now,
+    lastWarmAt: now, hatchedAt: 0, boarded: false, chosen: false,
+    breedCount: 0, lastBredAt: 0, parents: null, bornAt: now,
   };
 }
 
@@ -146,12 +147,31 @@ app.post('/api/pet/rename', (req, res) => {
   })().catch(() => res.status(500).json({ error: '名前を変更できませんでした。' }));
 });
 
+app.post('/api/pet/choose', (req, res) => {
+  if (!petAdminOk(req, res)) return;
+  const body = req.body as PetBody; const name = petName(body, res); if (!name) return;
+  void (async () => {
+    const pets = await listPets(name); const petId = String(body.petId ?? '');
+    if (petId === '') {
+      for (const pet of pets) pet.chosen = false;
+      await savePets(name, pets); res.json({ ok: true }); return;
+    }
+    const pet = pets.find(p => p.id === petId);
+    if (!pet) { res.status(404).json({ error: 'ペットが見つかりません。' }); return; }
+    const reason = canChoose(pet, Date.now());
+    if (reason) { res.status(400).json({ error: reason }); return; }
+    for (const item of pets) item.chosen = item.id === petId;
+    await savePets(name, pets); res.json({ ok: true, pet: maskPet(pet) });
+  })().catch(() => res.status(500).json({ error: '連れて行くペットを変更できませんでした。' }));
+});
+
 app.post('/api/pet/release', (req, res) => {
   if (!petAdminOk(req, res)) return;
   const body = req.body as PetBody; const name = petName(body, res); if (!name) return;
   void (async () => {
     const pets = await listPets(name); const pet = pets.find(p => p.id === String(body.petId ?? ''));
     if (!pet) { res.status(404).json({ error: 'ペットが見つかりません。' }); return; }
+    pet.chosen = false;
     if (pet.boarded) await unboardPet(name, pet.id);
     await savePets(name, (await listPets(name)).filter(p => p.id !== pet.id)); res.json({ ok: true });
   })().catch(() => res.status(500).json({ error: 'ペットを手放せませんでした。' }));
@@ -186,13 +206,34 @@ app.post('/api/pet/breed', (req, res) => {
     }
     const now = Date.now(); const reason = canBreed(mine, partner, now);
     if (reason) { res.status(400).json({ error: reason }); return; }
-    const result = breed(mine, partner); const readyAt = now + BREED_EGG_HOURS * 60 * 60 * 1000;
-    const child: Pet = { ...newEgg(name, result.species, readyAt), ...result, parents: [mine.id, partner.id] };
+
+    // 交配の履歴を両親に刻む。これが無いと同じ1組から無限に産める。
+    const partnerOwned = ownerPets.find(p => p.id === partner.id);
+    if (!partnerOwned) { res.status(404).json({ error: '相手のペットが見つかりません。' }); return; }
+    mine.breedCount += 1; mine.lastBredAt = now;
+    partnerOwned.breedCount += 1; partnerOwned.lastBredAt = now;
+
+    // ★ 卵ができるのは BREED_EGG_HOURS 後。そこから温め始められるように、
+    //   「最後に温めた時刻」を1回ぶん手前へ置く。readyAt をそのまま入れると、
+    //   温めの間隔(20時間)がそこから数え始まり、実質32時間待ちになる。
+    const readyAt = now + BREED_EGG_HOURS * 60 * 60 * 1000;
+    const 温め開始 = readyAt - WARM_INTERVAL_MS;
+    const result = breed(mine, partner);
+    const child: Pet = {
+      ...newEgg(name, result.species, now), ...result,
+      lastWarmAt: 温め開始, parents: [mine.id, partner.id],
+    };
     pets.push(child); await savePets(name, pets);
     const thanksResult = breed(partner, mine);
-    ownerPets.push({ ...newEgg(partner.ownerName, thanksResult.species, readyAt), ...thanksResult,
-      parents: [partner.id, mine.id] });
+    ownerPets.push({
+      ...newEgg(partner.ownerName, thanksResult.species, now), ...thanksResult,
+      lastWarmAt: 温め開始, parents: [partner.id, mine.id],
+    });
     await savePets(partner.ownerName, ownerPets);
+    // 交配所に置いてある写しにも履歴を移す。本体だけ直すと、相手の一覧では
+    // 回数が増えているのに、交配所からは何度でも選べてしまう。
+    await unboardPet(partner.ownerName, partner.id);
+    await boardPet(partner.ownerName, partner.id);
     res.json({ ok: true, pet: maskPet(child), readyAt });
   })().catch(() => res.status(500).json({ error: '交配できませんでした。' }));
 });
@@ -204,9 +245,13 @@ app.post('/api/pet/advance', (req, res) => {
   if (!Number.isFinite(days) || days < 0) { res.status(400).json({ error: '進める日数が正しくありません。' }); return; }
   void (async () => {
     const pets = await listPets(name); const shift = days * DAY_MS;
+    // ★ 時刻を持つ欄はすべて動かすこと。1つでも取りこぼすと、
+    //   そこだけ時間が止まる。lastBredAt を忘れていて、日を進めても
+    //   交配の待ち時間が永久に明けなくなっていた(実測で判明)。
     for (const pet of pets) {
       pet.bornAt -= shift; pet.lastWarmAt -= shift;
       if (pet.hatchedAt > 0) pet.hatchedAt -= shift;
+      if (pet.lastBredAt > 0) pet.lastBredAt -= shift;
     }
     await savePets(name, pets);
     for (const pet of pets.filter(p => p.boarded)) { await unboardPet(name, pet.id); await boardPet(name, pet.id); }

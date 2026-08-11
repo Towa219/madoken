@@ -558,6 +558,128 @@ def sfx_gacha_rare():
     return reverb(x, 1.4, 0.38, 47), 0.72
 
 
+# ===== 鳥の声(ペットの孵化) =====
+#
+# 7種それぞれに別の声を作る。孵化は見せ場なので、
+# 「何が生まれたか」を音だけでも分からせたい。似た声にしないこと。
+#
+# 鳴き分けの軸は3つ。
+#   高さ … スズメ/ツバメは高い(3〜5kHz)。フクロウ/ハトは低い(350〜500Hz)
+#   動き … さえずる鳥は周波数が速く上下する。鳴く鳥はほぼ一定
+#   濁り … タカ/カラスは倍音を歪ませて濁らせる。他は澄ませる
+#
+# ★ サイン波1本では鳥にならない。必ず倍音を足すこと。
+#   1本だけだと、どれだけ周波数を動かしても電子音の口笛にしか聞こえない。
+
+def harsh(x, amount=3.0):
+    """倍音を増やして濁らせる。猛禽やカラスの「割れた」声はこれで出る。"""
+    return np.tanh(x * amount) / np.tanh(amount)
+
+
+def vibrato(base, dur, rate, depth):
+    """base[Hz] を rate[Hz] の速さで depth(比率)だけ揺らした周波数列。"""
+    return base * (1 + depth * np.sin(2 * np.pi * rate * t_axis(dur)))
+
+
+def chirp(f0, f1, dur, curve=1.0, attack=0.006, power=2.5):
+    """一声ぶんの澄んださえずり。"""
+    return sine(sweep(f0, f1, dur, curve), dur) * env_ad(dur, attack, power)
+
+
+def sfx_bird_sparrow():
+    """スズメ「チュン チュン」。短く高い声を2回。"""
+    out = np.zeros(int(SR * 0.52))
+    for i, (start, f0, f1) in enumerate([(0.0, 5200, 3400), (0.19, 5000, 3200)]):
+        d = 0.10
+        x = chirp(f0, f1, d, curve=0.55)
+        x += 0.30 * sine(sweep(f0 * 2, f1 * 2, d, 0.55), d) * env_ad(d, 0.006, 3)
+        s = int(SR * start)
+        out[s:s + len(x)] += x * (1.0 - i * 0.12)
+    return reverb(out, tail=0.35, amount=0.18), 0.45
+
+
+def sfx_bird_lark():
+    """ヒバリ「ピチュルピチュル」。長く細かくさえずり続ける。"""
+    d = 1.10
+    t = t_axis(d)
+    # 速い上下に、ゆっくりした上昇を重ねる(一定だと機械の警報になる)
+    f = 3200 + 900 * np.sin(2 * np.pi * 14 * t) + 600 * np.sin(2 * np.pi * 3.3 * t) + 500 * t
+    x = sine(f, d) + 0.25 * sine(f * 2, d)
+    # 粒立ちを出すため、細かく振幅を刻む
+    x *= (0.55 + 0.45 * np.abs(np.sin(2 * np.pi * 7 * t))) * env_ad(d, 0.02, 1.2)
+    return reverb(x, tail=0.5, amount=0.25), 0.42
+
+
+def sfx_bird_swallow():
+    """ツバメ「チュビチュビ」。速く細かい声を続けざまに。"""
+    out = np.zeros(int(SR * 0.64))
+    for i in range(4):
+        d = 0.075
+        f0 = 3400 + i * 250
+        x = chirp(f0, f0 * 1.9, d, curve=1.6, attack=0.004, power=2.0)
+        x += 0.22 * sine(sweep(f0 * 2, f0 * 3.8, d, 1.6), d) * env_ad(d, 0.004, 2.4)
+        s = int(SR * (0.03 + i * 0.13))
+        out[s:s + len(x)] += x * (1.0 - i * 0.12)
+    return reverb(out, tail=0.35, amount=0.20), 0.42
+
+
+def sfx_bird_owl():
+    """フクロウ「ホー ホー」。低く柔らかい。高い倍音を削って丸くする。"""
+    out = np.zeros(int(SR * 1.50))
+    for i, start in enumerate([0.0, 0.62]):
+        d = 0.52
+        f = vibrato(360 if i == 0 else 340, d, 5.5, 0.02)
+        x = sine(f, d) + 0.22 * sine(f * 2, d) + 0.06 * sine(f * 3, d)
+        # 息を吹き込むような立ち上がりにする(鋭いと笛になる)
+        x = lowpass(x * env_ad(d, 0.09, 2.2), 1400)
+        s = int(SR * start)
+        out[s:s + len(x)] += x
+    return reverb(out, tail=1.1, amount=0.34), 0.55
+
+
+def sfx_bird_hawk():
+    """タカ「ピーヒョロロ」。高く始まり、震えながら降りてくる。"""
+    d = 1.25
+    t = t_axis(d)
+    base = np.where(t < 0.35, 2050, 2050 - 950 * np.clip((t - 0.35) / (d - 0.35), 0, 1) ** 0.8)
+    f = base * (1 + 0.055 * np.sin(2 * np.pi * 11 * t) * (t > 0.30))
+    x = sine(f, d) + 0.50 * sine(f * 2, d) + 0.25 * sine(f * 3, d)
+    x = harsh(x, 2.6)
+    # かすれ。これが無いと澄みすぎて猛禽に聞こえない
+    x += 0.10 * highpass(noise(d, 7), 2500) * env_ad(d, 0.02, 1.0)
+    return reverb(x * env_ad(d, 0.03, 1.1), tail=0.9, amount=0.30), 0.50
+
+
+def sfx_bird_dove():
+    """ハト「クルッ クー」。低く丸い声。転がる前置きを付ける。"""
+    out = np.zeros(int(SR * 1.35))
+    d1 = 0.26                                   # 転がり(クルッ)
+    f1 = vibrato(500, d1, 22, 0.10)
+    x1 = (sine(f1, d1) + 0.30 * sine(f1 * 2, d1)) * env_ad(d1, 0.03, 1.6)
+    out[:len(x1)] += lowpass(x1, 1800) * 0.80
+    d2 = 0.62                                   # 伸ばし(クー)
+    f2 = sweep(470, 430, d2)
+    x2 = (sine(f2, d2) + 0.28 * sine(f2 * 2, d2) + 0.08 * sine(f2 * 3, d2)) * env_ad(d2, 0.10, 1.8)
+    s = int(SR * 0.34)
+    x2 = lowpass(x2, 1500)
+    out[s:s + len(x2)] += x2
+    return reverb(out, tail=0.9, amount=0.30), 0.52
+
+
+def sfx_bird_crow():
+    """カラス「カー カー」。濁った声を2回。"""
+    out = np.zeros(int(SR * 1.15))
+    for i, start in enumerate([0.0, 0.50]):
+        d = 0.36
+        f = sweep(780, 620, d, 0.7) * (1 + 0.04 * np.sin(2 * np.pi * 33 * t_axis(d)))
+        x = sine(f, d) + 0.65 * sine(f * 2, d) + 0.40 * sine(f * 3, d) + 0.20 * sine(f * 5, d)
+        x = harsh(x, 3.4)
+        x += 0.16 * highpass(noise(d, 11 + i), 1200) * env_ad(d, 0.01, 1.4)
+        s = int(SR * start)
+        out[s:s + len(x)] += x * env_ad(d, 0.012, 1.5) * (1.0 - i * 0.15)
+    return reverb(out, tail=0.7, amount=0.26), 0.50
+
+
 ALL = {
     'select': sfx_select, 'unselect': sfx_unselect, 'click': sfx_click,
     'crafting': sfx_crafting, 'craft': sfx_craft, 'craftFail': sfx_craft_fail,
@@ -573,6 +695,12 @@ ALL = {
     'win': sfx_win_c, 'lose': sfx_lose, 'escape': sfx_escape,
     'gachaCharge': sfx_gacha_charge, 'gachaOpen': sfx_gacha_open,
     'gachaRare': sfx_gacha_rare,
+    # 鳥の声(ペットの孵化)。名前は shared/pets.ts の種類の id に揃えてある ―
+    # 画面側は playSfx('bird_' + species) で引けるようにするため。
+    'bird_sparrow': sfx_bird_sparrow, 'bird_lark': sfx_bird_lark,
+    'bird_swallow': sfx_bird_swallow, 'bird_owl': sfx_bird_owl,
+    'bird_hawk': sfx_bird_hawk, 'bird_dove': sfx_bird_dove,
+    'bird_crow': sfx_bird_crow,
 }
 
 
