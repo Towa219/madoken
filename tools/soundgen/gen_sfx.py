@@ -680,6 +680,32 @@ def sfx_bird_crow():
     return reverb(out, tail=0.7, amount=0.26), 0.50
 
 
+def sfx_bird_bluebird():
+    """アオイトリ「ピロリロ…」。ごく稀にしか出ない8種目。
+
+    ★ 他の7種と作り方を変える。他は「鳥の声」だが、これだけは
+      鈴の音を混ぜて、当たりを引いたと音で分かるようにする。
+      同じ作りのまま音程だけ変えても、7種の中に埋もれる。
+    """
+    out = np.zeros(int(SR * 1.30))
+    # 澄んださえずり。上がって下りる三音
+    for i, (start, f0, f1) in enumerate([(0.00, 2600, 3400), (0.16, 3400, 4200),
+                                         (0.34, 4200, 3000)]):
+        d = 0.16
+        x = chirp(f0, f1, d, curve=0.8, attack=0.008, power=2.2)
+        x += 0.35 * sine(sweep(f0 * 1.5, f1 * 1.5, d, 0.8), d) * env_ad(d, 0.008, 2.6)
+        s = int(SR * start)
+        out[s:s + len(x)] += x * (0.9 + i * 0.05)
+    # 鈴。倍音が整数比から少しずれた音を重ねると鈴らしくなる
+    d2 = 0.85
+    鈴 = np.zeros(int(SR * d2))
+    for f, a in [(2093, 1.0), (3140, 0.55), (4700, 0.32), (6280, 0.18)]:
+        鈴 += a * sine(f, d2) * env_decay(d2, 2.2)
+    s = int(SR * 0.30)
+    out[s:s + len(鈴)] += 鈴 * 0.5
+    return reverb(out, tail=1.2, amount=0.38), 0.50
+
+
 ALL = {
     'select': sfx_select, 'unselect': sfx_unselect, 'click': sfx_click,
     'crafting': sfx_crafting, 'craft': sfx_craft, 'craftFail': sfx_craft_fail,
@@ -700,8 +726,102 @@ ALL = {
     'bird_sparrow': sfx_bird_sparrow, 'bird_lark': sfx_bird_lark,
     'bird_swallow': sfx_bird_swallow, 'bird_owl': sfx_bird_owl,
     'bird_hawk': sfx_bird_hawk, 'bird_dove': sfx_bird_dove,
-    'bird_crow': sfx_bird_crow,
+    'bird_crow': sfx_bird_crow, 'bird_bluebird': sfx_bird_bluebird,
 }
+
+
+# 節ごとの見出しと、そこへ入れる音。ここに無い音は「その他」へ回る。
+#
+# ★ 音を足したらここへ1行足すこと。書き忘れても「その他」に必ず出る。
+#   以前は試聴ページを手で書いていたため、鳥の声を8種作ったのに
+#   1種もページに載らず、遊ぶ人に「アオイトリが無い」と言われて気づいた。
+AUDITION_SECTIONS = [
+    ('研究室', ['select', 'unselect', 'click', 'crafting', 'craft', 'craftFail',
+              'gathering', 'gather', 'transmuting', 'transmute', 'discover']),
+    ('戦闘', ['casting', 'cast', 'enemyCast', 'hit', 'crit', 'damage', 'defeat',
+            'heal', 'shield', 'buff', 'quake', 'countdown', 'start',
+            'win', 'lose', 'escape']),
+    ('ガチャ', ['gachaCharge', 'gachaOpen', 'gachaRare']),
+    ('ペットの鳥(孵化)', ['bird_sparrow', 'bird_lark', 'bird_swallow', 'bird_owl',
+                  'bird_hawk', 'bird_dove', 'bird_crow', 'bird_bluebird']),
+]
+
+# 説明文。無いものは名前だけ出す。
+AUDITION_DESC = {
+    'bird_sparrow': 'スズメ「チュン チュン」と短く2回',
+    'bird_lark': 'ヒバリ 長くさえずり続ける',
+    'bird_swallow': 'ツバメ 速く細かく4回',
+    'bird_owl': 'フクロウ「ホー ホー」低く柔らかい',
+    'bird_hawk': 'タカ「ピーヒョロロ」震えながら降りる',
+    'bird_dove': 'ハト「クルッ クー」低く丸い',
+    'bird_crow': 'カラス「カー カー」濁った声',
+    'bird_bluebird': 'アオイトリ ごく稀。鈴の音が混ざる',
+}
+
+LOOP_SOUNDS = {'crafting', 'gathering', 'transmuting', 'casting'}
+
+
+def write_audition():
+    """試聴ページを作り直す。置かれている音は必ず載る。"""
+    import html
+    if not os.path.isdir(SFX_DIR):
+        return
+    ある = [os.path.splitext(f)[0] for f in sorted(os.listdir(SFX_DIR))
+           if f.lower().endswith('.wav')]
+    載せた = set()
+    節 = []
+    for 見出し, keys in AUDITION_SECTIONS:
+        含む = [k for k in keys if k in ある]
+        if not 含む:
+            continue
+        載せた.update(含む)
+        節.append((見出し, 含む))
+    残り = [k for k in ある if k not in 載せた]
+    if 残り:
+        節.append(('その他(節に割り振られていない音)', 残り))
+
+    行 = []
+    for 見出し, keys in 節:
+        行.append('<section>')
+        行.append('  <h2>' + html.escape(見出し) + '</h2>')
+        for k in keys:
+            ループ = k in LOOP_SOUNDS
+            名 = ('🔁 ' if ループ else '') + k
+            desc = html.escape(AUDITION_DESC.get(k, ''))
+            cls = ' loop' if ループ else ''
+            lp = ' loop' if ループ else ''
+            行.append(
+                '  <div class="row"><span class="nm' + cls + '">'
+                + html.escape(名) + '</span><span class="desc">' + desc
+                + '</span><audio controls preload="none"' + lp
+                + ' src="' + k + '.wav"></audio></div>')
+        行.append('</section>')
+
+    head = (
+        '<!doctype html>\n<html lang="ja">\n<head>\n<meta charset="UTF-8">\n'
+        '<title>効果音 試聴 — 魔導研究記</title>\n<style>\n'
+        '  body { background:#12121e; color:#ddddee; font-family:"Meiryo",sans-serif;\n'
+        '         margin:0; padding:24px; line-height:1.7; }\n'
+        '  h1 { font-size:20px; color:#ddccff; margin:0 0 4px; }\n'
+        '  .note { font-size:13px; color:#8888aa; margin:0 0 18px; }\n'
+        '  section { background:#1a1a2c; border:1px solid #33335a; border-radius:10px;\n'
+        '            padding:14px 16px; margin-bottom:16px; }\n'
+        '  h2 { font-size:15px; color:#aaaacc; margin:0 0 10px; }\n'
+        '  .row { display:flex; align-items:center; gap:12px; padding:4px 0; flex-wrap:wrap; }\n'
+        '  .nm { width:150px; flex:none; color:#ffdd66; font-size:13px; }\n'
+        '  .nm.loop { color:#88ddff; }\n'
+        '  .desc { flex:1; min-width:180px; font-size:12px; color:#9999bb; }\n'
+        '  audio { width:260px; flex:none; }\n'
+        '</style>\n</head>\n<body>\n<h1>効果音 試聴</h1>\n'
+        '<p class="note">このページは tools/soundgen/gen_sfx.py が作ります。'
+        '手で編集しないでください(音を足しても載らない、という取りこぼしを防ぐため)。'
+        '全' + str(len(ある)) + '種。</p>\n')
+    doc = head + '\n'.join(行) + '\n</body>\n</html>\n'
+
+    path = os.path.join(SFX_DIR, '_試聴.html')
+    with open(path, 'w', encoding='utf-8') as f:
+        f.write(doc)
+    print('_試聴.html を作り直した(全' + str(len(ある)) + '種 / ' + str(len(節)) + '節)。')
 
 
 def write_manifest():
@@ -727,6 +847,7 @@ def write_manifest():
     with open(path, 'w', encoding='utf-8') as f:
         json.dump(m, f, ensure_ascii=False, indent=2)
     print(f'manifest.json を更新した(効果音 {len(sfx)}個)。')
+    write_audition()
 
 
 def main():

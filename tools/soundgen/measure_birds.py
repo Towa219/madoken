@@ -25,7 +25,7 @@ BIRDS = [
     ('bird_sparrow', 'スズメ', '高い'), ('bird_lark', 'ヒバリ', '高い'),
     ('bird_swallow', 'ツバメ', '高い'), ('bird_owl', 'フクロウ', '低い'),
     ('bird_hawk', 'タカ', '中'), ('bird_dove', 'ハト', '低い'),
-    ('bird_crow', 'カラス', '中'),
+    ('bird_crow', 'カラス', '中'), ('bird_bluebird', 'アオイトリ', '高い'),
 ]
 
 

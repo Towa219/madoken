@@ -138,13 +138,13 @@
     "bluebird": "pets/bluebird.png"
   },
   "petScales": {
-    "sparrow": 1.0,
-    "lark": 1.053,
-    "swallow": 0.836,
-    "owl": 1.244,
-    "hawk": 0.97,
-    "dove": 0.999,
-    "crow": 1.114,
-    "bluebird": 1.091
+    "sparrow": 1.001,
+    "lark": 1.054,
+    "swallow": 0.837,
+    "owl": 1.245,
+    "hawk": 0.971,
+    "dove": 1.0,
+    "crow": 1.115,
+    "bluebird": 0.905
   }
 }

@@ -19,6 +19,7 @@
     "gacha": 1.07
   },
   "sfx": {
+    "bird_bluebird": "sfx/bird_bluebird.wav",
     "bird_crow": "sfx/bird_crow.wav",
     "bird_dove": "sfx/bird_dove.wav",
     "bird_hawk": "sfx/bird_hawk.wav",

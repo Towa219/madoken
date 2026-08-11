@@ -67,6 +67,7 @@ PET_NEGATIVE = (
 PETS = {
     'sparrow': {
         'seed': 10000,
+        'flip': True,   # この種は左を向くので反転する
         'name': 'スズメ',
         'prompt': ('sparrow, brown and beige feathers, black cheek patch, '
                    'cream white chest, round plump body, short beak, short tail'),
@@ -86,7 +87,6 @@ PETS = {
     },
     'swallow': {
         'seed': 27303,
-        'flip': True,   # この種は左を向くので反転する
         'name': 'ツバメ',
         # ★ ツバメは飛ぶ姿ばかり出る。翼を畳んで地面に降りている指定を強める。
         'prompt': ('swallow bird, navy blue back, white belly, red orange throat and face, '
@@ -131,14 +131,18 @@ PETS = {
                 'silhouette, flat black, pure black, backlit, bat wings'),
     },
     'bluebird': {
-        'seed': 0,
+        'seed': 87303,
         'name': 'アオイトリ',
         # ★ 幸運の青い鳥。ごく稀にしか出ないので、ひと目で「当たり」と
         #   分かる見た目にする。他の7種と色がはっきり違うことが最優先。
-        'prompt': ('bluebird, brilliant vivid blue feathers, glowing blue plumage, '
+        'prompt': ('bluebird, brilliant vivid blue feathers, cyan blue plumage, '
                    'pale cream belly, small round body, short beak, sparkling'),
+        # ★ 「輝く」と書くと煙のような靄を描く。靄は切り抜きで残り、
+        #   暗い戦闘背景では鳥の上に灰色の雲が浮いて見える。
         'neg': ('penguin, owl, eagle, crow, brown bird, white bird, black bird, '
-                'gray bird, swallow, dull colors, red, orange'),
+                'gray bird, swallow, dull colors, red, orange, '
+                'smoke, mist, fog, haze, glow, aura, magic effect, sparkles, '
+                'two birds, chick'),
     },
 }
 
@@ -208,6 +212,37 @@ def clean_alpha(img, floor=0.14):
     al = np.clip((al - floor) / (1.0 - floor), 0.0, 1.0)
     a[..., 3] = al * 255.0
     return Image.fromarray(a.astype(np.uint8), 'RGBA')
+
+
+def keep_main_blob(img, thresh=0.35):
+    """いちばん大きな塊だけを残し、離れて浮いているものを消す。
+
+    ★ アオイトリの生成で、鳥の上に煙のような濃い塊が描かれ、
+      切り抜きがそれも「被写体」として残した。濃さが0.45を超えるので
+      薄い所を落とす clean_alpha では消せず、暗い戦闘背景では
+      鳥の上に灰色の雲が浮いて見えた(実画面で確認)。
+
+    ★ 面積で決めること。位置(上のほうにあるもの)で決めると、
+      冠羽や広げた翼まで消える。
+    """
+    import numpy as np
+    from PIL import Image
+    from scipy import ndimage
+    a = np.array(img)
+    mask = a[..., 3] > int(thresh * 255)
+    lab, n = ndimage.label(mask)
+    if n <= 1:
+        return img
+    大きさ = ndimage.sum(mask, lab, range(1, n + 1))
+    主 = int(np.argmax(大きさ)) + 1
+    残す = (lab == 主)
+    # 主の塊に触れている半端な画素(輪郭のぼかし)は残したいので、少し太らせる
+    残す = ndimage.binary_dilation(残す, iterations=2)
+    a[..., 3] = np.where(残す, a[..., 3], 0)
+    消した = int(mask.sum() - (mask & 残す).sum())
+    if 消した > 0:
+        print(f'    離れた塊を{消した}画素ぶん消した')
+    return Image.fromarray(a, 'RGBA')
 
 
 def pet_scales(pets):
