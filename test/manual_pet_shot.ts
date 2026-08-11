@@ -11,12 +11,15 @@ import { spawn } from 'node:child_process';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { MAX_PETS, PET_SPECIES, BREED_MAX_COUNT, DEAD_KEEP_DAYS } from '../shared/pets';
+import {
+  MAX_PETS, PET_SPECIES, BREED_MAX_COUNT, DEAD_KEEP_DAYS, PETS_PUBLIC,
+} from '../shared/pets';
 
 const URL_ = process.env.MADOKEN_URL ?? 'http://localhost:5173';
 const CHROME = process.env.CHROME_PATH
   ?? 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe';
 const PORT = 9494;
+const KEY = process.env.ADMIN_KEY ?? 'test1234';
 const OUT = join(process.cwd(), 'tools', 'shots');
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 
@@ -64,6 +67,27 @@ async function main(): Promise<void> {
     await send('Page.navigate', { url: URL_ });
     await sleep(5000);
 
+    // ★ まず一般の目で見る。公開していない機能の説明が読めてはいけない。
+    //   タブは管理者にしか出ないので、説明だけ見えると
+    //   「ペットってどこにあるの?」になる。
+    await ev('document.querySelector("#tab-manual").click()');
+    await sleep(1200);
+    const 一般に見えるか = await ev<boolean>(`(() => {
+      return [...document.querySelectorAll('.man-sec')]
+        .some(x => (x.querySelector('h3')?.textContent || '').includes('ペット'));
+    })()`);
+    const 一般の期待 = PETS_PUBLIC;
+    if (一般に見えるか !== 一般の期待) ng++;
+    console.log(`  ${一般に見えるか === 一般の期待 ? 'OK ' : 'NG '} `
+      + `公開の旗が${PETS_PUBLIC ? '上がって' : '下りて'}いる時、一般には`
+      + `${一般の期待 ? '見える' : '見えない'} → 実測 ${一般に見えるか ? '見えた' : '見えない'}`);
+
+    // 管理者になってから見る
+    await ev(`(() => {
+      try { sessionStorage.setItem('madoken_admin_key', ${JSON.stringify(KEY)}); } catch {}
+      location.reload();
+    })()`);
+    await sleep(5500);
     await ev('document.querySelector("#tab-manual").click()');
     await sleep(1200);
 
@@ -75,7 +99,7 @@ async function main(): Promise<void> {
       return s.textContent.replace(/\\s+/g, ' ');
     })()`);
 
-    if (!本文) { console.log('  NG  ペットの節が見つからない'); ng++; }
+    if (!本文) { console.log('  NG  管理者でもペットの節が見つからない'); ng++; }
     else {
       console.log(`  OK  ペットの節がある(${本文.length}文字)`);
       // 定義の数字が本文に出ているか

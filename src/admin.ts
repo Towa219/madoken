@@ -15,6 +15,7 @@
 //   以後の管理者向けの通信では、この合言葉を毎回サーバーへ送って確かめる。
 
 import { showToast } from './lab';
+import { PETS_PUBLIC } from '../shared/pets';
 
 const $ = <T extends HTMLElement = HTMLElement>(sel: string) =>
   document.querySelector(sel) as T;
@@ -73,7 +74,8 @@ function onFooterTap(): void {
 // 「ペット」タブは管理者の間だけ現れる。
 function applyAdminUi(): void {
   const on = isAdmin();
-  $('#tab-pet').classList.toggle('hidden', !on);
+  // 公開したら誰にでも出す。それまでは管理者の間だけ。
+  $('#tab-pet').classList.toggle('hidden', !(PETS_PUBLIC || on));
   // 管理者でいる間は、抜けられるように欄を出しておく
   if (on) $('#admin-panel').classList.remove('hidden');
   $('#admin-state').textContent = on

@@ -27,8 +27,9 @@ import { ENHANCE_MAX } from '../shared/spellcraft';
 import { NICK_MAX_FULL, NICK_MAX_WIDTH } from '../shared/nickname';
 import {
   BREED_COOLDOWN_MS, BREED_MAX_COUNT, DEAD_KEEP_DAYS, ELDER_DAYS, MAX_PETS,
-  PET_SPECIES, PET_SPECIES_ORDER, STAGE_POWER, WARM_INTERVAL_MS,
+  PET_SPECIES, PET_SPECIES_ORDER, PETS_PUBLIC, STAGE_POWER, WARM_INTERVAL_MS,
 } from '../shared/pets';
+import { isAdmin } from './admin';
 import { INTRO_LEAD } from './intro';
 import type { Rarity } from '../shared/types';
 
@@ -51,6 +52,55 @@ function petTable(): string {
   return '<table class="man-table"><thead><tr>'
     + '<th>鳥</th><th>HP</th><th>MP</th><th>孵化</th><th>成鳥の期間</th><th></th>'
     + '</tr></thead><tbody>' + rows + '</tbody></table>';
+}
+
+// ペットの節。
+//
+// ★ タブと同じ旗(PETS_PUBLIC)で出し分ける。
+//   触れない機能の説明だけ読ませると「どこにあるの?」になる。
+//   実際、節を足した時に出し分けを忘れ、タブは管理者だけなのに
+//   説明は全員に見える状態になっていた。
+function petSection(): string {
+  if (!PETS_PUBLIC && !isAdmin()) return '';
+  return `<section class="man-sec">
+  <h3>ペット</h3>
+  <p>ボスを倒すと<b>卵</b>が手に入ります(5の倍数のステージ・その段では最初の1回だけ)。
+  温めて孵すと鳥になり、連れて行くと<b>最大HPと最大MPが上がります</b>。</p>
+
+  <p class="man-note"><b>卵から鳥へ</b><br>
+  卵は${Math.round(WARM_INTERVAL_MS / 3600000)}時間に1回だけ温められます。
+  決められた回数まで温めると孵ります。
+  <b>何の鳥が生まれるかは孵るまで分かりません。</b>
+  殻の大きさ・色・模様が手がかりですが、同じ見た目の鳥が複数いるので絞りきれません。</p>
+
+  <p class="man-note"><b>育ちと寿命</b><br>
+  雛 → 成鳥 → 老鳥 と育ち、やがて天へ行きます。
+  底上げの効き目は段階で変わります ―
+  雛は${Math.round(STAGE_POWER.chick * 100)}%、成鳥で${Math.round(STAGE_POWER.adult * 100)}%、
+  老鳥は${Math.round(STAGE_POWER.elder * 100)}%。老鳥でいられるのは${ELDER_DAYS}日です。<br>
+  天へ行った子は手持ちの枠を空けますが、${DEAD_KEEP_DAYS}日は一覧に残ります。</p>
+
+  ${petTable()}
+
+  <p class="man-note">この他に、<b>ごく稀にしか生まれない鳥</b>がいるという話です。</p>
+
+  <p class="man-note"><b>交配</b><br>
+  ♂と♀の<b>成鳥</b>を組ませると卵ができます。手持ちの2羽でも、
+  交配所にいる他の研究者の鳥とでもできます。
+  子は両親の遺伝を継ぎ、たまに親を超えます。種類が違っていても組めます。<br>
+  歯止めが3つあります ―
+  産んだあとは${Math.round(BREED_COOLDOWN_MS / 3600000)}時間休むこと、
+  一生に${BREED_MAX_COUNT}回までであること、
+  <b>老鳥になると産めなくなる</b>こと。良い親ほど、どこで使うかを選ぶことになります。</p>
+
+  <p class="man-note"><b>交配所</b><br>
+  預けると、他の研究者があなたの鳥と交配できるようになります。
+  そのたびに<b>あなたにもお礼の卵が1つ届きます</b>。
+  預けている間は戦闘に連れて行けません。いつでも引き取れます。</p>
+
+  <p class="man-note">手元に置けるのは${MAX_PETS}羽まで(交配所へ預けている間は数に入りません)。
+  戦闘に連れて行けるのは1羽だけです。名前は生まれた時に決まります。</p>
+</section>`;
 }
 
 function elementTable(): string {
@@ -311,45 +361,7 @@ ${ALLY_ENABLED ? `
   偏りを直したいだけなら、相手を探さずにできる<b>錬成</b>(研究室)もあります。</p>
 </section>
 
-<section class="man-sec">
-  <h3>ペット</h3>
-  <p>ボスを倒すと<b>卵</b>が手に入ります(5の倍数のステージ・その段では最初の1回だけ)。
-  温めて孵すと鳥になり、連れて行くと<b>最大HPと最大MPが上がります</b>。</p>
-
-  <p class="man-note"><b>卵から鳥へ</b><br>
-  卵は${Math.round(WARM_INTERVAL_MS / 3600000)}時間に1回だけ温められます。
-  決められた回数まで温めると孵ります。
-  <b>何の鳥が生まれるかは孵るまで分かりません。</b>
-  殻の大きさ・色・模様が手がかりですが、同じ見た目の鳥が複数いるので絞りきれません。</p>
-
-  <p class="man-note"><b>育ちと寿命</b><br>
-  雛 → 成鳥 → 老鳥 と育ち、やがて天へ行きます。
-  底上げの効き目は段階で変わります ―
-  雛は${Math.round(STAGE_POWER.chick * 100)}%、成鳥で${Math.round(STAGE_POWER.adult * 100)}%、
-  老鳥は${Math.round(STAGE_POWER.elder * 100)}%。老鳥でいられるのは${ELDER_DAYS}日です。<br>
-  天へ行った子は手持ちの枠を空けますが、${DEAD_KEEP_DAYS}日は一覧に残ります。</p>
-
-  ${petTable()}
-
-  <p class="man-note">この他に、<b>ごく稀にしか生まれない鳥</b>がいるという話です。</p>
-
-  <p class="man-note"><b>交配</b><br>
-  ♂と♀の<b>成鳥</b>を組ませると卵ができます。手持ちの2羽でも、
-  交配所にいる他の研究者の鳥とでもできます。
-  子は両親の遺伝を継ぎ、たまに親を超えます。種類が違っていても組めます。<br>
-  歯止めが3つあります ―
-  産んだあとは${Math.round(BREED_COOLDOWN_MS / 3600000)}時間休むこと、
-  一生に${BREED_MAX_COUNT}回までであること、
-  <b>老鳥になると産めなくなる</b>こと。良い親ほど、どこで使うかを選ぶことになります。</p>
-
-  <p class="man-note"><b>交配所</b><br>
-  預けると、他の研究者があなたの鳥と交配できるようになります。
-  そのたびに<b>あなたにもお礼の卵が1つ届きます</b>。
-  預けている間は戦闘に連れて行けません。いつでも引き取れます。</p>
-
-  <p class="man-note">手元に置けるのは${MAX_PETS}羽まで(交配所へ預けている間は数に入りません)。
-  戦闘に連れて行けるのは1羽だけです。名前は生まれた時に決まります。</p>
-</section>
+${petSection()}
 
 <section class="man-sec">
   <h3>攻略のコツ</h3>
