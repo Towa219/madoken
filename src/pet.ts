@@ -27,7 +27,7 @@ interface PetReply {
 async function call(path: string, extra: Record<string, unknown> = {}): Promise<PetReply> {
   const res = await fetch(`${apiBase()}/api/pet/${path}`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ key: adminKeyForRequest(), name: state.nickname, ...extra }),
+    body: JSON.stringify({ key: adminKeyForRequest(), name: state.nickname, token: state.nickToken, ...extra }),
   });
   const data = await res.json() as PetReply;
   if (!res.ok) throw new Error(data.error ?? '通信に失敗しました。');
@@ -185,24 +185,26 @@ function 控える(pets: WirePet[], now: number): void {
 // ★ 押しても断られるものは数えない。手持ちが上限で卵を貰えない時や、
 //   交配の回数を使い切った鳥しか居ない時は、印を出さない。
 
-const WATCH_INTERVAL_MS = 60 * 1000;
+// 本人確認の2コマンドと手持ち一覧の1コマンドで1回3コマンドになるため、
+// 5分間隔にして平均0.6コマンド/分まで抑える。
+const WATCH_INTERVAL_MS = 5 * 60 * 1000;
 let watchTimer = 0;
 
-function actionableCount(pets: WirePet[], board: WirePet[], now: number): number {
+function actionableCount(pets: WirePet[], now: number): number {
   let n = 0;
   for (const p of pets) {                       // 温められる卵
     if (p.hatchedAt <= 0 && !p.boarded && now - p.lastWarmAt >= WARM_INTERVAL_MS) n++;
   }
   // 交配。手持ちに空きが無ければ卵を受け取れないので、その時は数えない。
   if (pets.filter(p => !p.boarded).length < MAX_PETS) {
-    const 相手 = board
-      .map(grown)
-      .filter((q): q is Pet => q !== null && q.ownerName !== state.nickname);
-    for (const wp of pets) {
-      const mine = grown(wp);
-      if (!mine || mine.boarded) continue;
-      if (相手.some(q => canBreed(mine, q, now) === null)) n++;
+    const grownPets = pets.map(grown).filter((p): p is Pet => p !== null && !p.boarded);
+    let canPair = false;
+    for (let i = 0; i < grownPets.length && !canPair; i++) {
+      for (let j = i + 1; j < grownPets.length; j++) {
+        if (canBreed(grownPets[i], grownPets[j], now) === null) { canPair = true; break; }
+      }
     }
+    if (canPair) n++;
   }
   return n;
 }
@@ -217,10 +219,12 @@ function setBadge(n: number): void {
 async function refreshBadge(): Promise<void> {
   if (!isAdmin() || !state.nickname) { setBadge(0); 連れている = null; return; }
   try {
-    const data = await call('list');
+    const data = await call('list', { board: false });
     const now = data.now ?? Date.now();
     控える(data.pets ?? [], now);
-    setBadge(actionableCount(data.pets ?? [], data.board ?? [], now));
+    const pets = data.pets ?? [];
+    setBadge(actionableCount(pets, now));
+    if (pets.length === 0 && watchTimer) { window.clearInterval(watchTimer); watchTimer = 0; }
   } catch { /* 繋がらない時は黙る。印が出ないだけで害は無い */ }
 }
 
@@ -234,6 +238,18 @@ export function startPetWatch(): void {
   watchTimer = window.setInterval(() => { void refreshBadge(); }, WATCH_INTERVAL_MS);
   void refreshBadge();
 }
+
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) {
+    if (watchTimer) window.clearInterval(watchTimer);
+    watchTimer = 0;
+    return;
+  }
+  if (!watchTimer) {
+    watchTimer = window.setInterval(() => { void refreshBadge(); }, WATCH_INTERVAL_MS);
+    void refreshBadge();
+  }
+});
 
 // ---------------------------------------------------------------- 一覧
 
@@ -275,7 +291,7 @@ function eggCard(pet: WirePet, now: number): HTMLElement {
   box.append(actions); return box;
 }
 
-function petCard(pet: Pet, now: number, board: WirePet[]): HTMLElement {
+function petCard(pet: Pet, now: number, pets: WirePet[], board: WirePet[]): HTMLElement {
   const sp = PET_SPECIES[pet.species]; const stage = stageOf(pet, now); const bonus = bonusOf(pet, now);
   const box = document.createElement('div'); box.className = 'panel';
   const h = document.createElement('h3');
@@ -328,8 +344,9 @@ function petCard(pet: Pet, now: number, board: WirePet[]): HTMLElement {
     if (ok) await act('board', { petId: pet.id });
   }));
   if (!pet.boarded) {
-    for (const wirePartner of board) {
-      if (wirePartner.ownerName === state.nickname) continue;
+    const partners = [...pets, ...board].filter((p, i, all) => all.findIndex(q => q.id === p.id) === i);
+    for (const wirePartner of partners) {
+      if (wirePartner.id === pet.id) continue;
       const partner = grown(wirePartner);
       if (!partner) continue;   // 相手が卵なら交配の相手にならない
       const reason = canBreed(pet, partner, now);
@@ -371,7 +388,7 @@ export async function renderPets(): Promise<void> {
   try {
     const data = await call('list');
     const pets = data.pets ?? []; const board = data.board ?? []; const now = data.now ?? Date.now();
-    setBadge(actionableCount(pets, board, now));   // 同じ返事で印も直す
+    setBadge(actionableCount(pets, now));          // 同じ返事で印も直す
     控える(pets, now);                              // 戦闘へ渡す控えも直す
     const mineTitle = document.createElement('h3'); mineTitle.textContent = '手持ち'; list.append(mineTitle);
     if (!pets.length) {
@@ -380,7 +397,7 @@ export async function renderPets(): Promise<void> {
     }
     for (const pet of pets) {
       const born = grown(pet);
-      list.append(born ? petCard(born, now, board) : eggCard(pet, now));
+      list.append(born ? petCard(born, now, pets, board) : eggCard(pet, now));
     }
     const boardTitle = document.createElement('h3'); boardTitle.textContent = '交配所'; list.append(boardTitle);
     for (const pet of board) {

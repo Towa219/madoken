@@ -139,6 +139,7 @@ export function clampGene(v: unknown): number {
 // ---------------------------------------------------------------- 時間
 
 export const DAY_MS = 24 * 60 * 60 * 1000;
+export const DEAD_KEEP_DAYS = 7;
 
 // 卵を温められる間隔。1日1回のつもりだが、きっかり24時間にすると
 // 「昨日と同じ時刻より1分早い」だけで断られ、生活の時間がずれていく。
@@ -249,8 +250,13 @@ export function canWarm(pet: Pet, now: number): boolean {
 // 交配所へ預けている間は数に入れない ― 預ける動機を作るため。
 export const MAX_PETS = 6;
 
-export function countHeld(pets: Pet[]): number {
-  return pets.filter(p => !p.boarded).length;
+export function countHeld(pets: Pet[], now: number): number {
+  return pets.filter(p => !p.boarded && stageOf(p, now) !== 'dead').length;
+}
+
+export function shouldPurge(pet: Pet, now: number): boolean {
+  if (stageOf(pet, now) !== 'dead') return false;
+  return now - (pet.hatchedAt + lifetimeMsOf(pet)) >= DEAD_KEEP_DAYS * DAY_MS;
 }
 
 // ---------------------------------------------------------------- 連れて行く

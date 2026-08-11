@@ -32,7 +32,7 @@ import {
 import type { AffinityGrade, EnemyDef } from '../../shared/data';
 import type { ElementCounts, ElementId, SpellStats } from '../../shared/types';
 import { chosenPetOf, partyBonusOf } from '../../shared/pets';
-import { grantBossEggOnce, listPets } from '../pets';
+import { grantBossEggOnce, hasBossEggRecord, listPets } from '../pets';
 
 export const PLAYER_XS = [110, 165, 220];
 
@@ -203,7 +203,7 @@ export class CoopRoom extends Room<CoopState> {
     const petAdmin = Boolean(process.env.ADMIN_KEY)
       && String(options?.adminKey ?? '') === process.env.ADMIN_KEY;
     let hpBonus = 0; let mpBonus = 0;
-    if (petAdmin) {
+    if (petAdmin || await hasBossEggRecord(p.name)) {
       const pets = await listPets(p.name); const now = Date.now();
       const bonus = partyBonusOf(pets, now);
       hpBonus = bonus.hp; mpBonus = bonus.mp;
@@ -1099,7 +1099,7 @@ export class CoopRoom extends Room<CoopState> {
         //   待たせると、Upstash が遅い時に素材と研究Pの表示が届かないまま
         //   4秒後の自動送りが来てしまう。卵は後から別便で知らせればよい。
         client.send('stageclear', { stage, drops, rp, boss });
-        if (boss && stage > 0 && stage % 5 === 0 && internal?.petAdmin) {
+        if (boss && stage > 0 && stage % 5 === 0) {
           const who = this.state.players.get(client.sessionId)?.name ?? '';
           void grantBossEggOnce(who, stage)
             .then(egg => { try { client.send('bossegg', { stage, egg }); } catch { /* 抜けた後 */ } })

@@ -1,5 +1,5 @@
 // 試験中のペット保管。Upstash未設定時はサーバー内メモリへ退避する。
-import { MAX_PETS, countHeld, eggSpeciesForBoss, wildGene } from '../shared/pets';
+import { MAX_PETS, countHeld, eggSpeciesForBoss, shouldPurge, wildGene } from '../shared/pets';
 import type { Pet } from '../shared/pets';
 import crypto from 'node:crypto';
 import { nicknameKey, normalizeNickname } from '../shared/nickname';
@@ -11,6 +11,26 @@ const EGG_STAGES_KEY = 'madoken:pets:eggstages';
 const petMemory = new Map<string, string>();
 const boardMemory = new Map<string, string>();
 const eggStagesMemory = new Map<string, string>();
+const petQueues = new Map<string, Promise<void>>();
+
+// 同じ持ち主への「読んでから書く」を一列に並べる。
+// 複数人を取る時は必ず同じ順序にし、交差する交配でも待ち合わせを循環させない。
+export function serializePet<T>(names: string | string[], task: () => Promise<T>): Promise<T> {
+  const keys = [...new Set((Array.isArray(names) ? names : [names])
+    .map(name => nicknameKey(normalizeNickname(name))))].sort();
+  const acquire = (index: number): Promise<T> => {
+    if (index >= keys.length) return task();
+    const key = keys[index];
+    const previous = petQueues.get(key) ?? Promise.resolve();
+    const current = previous.catch(() => undefined).then(() => acquire(index + 1));
+    petQueues.set(key, current.then(() => undefined, () => undefined));
+    return current.finally(() => {
+      const queued = petQueues.get(key);
+      void queued?.finally(() => { if (petQueues.get(key) === queued) petQueues.delete(key); });
+    });
+  };
+  return acquire(0);
+}
 
 async function readArray(key: string, field: string, memory: Map<string, string>): Promise<Pet[]> {
   const raw = persistent
@@ -39,7 +59,9 @@ async function writeArray(
 }
 
 export async function listPets(name: string): Promise<Pet[]> {
-  return readArray(PETS_KEY, nicknameKey(normalizeNickname(name)), petMemory);
+  const now = Date.now();
+  return (await readArray(PETS_KEY, nicknameKey(normalizeNickname(name)), petMemory))
+    .filter(pet => !shouldPurge(pet, now));
 }
 
 export async function savePets(name: string, pets: Pet[]): Promise<void> {
@@ -80,8 +102,21 @@ export async function boardPet(name: string, petId: string): Promise<boolean> {
 
 export type BossEggResult = 'received' | 'already' | 'full';
 
+// 配布履歴がある人だけ共闘参加時にペット本体を読むための軽い確認。
+export async function hasBossEggRecord(name: string): Promise<boolean> {
+  const field = nicknameKey(normalizeNickname(name));
+  const raw = persistent
+    ? await redis(['HGET', EGG_STAGES_KEY, field]).catch(() => null)
+    : eggStagesMemory.get(field) ?? null;
+  return raw !== null && raw !== undefined;
+}
+
 // ボス卵の配布済み段を、ペット本体とは別のハッシュに記録する。
 export async function grantBossEggOnce(name: string, stage: number): Promise<BossEggResult> {
+  return serializePet(name, () => grantBossEggOnceLocked(name, stage));
+}
+
+async function grantBossEggOnceLocked(name: string, stage: number): Promise<BossEggResult> {
   const field = nicknameKey(normalizeNickname(name));
   const raw = persistent
     ? await redis(['HGET', EGG_STAGES_KEY, field]).catch(() => null)
@@ -92,8 +127,8 @@ export async function grantBossEggOnce(name: string, stage: number): Promise<Bos
   if (stages.includes(stage)) return 'already';
 
   const pets = await listPets(name);
-  if (countHeld(pets) >= MAX_PETS) return 'full';
   const now = Date.now();
+  if (countHeld(pets, now) >= MAX_PETS) return 'full';
   pets.push({
     id: crypto.randomUUID(), ownerName: name, species: eggSpeciesForBoss(stage), name: '',
     sex: Math.random() < 0.5 ? 'm' : 'f', hpGene: wildGene(), mpGene: wildGene(),

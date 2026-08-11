@@ -7,7 +7,8 @@
 //   画面で隠すだけでは意味が無い(開発者ツールで JSON を覗けば読める)ので、
 //   サーバーの返事そのものに species が入っていないことを確かめる。
 import {
-  BLUEBIRD_RATE, BREED_JITTER, BREED_MAX_COUNT, COMMON_SPECIES, MAX_PETS,
+  BLUEBIRD_RATE, BREED_JITTER, BREED_MAX_COUNT, COMMON_SPECIES, DEAD_KEEP_DAYS,
+  ELDER_DAYS, MAX_PETS,
   PET_NAMES, PET_SPECIES, PET_SPECIES_ORDER, breed, eggHintOf, eggSpeciesForBoss,
   adultDaysOf, partyBonusOf, stageOf,
 } from '../shared/pets';
@@ -17,15 +18,25 @@ import { Client } from 'colyseus.js';
 
 const 基点 = process.env.PET_TEST_URL ?? 'http://localhost:2567';
 const 合言葉 = process.env.ADMIN_KEY ?? 'test1234';
-const 経路 = ['list', 'grant', 'warm', 'rename', 'release', 'board', 'unboard', 'breed', 'advance', 'choose'];
 let 失敗数 = 0;
+
+// ★ 検証で使う名前は短くすること。
+//   ニックネームは全角10文字(半角20文字)までで、それを超えると
+//   claimName が弾く。本人確認を入れてから、`伏${印}` のような
+//   名前が403になり、一覧が空で返って検証が途中で落ちた。
+//   36進数の下4桁なら、全角2文字と合わせても幅8で収まる。
+const 印 = Date.now().toString(36).slice(-4);
 
 function 合格(文: string): void { console.log(`合格: ${文}`); }
 function 失敗(文: string): void { console.error(`失敗: ${文}`); 失敗数 += 1; }
 function 確認(条件: boolean, 文: string): void { 条件 ? 合格(文) : 失敗(文); }
 
 async function 通信(経路名: string, name: string, 追加: Record<string, unknown> = {}, key: string | null = 合言葉) {
-  const 本文: Record<string, unknown> = { name, ...追加 };
+  // ★ token を必ず添える。公開向けの変更で list/warm/choose/release/
+  //   board/unboard/breed は「名前の持ち主か」を見るようになった
+  //   (server/names.ts の claimName)。合言葉だけでは通らない。
+  //   これを送らないと一覧が空で返り、検証が途中で落ちる。
+  const 本文: Record<string, unknown> = { name, token: `tok_${name}`, ...追加 };
   if (key !== null) 本文.key = key;
   const 応答 = await fetch(`${基点}/api/pet/${経路名}`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(本文),
@@ -70,7 +81,7 @@ async function 性別の卵(name: string, sex?: Pet['sex']): Promise<WirePet> {
 async function 実行(): Promise<void> {
   console.log('ペットAPI検証を開始します。');
   // ---- 卵のうちは種類が届かない ----
-  const 秘密名 = `伏せ試験${Date.now()}`;
+  const 秘密名 = `伏${印}`;
   const 生卵 = await 卵をひとつ(秘密名);
   確認(生卵.species === null || 生卵.species === undefined,
     `出したての卵に species が入っていない → 実測 ${JSON.stringify(生卵.species)}`);
@@ -90,7 +101,7 @@ async function 実行(): Promise<void> {
   await 通信('release', 秘密名, { petId: 生卵.id });
 
   // ---- 孵化 ----
-  const 孵化名 = `孵化試験${Date.now()}`;
+  const 孵化名 = `孵${印}`;
   const 発行 = await 通信('grant', 孵化名, { stage: 1 });
   確認(発行.状態 === 200, '正しい合言葉で卵を出せる');
   let 卵 = 発行.データ.pet as WirePet;
@@ -127,7 +138,7 @@ async function 実行(): Promise<void> {
   確認(chick, '孵化直後の段階が chick である');
 
   // ---- 連れて行く個体と共闘ボーナス ----
-  const 選択名 = `選択試験${Date.now()}`;
+  const 選択名 = `選${印}`;
   const 未孵化 = await 卵をひとつ(選択名);
   const 卵拒否 = await 通信('choose', 選択名, { petId: 未孵化.id });
   確認(卵拒否.状態 === 400 && String(卵拒否.データ.error).includes('卵'), '卵は日本語の理由付きで選べない');
@@ -147,18 +158,33 @@ async function 実行(): Promise<void> {
   await 通信('release', 選択名, { petId: 一羽目.id });
   確認((await 一覧(選択名)).every(p => !p.chosen), '連れている個体を手放すとchosenが残らない');
 
-  const 死亡名 = `死亡試験${Date.now()}`; const 死亡卵 = await 卵をひとつ(死亡名);
+  const 死亡名 = `死${印}`; const 死亡卵 = await 卵をひとつ(死亡名);
   let 死亡鳥 = await 孵化(死亡名, 死亡卵);
-  await 通信('advance', 死亡名, { days: 100 });
+  // ★ 100日進めてはいけない。天へ行って DEAD_KEEP_DAYS(7日)を過ぎると
+  //   一覧から消えるので、「選べない(400)」ではなく「見つからない(404)」
+  //   になる。死んだ直後を狙う。
+  const 死sp = PET_SPECIES[死亡鳥.species];
+  const 寿命日 = 死sp.chickDays + adultDaysOf(死亡鳥) + ELDER_DAYS;
+  await 通信('advance', 死亡名, { days: 寿命日 + 0.5 });
+  const 死亡一覧 = await 一覧(死亡名);
+  確認(死亡一覧.some(p => p.id === 死亡鳥.id),
+    `天へ行った直後はまだ一覧に残る(${DEAD_KEEP_DAYS}日は見送れる)`);
   const 死亡拒否 = await 通信('choose', 死亡名, { petId: 死亡鳥.id });
-  確認(死亡拒否.状態 === 400 && String(死亡拒否.データ.error).includes('天'), '死んだ個体は日本語の理由付きで選べない');
+  確認(死亡拒否.状態 === 400 && String(死亡拒否.データ.error).includes('天'),
+    `死んだ個体は日本語の理由付きで選べない → 実測 ${死亡拒否.状態} ${String(死亡拒否.データ.error ?? '')}`);
+  // さらに進めれば一覧から消える(枠は死んだ時点で空いている)
+  await 通信('advance', 死亡名, { days: DEAD_KEEP_DAYS + 1 });
+  確認((await 一覧(死亡名)).every(p => p.id !== 死亡鳥.id),
+    `${DEAD_KEEP_DAYS}日過ぎると一覧から消える`);
 
   const 共闘名 = `共${Date.now().toString().slice(-8)}`; const 共闘卵 = await 卵をひとつ(共闘名);
   const 共闘鳥 = await 孵化(共闘名, 共闘卵);
   await 通信('choose', 共闘名, { petId: 共闘鳥.id });
   const 共闘ペット = await 一覧(共闘名) as Pet[]; const 期待 = partyBonusOf(共闘ペット, Date.now());
-  const 登録ID = `pet-check-${Date.now()}`;
-  await fetch(`${基点}/api/name/claim`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: 共闘名, token: 登録ID }) });
+  // ★ 名前の持ち主を示す印は、ペットAPIと共闘で必ず同じものを使うこと。
+  //   通信() が `tok_<名前>` で名前を押さえるので、ここで別の印を作ると
+  //   「そのニックネームは既に他の人が使っています」で入室を断られる。
+  const 登録ID = `tok_${共闘名}`;
   const ws = 基点.replace(/^http/, 'ws'); const 接続 = new Client(ws);
   const 部屋 = await 接続.create('coop', { name: 共闘名, nickToken: 登録ID, maxStage: 1, stage: 1, spells: [], charId: 0, adminKey: 合言葉 });
   let 自分: any;
@@ -170,12 +196,12 @@ async function 実行(): Promise<void> {
     && 自分.hp === 自分.maxHp && 自分.mp === 自分.maxMp, '共闘へ実際に入りpartyBonusOfが最大HP/MPと開始値に乗る');
   await 部屋.leave();
 
-  const 上限名 = `上限試験${Date.now()}`;
+  const 上限名 = `上${印}`;
   for (let i = 0; i < MAX_PETS; i++) await 通信('grant', 上限名, { stage: 1 });
   確認((await 通信('grant', 上限名, { stage: 1 })).状態 === 400, 'MAX_PETSを超える卵は断られる');
 
   // ---- 交配 ----
-  const 親一名 = `親一${Date.now()}`; const 親二名 = `親二${Date.now()}`;
+  const 親一名 = `親甲${印}`; const 親二名 = `親乙${印}`;
   const 卵一 = await 性別の卵(親一名);
   const 卵二 = await 性別の卵(親二名, 卵一.sex === 'm' ? 'f' : 'm');
   let 親一 = await 孵化(親一名, 卵一); let 親二 = await 孵化(親二名, 卵二);
@@ -229,7 +255,7 @@ async function 実行(): Promise<void> {
     `一生に${BREED_MAX_COUNT}回で打ち止めになる → 実測 ${String(打ち止め.データ.error)}`);
 
   // 老鳥は産めない(別の組で確かめる)
-  const 老一名 = `老一${Date.now()}`; const 老二名 = `老二${Date.now()}`;
+  const 老一名 = `老甲${印}`; const 老二名 = `老乙${印}`;
   const 老卵一 = await 性別の卵(老一名);
   const 老卵二 = await 性別の卵(老二名, 老卵一.sex === 'm' ? 'f' : 'm');
   const 老一 = await 孵化(老一名, 老卵一); const 老二 = await 孵化(老二名, 老卵二);
@@ -310,7 +336,30 @@ async function 実行(): Promise<void> {
   //   歯止めが効くと5回でこのIPがロックされ、以降の通信は
   //   正しい合言葉でも通らなくなる。先に置くと後続が全滅する
   //   (歯止めを直した日に実際にそうなった)。
-  for (const path of 経路) {
+  // ★ 公開に向けて入口を2種類に分けた。守り方が違うので、期待も分ける。
+  //   プレイヤー用 … 名前の持ち主か(nickToken)。合言葉は関係ない
+  //   管理者用     … 合言葉(ADMIN_KEY)。遊びを飛ばせる道具なので残す
+  const プレイヤー経路 = ['list', 'warm', 'choose', 'release', 'board', 'unboard', 'breed'];
+  const 管理者経路 = ['grant', 'advance', 'rename'];
+
+  // まず「その名前の持ち主として登録済み」の状態を作る。
+  // そのうえで別の印を出せば、他人が名乗っている形になる。
+  const 他人名 = `他${印}`;
+  await 通信('list', 他人名);          // tok_他人名 で押さえる
+  for (const path of プレイヤー経路) {
+    const 印なし = await fetch(`${基点}/api/pet/${path}`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 他人名 }),
+    });
+    確認(印なし.status === 403, `本人の印なし /api/pet/${path} → 実測 ${印なし.status}`);
+    const 別印 = await fetch(`${基点}/api/pet/${path}`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 他人名, token: 'よその印', key: 合言葉 }),
+    });
+    確認(別印.status === 403,
+      `他人の名前は合言葉があっても通らない /api/pet/${path} → 実測 ${別印.status}`);
+  }
+  for (const path of 管理者経路) {
     const 無し = await 通信(path, '権限試験', {}, null);
     確認(無し.状態 === 403, `合言葉なし /api/pet/${path} → 実測 ${無し.状態}`);
     const 誤り = await 通信(path, '権限試験', {}, '違う合言葉');
