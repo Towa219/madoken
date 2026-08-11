@@ -136,6 +136,11 @@ async function main(): Promise<void> {
     if (!用意.startsWith('OK')) { console.log(`  NG  ペットを用意できない → ${用意}`); ng++; }
     else console.log(`  OK  ペットを用意した → ${用意.slice(3)}`);
 
+    // 一度ペット画面を開く(遊ぶ人と同じ順序)。
+    // ここで一覧を取り直すので、単騎戦闘へ渡す控えも埋まる。
+    await ev('document.querySelector("#tab-pet").click()');
+    await sleep(1800);
+
     // 共闘のボス面へ
     await ev('document.querySelector("#tab-battle").click()');
     await sleep(900);
@@ -186,7 +191,39 @@ async function main(): Promise<void> {
     console.log(`  戦闘の画面: ${配布}`);
 
     await shot('pet_battle_共闘');
-    console.log('  ※ キャラの頭の上に鳥の絵文字が出ているか、絵を見て確かめること');
+
+    // ★ 通常ステージ(単騎)でも必ず撮ること。
+    //   共闘だけを撮っていたせいで「単騎には一切入っていない」ことに
+    //   気づけず、遊ぶ人に先に見つけられた(2026-08-11)。
+    await ev(`(() => {
+      const b = [...document.querySelectorAll('button')]
+        .filter(x => !x.disabled && x.offsetParent !== null)
+        .find(x => /退出|抜け|やめ|閉じ|戻/.test(x.textContent || ''));
+      if (b) b.click();
+    })()`);
+    await sleep(3000);
+    await ev('document.querySelector("#tab-battle").click()');
+    await sleep(900);
+    const 通常 = await ev<string>(`(() => {
+      const bs = [...document.querySelectorAll('#stage-select button')];
+      const b = bs.find(x => (x.textContent || '').trim().split(' ')[0] === '3');
+      if (!b) return 'ステージ3のボタンが無い(数=' + bs.length + ')';
+      b.click(); return 'OK';
+    })()`);
+    if (通常 !== 'OK') { console.log(`  NG  ${通常}`); ng++; }
+    await sleep(700);
+    const 出撃 = await ev<string>(`(() => {
+      const b = [...document.querySelectorAll('button')]
+        .filter(x => !x.disabled && x.offsetParent !== null)
+        .find(x => /出撃|開始|はじめ|スタート|挑/.test(x.textContent || ''));
+      if (!b) return '押せるボタンが無い';
+      b.click(); return 'OK:' + b.textContent.trim();
+    })()`);
+    console.log(`  単騎の開始ボタン: ${出撃}`);
+    if (!出撃.startsWith('OK')) ng++;
+    await sleep(6500);
+    await shot('pet_battle_単騎');
+    console.log('  ※ 共闘と単騎の両方で、頭の上に鳥が出ているか絵を見ること');
 
     ws.close();
   } finally {

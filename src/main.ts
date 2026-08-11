@@ -4,7 +4,7 @@ import { BattleManager } from './battle';
 import { ELEMENTS, EQUIP_MAX, isBossStage } from '../shared/data';
 import { initLab, renderLab, showToast } from './lab';
 import { renderManual } from './manual';
-import { renderPets, startPetWatch } from './pet';
+import { refreshPetCache, renderPets, startPetWatch } from './pet';
 import {
   initDuelCall, initOnline, coopTryCast, duelTryCast, inBattleView,
   setBattleTabOpener,
@@ -25,7 +25,7 @@ import { renderTips } from './tips';
 import { initShare } from './share';
 import { loadArtwork } from './artwork';
 import { initCharPicker, renderCharPickers } from './character';
-import { initAdmin } from './admin';
+import { initAdmin, setAdminChangeHandler } from './admin';
 import { initSound, initSoundUI, playBgm, playSfx, renderSoundUI } from './sound';
 import { combatPower } from '../shared/spellcraft';
 import { BUILD_DATE, COPYRIGHT, VERSION } from '../shared/version';
@@ -398,6 +398,9 @@ function main(): void {
   initCharPicker('#char-picker');    // 設定タブ
   initCharPicker('#welcome-chars');  // 初回起動
   initShare();
+  // 管理者になるのは非同期(合言葉をサーバーへ確かめに行く)。
+  // 先に控えを取りに行っても空になるので、変わった時に取り直す。
+  setAdminChangeHandler(refreshPetCache);
   initAdmin();   // 「ペット」タブは管理者モードの間だけ出る(試験中)
   startPetWatch();  // 温められる卵・交配の相手ができたらタブに数字を出す
   updateTopbar();

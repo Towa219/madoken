@@ -23,6 +23,17 @@ const KEY_STORE = 'madoken_admin_key';
 
 let adminKey = '';
 
+// 管理者かどうかが変わった時に呼ぶ。ペット側が控えを取り直すために使う。
+//
+// ★ ここから pet.ts を直に呼んではいけない。pet.ts がこの admin.ts を
+//   取り込んでいるので、循環参照になる。lobby.ts の
+//   setBattleTabOpener と同じ形で、外から渡してもらう。
+let onAdminChange: (() => void) | null = null;
+
+export function setAdminChangeHandler(fn: () => void): void {
+  onAdminChange = fn;
+}
+
 function apiBase(): string {
   return import.meta.env.DEV ? 'http://localhost:2567' : '';
 }
@@ -71,6 +82,7 @@ function applyAdminUi(): void {
   $<HTMLButtonElement>('#btn-admin-off').classList.toggle('hidden', !on);
   // 入った後は入力欄を畳む
   if (on) $('#admin-form').classList.add('hidden');
+  onAdminChange?.();
 }
 
 async function tryKey(key: string): Promise<void> {

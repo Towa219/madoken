@@ -6,7 +6,7 @@
 //   孵ったあとにしか使えない。
 import {
   BREED_MAX_COUNT, MAX_PETS, PET_SPECIES, STAGE_NAME, WARM_INTERVAL_MS, bonusOf, breedLeft,
-  breedWaitMs, canBreed, lifetimeMsOf, petDisplayName, stageOf, wireDisplayName,
+  breedWaitMs, canBreed, chosenPetOf, lifetimeMsOf, petDisplayName, stageOf, wireDisplayName,
 } from '../shared/pets';
 import type { EggHint, Pet, WirePet } from '../shared/pets';
 import { adminKeyForRequest, isAdmin } from './admin';
@@ -151,6 +151,28 @@ async function hatchScene(pet: Pet, hint: EggHint | undefined): Promise<void> {
   }
 }
 
+// ---------------------------------------------------------------- 戦闘へ渡す
+//
+// 今どの1羽を連れているか。単騎の戦闘(src/battle.ts)がここを見る。
+//
+// ★ 戦闘に入るたびに通信しては駄目。開始が遅れるうえ、
+//   合言葉を持たない人にも無駄な往復が出る。一覧を取った時に控える。
+// ★ 共闘は別の道を通る。あちらはサーバーが持ち物を読んで最大HPに
+//   足すので、端末の控えは使わない(改ざんできないようにするため)。
+
+export interface BattlePet { species: string; hp: number; mp: number }
+let 連れている: BattlePet | null = null;
+
+export function battlePet(): BattlePet | null {
+  return 連れている;
+}
+
+function 控える(pets: WirePet[], now: number): void {
+  const 孵った = pets.map(grown).filter((p): p is Pet => p !== null);
+  const pet = chosenPetOf(孵った, now);
+  連れている = pet ? { species: pet.species, ...bonusOf(pet, now) } : null;
+}
+
 // ---------------------------------------------------------------- タブの知らせ
 //
 // 「今できることがある」時だけ、タブに数字を出す。
@@ -192,11 +214,18 @@ function setBadge(n: number): void {
 }
 
 async function refreshBadge(): Promise<void> {
-  if (!isAdmin() || !state.nickname) { setBadge(0); return; }
+  if (!isAdmin() || !state.nickname) { setBadge(0); 連れている = null; return; }
   try {
     const data = await call('list');
-    setBadge(actionableCount(data.pets ?? [], data.board ?? [], data.now ?? Date.now()));
+    const now = data.now ?? Date.now();
+    控える(data.pets ?? [], now);
+    setBadge(actionableCount(data.pets ?? [], data.board ?? [], now));
   } catch { /* 繋がらない時は黙る。印が出ないだけで害は無い */ }
+}
+
+// 管理者になった直後など、すぐ取り直したい時に呼ぶ。
+export function refreshPetCache(): void {
+  void refreshBadge();
 }
 
 export function startPetWatch(): void {
@@ -321,6 +350,7 @@ export async function renderPets(): Promise<void> {
     const data = await call('list');
     const pets = data.pets ?? []; const board = data.board ?? []; const now = data.now ?? Date.now();
     setBadge(actionableCount(pets, board, now));   // 同じ返事で印も直す
+    控える(pets, now);                              // 戦闘へ渡す控えも直す
     const mineTitle = document.createElement('h3'); mineTitle.textContent = '手持ち'; list.append(mineTitle);
     if (!pets.length) {
       const empty = document.createElement('p'); empty.className = 'note';

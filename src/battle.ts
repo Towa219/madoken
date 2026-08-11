@@ -13,7 +13,7 @@ import {
 } from '../shared/data';
 import type { AffinityGrade, EnemyDef } from '../shared/data';
 import {
-  applyPoseTexture, backgroundArt, enemyArt, enemyPoseTexture, playerArt,
+  applyPoseTexture, backgroundArt, enemyArt, enemyPoseTexture, petArt, playerArt,
   playerPoseTexture, projectileArt,
 } from './artwork';
 import type { Pose } from './artwork';
@@ -26,6 +26,8 @@ import { Ally } from './ally';
 import type { AllySight } from '../shared/allies';
 import { sealResistMul, spellCooldown, spellDisplayName } from '../shared/spellcraft';
 import { playerMagicTotal, state } from './state';
+// 連れているペット。控えを読むだけで、ここから通信はしない。
+import { battlePet } from './pet';
 import { playSfx, startSfxLoop, stopSfxLoop } from './sound';
 import type { BattleResult, ElementId, Spell, SpellStats } from '../shared/types';
 
@@ -193,6 +195,8 @@ export class BattleManager {
   // 出撃準備に選択欄が出ないので、ここも常に null のまま。
   private ally: Ally | null = null;
   private allyCont: Container | null = null;
+  // 連れているペット(頭上に浮かべる)。居なければ null。
+  private petCont: Container | null = null;
   private allyPoseT = 0;
 
   async ensureApp(mount: HTMLElement): Promise<void> {
@@ -229,7 +233,12 @@ export class BattleManager {
     delete (window as unknown as { __allyDebug?: unknown }).__allyDebug;
     if (this.ally) this.noteAllyState();
 
-    this.maxHp = PLAYER_MAX_HP;
+    // 連れているペットぶんを底上げする。
+    // ★ 単騎は端末側で数える。共闘はサーバーが数えるので道が別。
+    //   ここで通信すると戦闘の開始が遅れるため、控えてある値を使う。
+    const pet = battlePet();
+    this.maxHp = PLAYER_MAX_HP + (pet?.hp ?? 0);
+    this.maxMp = PLAYER_MAX_MP + (pet?.mp ?? 0);
     this.vigorBonus = 0;
     this.vigorTimer = 0;
     this.atkBoost = 0;
@@ -364,6 +373,20 @@ export class BattleManager {
     this.playerCont = makePlayerSprite(state.charId);
     this.playerCont.position.set(PLAYER_X, GROUND_Y);
     this.entityLayer.addChild(this.playerCont);
+
+    // 連れているペット。頭の上に浮かべる(共闘と同じ高さに揃える)
+    this.petCont = null;
+    const 連れ = battlePet();
+    if (連れ) {
+      const sp = petArt(連れ.species, cs(46));
+      if (sp) {
+        const box = new Container();
+        box.addChild(sp);
+        box.position.set(PLAYER_X, cy(152));
+        this.entityLayer.addChild(box);
+        this.petCont = box;
+      }
+    }
 
     // 敵配置
     const defs = this.pickEnemies();
@@ -513,6 +536,10 @@ export class BattleManager {
   private tick(dt: number): void {
     if (!this.active) return;
     this.time += dt;
+
+    // 連れているペットを頭上でゆっくり上下させる。
+    // 止まっていると背景の絵に貼り付いて見えるので、少しだけ動かす。
+    if (this.petCont) this.petCont.y = cy(152) + Math.sin(this.time * 2.2) * 3;
 
     // 勝敗確定後の余韻
     if (this.endResult !== null) {
