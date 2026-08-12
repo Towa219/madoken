@@ -1236,3 +1236,27 @@ button.tab[data-badge]::after {
   #changes-bar .changes-track { animation: none; }
   #changes-bar { white-space: normal; }
 }
+
+/* 更新履歴(設定の下)。
+ *
+ * 帯から消えた変更点も、日付と版番号を添えてここに残る。
+ * 流れているうちに読み逃した人が、あとから辿れるようにするため。 */
+#change-history { display: flex; flex-direction: column; gap: 2px; }
+.chg-row {
+  display: flex; gap: 10px; align-items: baseline;
+  padding: 6px 8px; border-radius: 6px;
+  background: #16162a; border: 1px solid #24243c;
+  font-size: 12px; line-height: 1.6;
+}
+/* 日付と版は等幅にして、縦に揃えて読めるようにする */
+.chg-when {
+  flex: 0 0 auto; min-width: 132px;
+  color: #8fd6ae; font-size: 11px;
+  font-family: 'Consolas', 'Courier New', monospace;
+}
+.chg-text { flex: 1 1 auto; min-width: 0; color: #ccccdd; }
+@media (max-width: 560px) {
+  /* 狭い画面では日付を上の行へ回す(横に並べると本文が潰れる) */
+  .chg-row { flex-direction: column; gap: 2px; }
+  .chg-when { min-width: 0; }
+}

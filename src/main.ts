@@ -22,7 +22,7 @@ import { installNoZoom } from './nozoom';
 import { currentAllyCharId, renderAllyPicker } from './allypick';
 import { ALLY_RP_MUL } from '../shared/allies';
 import { renderTips } from './tips';
-import { renderChanges } from './changes';
+import { renderChanges, renderChangeHistory } from './changes';
 import { initShare } from './share';
 import { loadArtwork } from './artwork';
 import { initCharPicker, renderCharPickers } from './character';
@@ -132,6 +132,7 @@ function switchTab(tab: Tab): void {
   if (tab === 'manual') renderManual();
   if (tab === 'pet') void renderPets();
   if (tab === 'settings') {
+    renderChangeHistory();   // 更新履歴(帯から消えたぶんもここに残る)
     renderCloudStatus();
     renderCharPickers();
     renderSoundUI();

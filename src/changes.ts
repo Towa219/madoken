@@ -12,11 +12,16 @@
 //   「土を1個混ぜるだけで隣の敵まで巻き込む」と書く。
 
 export interface ChangeNote {
-  date: string;    // 'YYYY-MM-DD'(この日から数えて DAYS 日ぶん出す)
+  date: string;     // 'YYYY-MM-DD'(この日から数えて DAYS 日ぶん帯に出す)
+  version: string;  // その変更が入った版。履歴に並べる時に添える
   text: string;
 }
 
-// 何日ぶん出すか。ここを伸ばすと古い話まで流れ続ける。
+// 帯に何日ぶん流すか。ここを伸ばすと古い話まで流れ続ける。
+//
+// ★ 帯から消えても、変更点そのものは消さない。
+//   設定の「更新履歴」に日付と版番号を添えて残り続ける。
+//   流れているうちに読み逃した人が、あとから辿れるようにするため。
 export const CHANGE_DAYS = 4;
 
 // ★ 遊ぶ人が触れないものを書かないこと。
@@ -28,22 +33,26 @@ export const CHANGE_DAYS = 4;
 export const CHANGES: ChangeNote[] = [
   {
     date: '2026-08-11',
+    version: '0.131.0',
     text: '🥚 卵を温められる間隔を20時間から11時間に縮めました。'
       + '朝と夜の2回でき、孵るまでが2.5日から1.4日になります',
   },
   {
     date: '2026-08-11',
+    version: '0.129.0',
     text: '🐦 ペットが使えるようになりました。ボスを倒すと卵が手に入り'
       + '(5の倍数のステージ・その段では最初の1回だけ)、温めて孵すと鳥になります。'
       + '戦闘に連れて行くと最大HPと最大MPが上がります。詳しくは説明書へ',
   },
   {
     date: '2026-08-11',
+    version: '0.123.0',
     text: '⛰️ 土が範囲攻撃になりました。1個混ぜるだけで隣の敵まで巻き込みます'
       + '(土2でさらに広く・土3で敵全体)。単体への威力は変わりません',
   },
   {
     date: '2026-08-11',
+    version: '0.123.0',
     text: '💥 爆裂系(火×3)の爆発が、これまで隣の敵に届いていませんでした。'
       + '届く広さに直してあります',
   },
@@ -91,6 +100,41 @@ export function fitTickerSpeed(track: HTMLElement | null): void {
   const 幅 = track.scrollWidth / 2;
   if (幅 <= 0) return;
   track.style.animationDuration = `${Math.max(8, Math.round(幅 / TICKER_SPEED))}s`;
+}
+
+// これまでの変更点をすべて、新しい順に返す(設定の更新履歴で使う)。
+//
+// ★ 帯と違って日付で絞らない。古いものこそ、あとから見に来る値打ちがある。
+export function allChanges(): ChangeNote[] {
+  return CHANGES.slice().sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+}
+
+// 設定の「更新履歴」を組み立てる。
+export function renderChangeHistory(): void {
+  const box = document.querySelector('#change-history');
+  if (!box) return;
+  box.replaceChildren();
+  const list = allChanges();
+  if (list.length === 0) {
+    const p = document.createElement('p');
+    p.className = 'note';
+    p.textContent = 'まだ記録がありません。';
+    box.append(p);
+    return;
+  }
+  for (const c of list) {
+    const row = document.createElement('div');
+    row.className = 'chg-row';
+    const head = document.createElement('span');
+    head.className = 'chg-when';
+    head.textContent = `${c.date}  v${c.version}`;
+    const body = document.createElement('span');
+    body.className = 'chg-text';
+    // ★ 手で書く文章なので textContent で入れる(記号が入っても壊れない)
+    body.textContent = c.text;
+    row.append(head, body);
+    box.append(row);
+  }
 }
 
 // 画面上部の流れる帯を作る。出すものが無ければ帯ごと隠す。

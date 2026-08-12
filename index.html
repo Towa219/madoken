@@ -226,9 +226,18 @@
         <div id="support-box" class="hidden"></div>
       </section>
 
-      <!-- 管理者モード。試験中の機能(ペット)を作者だけが触るための入口。
+      <!-- 更新履歴。画面上を流れる「最近の変更点」は4日で消えるが、
+           ここには日付と版番号を添えて残る(src/changes.ts)。 -->
+      <section class="panel" id="history-panel">
+        <h2>更新履歴</h2>
+        <p class="note">画面の上を流れた「最近の変更点」は、ここに残ります。</p>
+        <div id="change-history"></div>
+      </section>
+
+      <!-- 管理者モード。試験中の機能を作者だけが触るための入口。
            合言葉はサーバー(ADMIN_KEY)が照合する。ここに合言葉は書かない。
            普段は隠してある。画面下の版番号を7回叩くと現れる(src/admin.ts)。 -->
+
       <section class="panel hidden" id="admin-panel">
         <h2>管理者</h2>
         <p class="note">
