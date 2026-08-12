@@ -239,6 +239,7 @@ export class BattleManager {
     const pet = battlePet();
     this.maxHp = PLAYER_MAX_HP + (pet?.hp ?? 0);
     this.maxMp = PLAYER_MAX_MP + (pet?.mp ?? 0);
+    this.mpRegen = PLAYER_MP_REGEN + (pet?.regen ?? 0);
     this.vigorBonus = 0;
     this.vigorTimer = 0;
     this.atkBoost = 0;
@@ -541,6 +542,7 @@ export class BattleManager {
     // 止まっていると背景の絵に貼り付いて見えるので、少しだけ動かす。
     if (this.petCont) this.petCont.y = cy(152) + Math.sin(this.time * 2.2) * 3;
     this.noteEnemyDebug();
+    this.noteSelfDebug();
 
     // 勝敗確定後の余韻
     if (this.endResult !== null) {
@@ -1025,6 +1027,20 @@ export class BattleManager {
   private noteEnemyDebug(): void {
     (window as unknown as { __enemyDebug?: unknown }).__enemyDebug =
       this.enemies.map(e => ({ name: e.def.name, x: e.x, hp: Math.round(e.hp), maxHp: e.maxHp }));
+  }
+
+  // 自分のMPと自然回復を検証から覗けるようにする(window.__playerDebug)。
+  //
+  // ★ ペットぶんの自然回復は、画面写真では確かめようがない。
+  //   MPの数字はPIXIで描いており、DOMから読めない。増え方は毎秒の話なので
+  //   一瞬を撮っても分からず、「効いているつもり」を見逃す。
+  //   test/pet_regen_battle_check.ts がここを時間を空けて2回読み、
+  //   実際に毎秒いくつ戻ったかを測る。
+  private noteSelfDebug(): void {
+    (window as unknown as { __playerDebug?: unknown }).__playerDebug = {
+      mp: this.mp, maxMp: this.maxMp, mpRegen: this.mpRegen,
+      hp: this.hp, maxHp: this.maxHp, pet: battlePet()?.species ?? '',
+    };
   }
 
   private allyDebug(): AllyDebug {

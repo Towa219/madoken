@@ -123,6 +123,7 @@ interface PInternal {
   atkBoostT: number;
   vigorBonus: number; // 最大HP上昇
   vigorT: number;
+  petRegen: number; // 連れている鳥ぶんのMP自然回復(毎秒)。0=居ない
   mpRegenBonus: number; // MP自然回復の上乗せ(毎秒)
   mpRegenT: number;
   score: number;     // 戦闘スコア(クリアステージ×10+与ダメ/20)
@@ -202,11 +203,11 @@ export class CoopRoom extends Room<CoopState> {
     p.petSpecies = '';
     const petAdmin = Boolean(process.env.ADMIN_KEY)
       && String(options?.adminKey ?? '') === process.env.ADMIN_KEY;
-    let hpBonus = 0; let mpBonus = 0;
+    let hpBonus = 0; let mpBonus = 0; let regenBonus = 0;
     if (petAdmin || await hasBossEggRecord(p.name)) {
       const pets = await listPets(p.name); const now = Date.now();
       const bonus = partyBonusOf(pets, now);
-      hpBonus = bonus.hp; mpBonus = bonus.mp;
+      hpBonus = bonus.hp; mpBonus = bonus.mp; regenBonus = bonus.regen;
       p.petSpecies = chosenPetOf(pets, now)?.species ?? '';
     }
     p.maxHp = PLAYER_MAX_HP + hpBonus; p.hp = p.maxHp;
@@ -265,6 +266,7 @@ export class CoopRoom extends Room<CoopState> {
       spells, cooldowns: [0, 0, 0, 0], shieldT: 0, hate: 0,
       wardAttr: null, wardPct: 0, wardT: 0,
       atkBoost: 0, atkBoostT: 0, vigorBonus: 0, vigorT: 0,
+      petRegen: regenBonus,
       mpRegenBonus: 0, mpRegenT: 0,
       score: 0, submitted: false, poseT: 0, petAdmin,
     });
@@ -477,7 +479,8 @@ export class CoopRoom extends Room<CoopState> {
     this.state.players.forEach((p, sid) => {
       const internal = this.internals.get(sid);
       if (!internal || !p.alive) return;
-      const regen = PLAYER_MP_REGEN + (internal.mpRegenT > 0 ? internal.mpRegenBonus : 0);
+      const regen = PLAYER_MP_REGEN + internal.petRegen
+        + (internal.mpRegenT > 0 ? internal.mpRegenBonus : 0);
       p.mp = Math.min(p.maxMp, p.mp + regen * dt);
       for (let i = 0; i < internal.cooldowns.length; i++) {
         internal.cooldowns[i] = Math.max(0, internal.cooldowns[i] - dt);

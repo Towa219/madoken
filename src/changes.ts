@@ -32,6 +32,12 @@ export const CHANGE_DAYS = 4;
 // 新しいものを上に足していく。
 export const CHANGES: ChangeNote[] = [
   {
+    date: '2026-08-13',
+    version: '0.134.0',
+    text: '🐦 ペットが最大HP・MPに加えて、MPの自然回復も高めるようになりました。'
+      + '毎秒+1、MP寄りの鳥なら+2になり、魔法を少し多く撃てます',
+  },
+  {
     date: '2026-08-11',
     version: '0.131.0',
     text: '🥚 卵を温められる間隔を20時間から11時間に縮めました。'

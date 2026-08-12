@@ -187,7 +187,7 @@ async function hatchScene(pet: Pet, hint: EggHint | undefined): Promise<void> {
 // ★ 共闘は別の道を通る。あちらはサーバーが持ち物を読んで最大HPに
 //   足すので、端末の控えは使わない(改ざんできないようにするため)。
 
-export interface BattlePet { species: string; hp: number; mp: number }
+export interface BattlePet { species: string; hp: number; mp: number; regen: number }
 let 連れている: BattlePet | null = null;
 
 export function battlePet(): BattlePet | null {
@@ -375,7 +375,10 @@ function petCard(pet: Pet, now: number, pets: WirePet[], board: WirePet[]): HTML
   box.append(h);
   const info = document.createElement('p'); info.className = 'note';
   const remaining = stage === 'dead' ? '' : duration(pet.hatchedAt + lifetimeMsOf(pet) - now);
-  info.textContent = `段階: ${STAGE_NAME[stage]}　HP +${bonus.hp} / MP +${bonus.mp}　${remaining}`;
+  // ★ 「/秒」を必ず添える。「MP回復 +2」だけだと合計+2と読まれ、
+  //   ほとんど無意味な数字に見えてしまう。効くのは毎秒のほう。
+  const 回復 = bonus.regen > 0 ? ` / MP回復 +${bonus.regen}/秒` : '';
+  info.textContent = `段階: ${STAGE_NAME[stage]}　HP +${bonus.hp} / MP +${bonus.mp}${回復}　${remaining}`;
   box.append(info);
 
   // 交配の残り。押してから断られるのでは遅いので、先に出しておく。

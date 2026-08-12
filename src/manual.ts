@@ -26,8 +26,9 @@ import { CHARACTERS, characterName } from '../shared/characters';
 import { ENHANCE_MAX } from '../shared/spellcraft';
 import { NICK_MAX_FULL, NICK_MAX_WIDTH } from '../shared/nickname';
 import {
-  BREED_COOLDOWN_MS, BREED_MAX_COUNT, DEAD_KEEP_DAYS, ELDER_DAYS, MAX_PETS,
-  PET_SPECIES, PET_SPECIES_ORDER, PETS_PUBLIC, STAGE_POWER, WARM_INTERVAL_MS,
+  BREED_COOLDOWN_MS, BREED_MAX_COUNT, DEAD_KEEP_DAYS, ELDER_DAYS,
+  GENE_STAT_HIGH, GENE_STAT_LOW, MAX_PETS,
+  PET_SPECIES, PET_SPECIES_ORDER, PETS_PUBLIC, STAGE_POWER, WARM_INTERVAL_MS, regenOf,
 } from '../shared/pets';
 import { isAdmin } from './admin';
 import { INTRO_LEAD } from './intro';
@@ -45,12 +46,12 @@ function petTable(): string {
     .filter(id => id !== 'bluebird')
     .map(id => {
       const p = PET_SPECIES[id];
-      return `<tr><td>${p.name}</td><td>+${p.hp}</td><td>+${p.mp}</td>`
+      return `<tr><td>${p.name}</td><td>+${p.hp}</td><td>+${p.mp}</td><td>+${regenOf(id)}/秒</td>`
         + `<td>${p.warmNeeded}回</td><td>${p.lifeDays}日</td>`
         + `<td class="man-note">${p.note}</td></tr>`;
     }).join('');
   return '<table class="man-table"><thead><tr>'
-    + '<th>鳥</th><th>HP</th><th>MP</th><th>孵化</th><th>成鳥の期間</th><th></th>'
+    + '<th>鳥</th><th>HP</th><th>MP</th><th>MP回復</th><th>孵化</th><th>成鳥の期間</th><th></th>'
     + '</tr></thead><tbody>' + rows + '</tbody></table>';
 }
 
@@ -65,7 +66,9 @@ function petSection(): string {
   return `<section class="man-sec">
   <h3>ペット</h3>
   <p>ボスを倒すと<b>卵</b>が手に入ります(5の倍数のステージ・その段では最初の1回だけ)。
-  温めて孵すと鳥になり、連れて行くと<b>最大HPと最大MPが上がります</b>。</p>
+  温めて孵すと鳥になり、連れて行くと<b>最大HP・最大MP・MPの自然回復</b>が上がります。<br>
+  自然回復は<b>毎秒</b>効きます。あなたは毎秒${PLAYER_MP_REGEN}回復しますが、鳥がいると
+  <b>毎秒+1</b>(MP寄りの鳥なら<b>+2</b>)になり、戦いが長引くほど撃てる回数の差が開きます。</p>
 
   <p class="man-note"><b>卵から鳥へ</b><br>
   卵は${Math.round(WARM_INTERVAL_MS / 3600000)}時間に1回だけ温められます。
@@ -78,7 +81,12 @@ function petSection(): string {
   底上げの効き目は段階で変わります ―
   雛は${Math.round(STAGE_POWER.chick * 100)}%、成鳥で${Math.round(STAGE_POWER.adult * 100)}%、
   老鳥は${Math.round(STAGE_POWER.elder * 100)}%。老鳥でいられるのは${ELDER_DAYS}日です。<br>
+  <b>ただしMPの自然回復だけは決まり方が違います。</b>1羽ごとの個体値では上下せず
+  種類だけで決まり、雛や老鳥になっても<b>+1は残ります</b>
+  (HPとMPのほうは個体値で${GENE_STAT_LOW}〜${GENE_STAT_HIGH}倍に振れます)。<br>
   天へ行った子は手持ちの枠を空けますが、${DEAD_KEEP_DAYS}日は一覧に残ります。</p>
+
+  <p class="man-note">下の表は<b>成鳥・個体値がふつうのとき</b>の値です。</p>
 
   ${petTable()}
 

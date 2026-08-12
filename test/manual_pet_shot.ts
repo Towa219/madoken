@@ -12,7 +12,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
-  MAX_PETS, PET_SPECIES, BREED_MAX_COUNT, DEAD_KEEP_DAYS, PETS_PUBLIC,
+  MAX_PETS, PET_SPECIES, BREED_MAX_COUNT, DEAD_KEEP_DAYS, PETS_PUBLIC, regenOf,
 } from '../shared/pets';
 
 const URL_ = process.env.MADOKEN_URL ?? 'http://localhost:5173';
@@ -115,6 +115,25 @@ async function main(): Promise<void> {
         if (!ある) ng++;
         console.log(`  ${ある ? 'OK ' : 'NG '} ${何}が定義どおり出ている(${語})`);
       }
+      // ★ MP自然回復は「毎秒」だと分かる書き方でなければ意味がない。
+      //   「MP回復 +2」とだけ書くと合計+2と読まれ、ほぼ無意味な数字に
+      //   見える(実際に効くのは毎秒のほう)。単位が本文と表の両方に
+      //   出ていることを見る。
+      const 単位 = [
+        ['毎秒', '自然回復が毎秒の話だと本文に書いてある'],
+        [`+${regenOf('owl')}/秒`, 'フクロウの回復が表に単位つきで出ている'],
+        [`+${regenOf('hawk')}/秒`, 'タカの回復が表に単位つきで出ている'],
+      ];
+      for (const [語, 何] of 単位) {
+        const ある = 本文.includes(語);
+        if (!ある) ng++;
+        console.log(`  ${ある ? 'OK ' : 'NG '} ${何}(${語})`);
+      }
+      // 個体値で変わるものと変わらないものの区別が書いてあるか
+      const 区別 = 本文.includes('個体値では上下せず');
+      if (!区別) ng++;
+      console.log(`  ${区別 ? 'OK ' : 'NG '} 回復だけは個体値で変わらないと書いてある`);
+
       // ★ アオイトリは伏せる。名前が出ていたら台無し
       const 漏れ = 本文.includes(PET_SPECIES.bluebird.name);
       if (漏れ) ng++;

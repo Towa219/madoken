@@ -108,6 +108,16 @@ export const PET_SPECIES_ORDER: PetSpeciesId[] = [
   'sparrow', 'lark', 'swallow', 'owl', 'hawk', 'dove', 'crow', 'bluebird',
 ];
 
+// 自然回復が+2になるMPの目安。これ以上の鳥は「MP寄り」とみなす。
+// ★ 表に列を増やさずMP値から導くのは、2つの数字が食い違わないようにするため。
+//   列にすると「MPは低いのに回復だけ2」という組み合わせを書けてしまう。
+export const REGEN_MP_THRESHOLD = 12;
+
+// この種類がMPを毎秒いくつ余分に戻すか(成鳥のとき)。
+export function regenOf(species: PetSpeciesId): number {
+  return PET_SPECIES[species].mp >= REGEN_MP_THRESHOLD ? 2 : 1;
+}
+
 // 普通に出てよい種類(アオイトリを除く)。
 // ★ 交配の突然変異でこの一覧から選ぶ。PET_SPECIES_ORDER をそのまま使うと
 //   アオイトリが8分の1で出てしまい、「ごく稀」でなくなる。
@@ -246,16 +256,22 @@ export function stageOf(pet: Pet, now: number): PetStage {
   return 'dead';
 }
 
-export interface PetBonus { hp: number; mp: number; }
+export interface PetBonus { hp: number; mp: number; regen: number; }
 
 // この個体が今どれだけ底上げするか。卵と死んだ個体は 0。
 export function bonusOf(pet: Pet, now: number): PetBonus {
   const power = STAGE_POWER[stageOf(pet, now)];
-  if (power <= 0) return { hp: 0, mp: 0 };
+  if (power <= 0) return { hp: 0, mp: 0, regen: 0 };
   const sp = PET_SPECIES[pet.species];
   return {
     hp: Math.round(sp.hp * statMul(pet.hpGene) * power),
     mp: Math.round(sp.mp * statMul(pet.mpGene) * power),
+    // ★ 自然回復には個体値(statMul)を掛けない。0.7〜1.3倍を掛けると
+    //   2×1.3=2.6 が +3 に化け、「+1か+2」の約束が崩れる。
+    //   種類だけで決まる素質、という扱いにしてある。
+    // ★ 段階は掛けるが、生きている鳥は最低でも+1にする。切り捨てると
+    //   +1の鳥は雛と老鳥でまるごと0になり、連れていても何も起きない。
+    regen: Math.max(1, Math.round(regenOf(pet.species) * power)),
   };
 }
 
@@ -313,7 +329,7 @@ export function chosenPetOf(pets: Pet[], now: number): Pet | null {
 // 共闘のサーバーと画面の両方がこれを使う(数字を二重に書かないため)。
 export function partyBonusOf(pets: Pet[], now: number): PetBonus {
   const pet = chosenPetOf(pets, now);
-  return pet ? bonusOf(pet, now) : { hp: 0, mp: 0 };
+  return pet ? bonusOf(pet, now) : { hp: 0, mp: 0, regen: 0 };
 }
 
 // ---------------------------------------------------------------- 交配
