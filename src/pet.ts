@@ -393,7 +393,7 @@ function petCard(pet: Pet, now: number, pets: WirePet[], board: WirePet[]): HTML
   }
 
   const actions = document.createElement('div');
-  actions.append(button(pet.chosen ? '連れているのをやめる' : '連れて行く',
+  actions.append(button(pet.chosen ? '連れていくのをやめる' : '連れて行く',
     () => act('choose', { petId: pet.chosen ? '' : pet.id }), pet.boarded || stage === 'dead',
     pet.boarded ? '交配所へ預けている間は連れて行けません。' : stage === 'dead' ? 'もう天へ行ってしまいました。' : ''));
   actions.append(button('手放す', async () => {
