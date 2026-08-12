@@ -7,7 +7,7 @@
 //   画面で隠すだけでは意味が無い(開発者ツールで JSON を覗けば読める)ので、
 //   サーバーの返事そのものに species が入っていないことを確かめる。
 import {
-  BLUEBIRD_RATE, BREED_JITTER, BREED_MAX_COUNT, COMMON_SPECIES, DEAD_KEEP_DAYS,
+  BLUEBIRD_RATE, BOARD_SETTLE_HOURS, BREED_JITTER, BREED_MAX_COUNT, COMMON_SPECIES, DEAD_KEEP_DAYS,
   ELDER_DAYS, MAX_PETS,
   PET_NAMES, PET_SPECIES, PET_SPECIES_ORDER, breed, eggHintOf, eggSpeciesForBoss,
   adultDaysOf, partyBonusOf, stageOf,
@@ -210,8 +210,13 @@ async function 実行(): Promise<void> {
   親一 = (await 一覧(親一名)).find(p => p.id === 親一.id)! as Pet;
   親二 = (await 一覧(親二名)).find(p => p.id === 親二.id)! as Pet;
   確認((await 通信('board', 親二名, { petId: 親二.id })).状態 === 200, '成鳥を交配所へ預けられる');
+  // ★ 預けた直後は交配できない(なじみ待ち)。ここを飛ばして先へ進めると、
+  //   なじみ待ちが効かなくなった時に誰も気づけない。
+  確認((await 通信('breed', 親一名, { petId: 親一.id, partnerId: 親二.id })).状態 === 400,
+    '預けた直後は交配できない(なじみ待ち)');
+  await 通信('advance', 親二名, { days: BOARD_SETTLE_HOURS / 24 });
   const 交配 = await 通信('breed', 親一名, { petId: 親一.id, partnerId: 親二.id });
-  確認(交配.状態 === 200, '♂♀の成鳥を交配できる');
+  確認(交配.状態 === 200, 'なじんだあとは♂♀の成鳥を交配できる');
   const 子 = 交配.データ.pet as WirePet;
   確認(子.species === null || 子.species === undefined, '交配で出来た卵も種類が伏せられている');
   for (const 項目 of ['hpGene', 'mpGene', 'lifeGene'] as const) {
@@ -311,7 +316,7 @@ async function 実行(): Promise<void> {
   const 親 = (species: Pet['species']): Pet => ({
     id: species, ownerName: 'x', species, name: '', sex: 'm',
     hpGene: 50, mpGene: 50, lifeGene: 50, warmCount: 0, lastWarmAt: 0,
-    hatchedAt: 1, boarded: false, chosen: false, breedCount: 0, lastBredAt: 0,
+    hatchedAt: 1, boarded: false, boardedAt: 0, eggAt: 0, chosen: false, breedCount: 0, lastBredAt: 0,
     parents: null, bornAt: 0,
   });
   let 交配青 = 0;

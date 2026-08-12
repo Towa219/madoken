@@ -19,7 +19,7 @@ function 個体(species: PetSpeciesId, hatchedAt: number, hpGene = 50, mpGene = 
   return {
     id: '検証鳥', ownerName: '検証者', species, name: '', sex: 'm',
     hpGene, mpGene, lifeGene: 50, warmCount: PET_SPECIES[species].warmNeeded,
-    lastWarmAt: 0, hatchedAt, boarded: false, chosen: true,
+    lastWarmAt: 0, hatchedAt, boarded: false, boardedAt: 0, eggAt: 0, chosen: true,
     breedCount: 0, lastBredAt: 0, parents: null, bornAt: 0,
   };
 }

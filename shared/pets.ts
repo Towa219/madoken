@@ -213,6 +213,10 @@ export interface Pet {
   hatchedAt: number;        // 0 ならまだ卵
   // 交配所へ預けているか。預けている間は戦闘に連れて行けない。
   boarded: boolean;
+  // 交配所へ預けた時刻(0=預けていない)
+  boardedAt: number;
+  // 巣に卵ができる時刻(0=最初から卵。ボスから貰った卵はこちら)
+  eggAt: number;
   // 戦闘に連れて行く1羽。持ち主につき1羽だけ true。
   chosen: boolean;
   // 交配の履歴
@@ -282,6 +286,7 @@ export function warmLeft(pet: Pet): number {
 
 // 今すぐ温められるか(前回から WARM_INTERVAL_MS 経っているか)
 export function canWarm(pet: Pet, now: number): boolean {
+  if (isNest(pet, now)) return false;
   return pet.hatchedAt <= 0 && now - pet.lastWarmAt >= WARM_INTERVAL_MS;
 }
 
@@ -308,6 +313,7 @@ export function shouldPurge(pet: Pet, now: number): boolean {
 //   連れて行けても何も起きず、「効かない」と誤解される。
 export function canChoose(pet: Pet, now: number): string | null {
   if (pet.boarded) return '交配所へ預けている間は連れて行けない。';
+  if (isNest(pet, now)) return 'まだ巣。卵になるのを待つ。';
   const st = stageOf(pet, now);
   if (st === 'egg') return 'まだ卵。孵ってからにする。';
   if (st === 'dead') return 'もう天へ行ってしまった。';
@@ -341,6 +347,40 @@ export const BREED_JITTER = 18;
 
 // 卵ができるまで(交配してから)。孵化とは別の待ち時間。
 export const BREED_EGG_HOURS = 12;
+
+// 交配所へ預けてから、交配の相手に選べるようになるまで。
+//
+// ★ 預けた瞬間に選べると、預ける→交配→引き取る を一息でできてしまい、
+//   「預ける」が手続き以上の意味を持たない。少し置くことで、
+//   交配所に鳥が並んでいる状態そのものに意味が出る。
+// ★ 長くしすぎないこと。交配所は相手が見つかってこそなので、
+//   ここを延ばすほど預けた鳥が使われずに終わる。
+export const BOARD_SETTLE_HOURS = 3;
+export const BOARD_SETTLE_MS = BOARD_SETTLE_HOURS * 60 * 60 * 1000;
+
+// 交配してから巣に卵ができるまで(既存の BREED_EGG_HOURS を ms にしたもの)
+export const BREED_EGG_MS = BREED_EGG_HOURS * 60 * 60 * 1000;
+
+// 交配所へ預けた鳥が、相手に選べるようになるまでの残り(ms)。0なら選べる。
+export function boardSettleMs(pet: Pet, now: number): number {
+  if (!pet.boarded) return 0;
+  const at = pet.boardedAt ?? 0;
+  if (at <= 0) return 0;
+  return Math.max(0, at + BOARD_SETTLE_MS - now);
+}
+
+// まだ巣で、卵になっていないか。
+export function isNest(pet: { hatchedAt: number; eggAt?: number }, now: number): boolean {
+  const at = pet.eggAt ?? 0;
+  return pet.hatchedAt <= 0 && at > 0 && now < at;
+}
+
+// 巣に卵ができるまでの残り(ms)。0ならもう卵。
+export function nestLeftMs(pet: { hatchedAt: number; eggAt?: number }, now: number): number {
+  const at = pet.eggAt ?? 0;
+  if (pet.hatchedAt > 0 || at <= 0) return 0;
+  return Math.max(0, at - now);
+}
 
 // 種類が両親のどちらとも違うものになる確率。
 // 「たまに知らない鳥が生まれる」ための逃げ道。これが無いと、
@@ -422,6 +462,11 @@ export function canBreed(a: Pet, b: Pet, now: number): string | null {
         : st === 'dead' ? 'もう天へ行ってしまった'
         : 'まだ成鳥ではない';
       return `${petDisplayName(p)}は交配できない(${なぜ})。`;
+    }
+    const なじみ = boardSettleMs(p, now);
+    if (なじみ > 0) {
+      const 時 = Math.ceil(なじみ / (60 * 60 * 1000));
+      return `${petDisplayName(p)}は交配所に慣れていない(あと約${時}時間)。`;
     }
     if (breedLeft(p) <= 0) {
       return `${petDisplayName(p)}はもう産めない(一生に${BREED_MAX_COUNT}回まで)。`;
@@ -542,10 +587,12 @@ export type WirePet = Omit<Pet, 'species'> & {
 };
 
 // サーバーが端末へ返す直前に通す。孵っていれば素通し。
-export function maskPet(pet: Pet): WirePet {
+export function maskPet(pet: Pet, now: number): WirePet {
   if (pet.hatchedAt > 0) return pet;
   const { species, ...rest } = pet;
-  return { ...rest, species: null, hint: eggHintOf(species) };
+  return isNest(pet, now)
+    ? { ...rest, species: null }
+    : { ...rest, species: null, hint: eggHintOf(species) };
 }
 
 // 卵の呼び名。名前を付けていれば名前、無ければ「たまご」。

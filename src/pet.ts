@@ -6,8 +6,9 @@
 //   孵ったあとにしか使えない。
 import {
   BREED_MAX_COUNT, MAX_PETS, PET_SPECIES, PETS_PUBLIC, STAGE_NAME, WARM_INTERVAL_MS,
-  bonusOf, breedLeft,
-  breedWaitMs, canBreed, chosenPetOf, lifetimeMsOf, petDisplayName, stageOf, wireDisplayName,
+  bonusOf, boardSettleMs, breedLeft,
+  breedWaitMs, canBreed, chosenPetOf, isNest, lifetimeMsOf, nestLeftMs, petDisplayName, stageOf,
+  wireDisplayName,
 } from '../shared/pets';
 import type { EggHint, Pet, WirePet } from '../shared/pets';
 import { adminKeyForRequest, isAdmin } from './admin';
@@ -219,7 +220,8 @@ let watchTimer = 0;
 function actionableCount(pets: WirePet[], now: number): number {
   let n = 0;
   for (const p of pets) {                       // 温められる卵
-    if (p.hatchedAt <= 0 && !p.boarded && now - p.lastWarmAt >= WARM_INTERVAL_MS) n++;
+    if (p.hatchedAt <= 0 && !p.boarded && !isNest(p, now)
+      && now - p.lastWarmAt >= WARM_INTERVAL_MS) n++;
   }
   // 交配。手持ちに空きが無ければ卵を受け取れないので、その時は数えない。
   if (pets.filter(p => !p.boarded).length < MAX_PETS) {
@@ -306,6 +308,33 @@ function eggCard(pet: WirePet, now: number): HTMLElement {
   const hint = pet.hint;
   const box = document.createElement('div'); box.className = 'panel';
   const h = document.createElement('h3');
+  if (isNest(pet, now)) {
+    // ★ ここで wireDisplayName をそのまま使わないこと。名前が無い時の
+    //   既定が「たまご」なので、「たまご　巣」というちぐはぐな見出しになる
+    //   (画面を撮って気づいた)。卵はまだ無い。
+    const 名 = pet.name.trim();
+    h.textContent = 名 ? `🪺 ${名}　巣` : '🪺 巣';
+    box.append(h);
+    const info = document.createElement('p'); info.className = 'note';
+    const 数える = (): void => {
+      const 残り = nestLeftMs(pet, サーバーの今());
+      if (残り <= 0) { void renderPets(); return; }
+      info.textContent = `卵ができるまで ${残り時間文(残り)}`;
+    };
+    数える();
+    卵の見張り.push({ el: info, 数える });
+    box.append(info);
+    const actions = document.createElement('div');
+    actions.append(button('手放す', async () => {
+      const ok = await askConfirm({
+        title: 'この巣を手放す?',
+        body: 'まだ卵になっていません。一度手放すと戻せません。',
+        yes: '手放す', danger: true,
+      });
+      if (ok) await act('release', { petId: pet.id });
+    }));
+    box.append(actions); return box;
+  }
   h.textContent = `🥚 ${wireDisplayName(pet)}　まだ卵`;
   box.append(h);
 
@@ -389,6 +418,12 @@ function petCard(pet: Pet, now: number, pets: WirePet[], board: WirePet[]): HTML
       ? `交配: 年を取りすぎてもう産めない`
       : `交配: あと${breedLeft(pet)}回（一生に${BREED_MAX_COUNT}回まで）`
         + (待ち > 0 ? `　休み中 ${残り時間文(待ち)}` : '');
+    box.append(b);
+  }
+  const なじみ = boardSettleMs(pet, now);
+  if (なじみ > 0) {
+    const b = document.createElement('p'); b.className = 'note';
+    b.textContent = `なじむまで ${残り時間文(なじみ)}`;
     box.append(b);
   }
 
@@ -519,7 +554,7 @@ window.__hatchDemo = async (species: string) => {
   await hatchScene({
     id: 'demo', ownerName: state.nickname, species: sp.id, name: 'ピピ', sex: 'f',
     hpGene: 50, mpGene: 50, lifeGene: 50, warmCount: sp.warmNeeded,
-    lastWarmAt: 0, hatchedAt: 1, boarded: false, chosen: false,
+    lastWarmAt: 0, hatchedAt: 1, boarded: false, boardedAt: 0, eggAt: 0, chosen: false,
     breedCount: 0, lastBredAt: 0, parents: null, bornAt: 0,
   }, undefined);
 };

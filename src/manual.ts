@@ -26,7 +26,7 @@ import { CHARACTERS, characterName } from '../shared/characters';
 import { ENHANCE_MAX } from '../shared/spellcraft';
 import { NICK_MAX_FULL, NICK_MAX_WIDTH } from '../shared/nickname';
 import {
-  BREED_COOLDOWN_MS, BREED_MAX_COUNT, DEAD_KEEP_DAYS, ELDER_DAYS,
+  BOARD_SETTLE_HOURS, BREED_COOLDOWN_MS, BREED_EGG_HOURS, BREED_MAX_COUNT, DEAD_KEEP_DAYS, ELDER_DAYS,
   GENE_STAT_HIGH, GENE_STAT_LOW, MAX_PETS,
   PET_SPECIES, PET_SPECIES_ORDER, PETS_PUBLIC, STAGE_POWER, WARM_INTERVAL_MS, regenOf,
 } from '../shared/pets';
@@ -95,6 +95,8 @@ function petSection(): string {
   <p class="man-note"><b>交配</b><br>
   ♂と♀の<b>成鳥</b>を組ませると卵ができます。手持ちの2羽でも、
   交配所にいる他の研究者の鳥とでもできます。
+  交配所へ預けた鳥は、すぐには相手に選べず、約${BOARD_SETTLE_HOURS}時間なじみます。<br>
+  交配するとまず巣ができ、${BREED_EGG_HOURS}時間後に卵になります。
   子は両親の遺伝を継ぎ、たまに親を超えます。種類が違っていても組めます。<br>
   歯止めが3つあります ―
   産んだあとは${Math.round(BREED_COOLDOWN_MS / 3600000)}時間休むこと、

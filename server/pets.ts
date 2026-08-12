@@ -87,12 +87,13 @@ export async function listBoard(): Promise<Pet[]> {
   return all;
 }
 
-export async function boardPet(name: string, petId: string): Promise<boolean> {
+export async function boardPet(name: string, petId: string, stampAt?: number): Promise<boolean> {
   const pets = await listPets(name);
   const pet = pets.find(p => p.id === petId);
   if (!pet || pet.boarded) return false;
   pet.chosen = false;
   pet.boarded = true;
+  if (stampAt !== undefined) pet.boardedAt = stampAt;
   await savePets(name, pets);
   const field = nicknameKey(normalizeNickname(name));
   const mine = await readArray(BOARD_KEY, field, boardMemory);
@@ -133,7 +134,7 @@ async function grantBossEggOnceLocked(name: string, stage: number): Promise<Boss
     id: crypto.randomUUID(), ownerName: name, species: eggSpeciesForBoss(stage), name: '',
     sex: Math.random() < 0.5 ? 'm' : 'f', hpGene: wildGene(), mpGene: wildGene(),
     lifeGene: wildGene(), warmCount: 0, lastWarmAt: now, hatchedAt: 0,
-    boarded: false, chosen: false, breedCount: 0, lastBredAt: 0,
+    boarded: false, boardedAt: 0, eggAt: 0, chosen: false, breedCount: 0, lastBredAt: 0,
     parents: null, bornAt: now,
   });
   await savePets(name, pets);
