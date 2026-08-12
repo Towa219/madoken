@@ -1260,3 +1260,7 @@ button.tab[data-badge]::after {
   .chg-row { flex-direction: column; gap: 2px; }
   .chg-when { min-width: 0; }
 }
+
+/* 卵の「温められるまであと○分」。
+   ボタンのすぐ隣に置くので、行が折り返しても読めるようにする。 */
+.egg-left { display: inline-block; margin-left: 4px; color: #9fd6b4; }

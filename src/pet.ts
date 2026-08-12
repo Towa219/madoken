@@ -47,6 +47,31 @@ function duration(ms: number): string {
   return hours >= 24 ? `あと約${Math.ceil(hours / 24)}日` : `あと約${hours}時間`;
 }
 
+// 温められるまでの残り。分まで出す。
+//
+// ★ duration() は時間単位で切り上げるので、あと3分でも「あと約1時間」と
+//   出てしまう。待っている人にはこの数分が知りたいところなので分けた。
+function 残り時間文(ms: number): string {
+  if (ms <= 0) return '温められます';
+  const 全分 = Math.ceil(ms / 60000);
+  if (全分 >= 60) {
+    const 時 = Math.floor(全分 / 60);
+    const 分 = 全分 % 60;
+    return 分 === 0 ? `あと${時}時間` : `あと${時}時間${分}分`;
+  }
+  return `あと${全分}分`;
+}
+
+// ★ 端末の時計を当てにしない。孵化も寿命もサーバーの時計で数えているので、
+//   端末の時計がずれていると残り時間だけ食い違う。
+//   一覧を取った時に「サーバーの今」と「端末の今」の差を覚えておき、
+//   数える時はその差を足す。
+let 時計のずれ = 0;
+
+function サーバーの今(): number {
+  return Date.now() + 時計のずれ;
+}
+
 function warmLeftOf(pet: WirePet, hint: EggHint): number {
   return Math.max(0, hint.warmNeeded - pet.warmCount);
 }
@@ -225,6 +250,7 @@ async function refreshBadge(): Promise<void> {
   try {
     const data = await call('list', { board: false });
     const now = data.now ?? Date.now();
+    時計のずれ = now - Date.now();
     控える(data.pets ?? [], now);
     const pets = data.pets ?? [];
     setBadge(actionableCount(pets, now));
@@ -257,6 +283,25 @@ document.addEventListener('visibilitychange', () => {
 
 // ---------------------------------------------------------------- 一覧
 
+// 卵の残り時間を数え直す手。一覧を描き直すたびに入れ替える。
+//
+// ★ 一覧を描くたびに積み上がると、古い卵のぶんまで動き続けて
+//   だんだん重くなる。描き直しの先頭で必ず空にすること。
+const 卵の見張り: { el: HTMLElement; 数える: () => void }[] = [];
+let 卵タイマー = 0;
+
+function 卵の時計を回す(): void {
+  if (卵タイマー) return;
+  卵タイマー = window.setInterval(() => {
+    // 画面から消えたものは落とす(描き直しのたびに積み上がらないように)
+    for (let i = 卵の見張り.length - 1; i >= 0; i--) {
+      const w = 卵の見張り[i];
+      if (!w.el.isConnected) { 卵の見張り.splice(i, 1); continue; }
+      w.数える();
+    }
+  }, 30 * 1000);   // 30秒ごと。分の表示が1分ずれたまま残らないように
+}
+
 function eggCard(pet: WirePet, now: number): HTMLElement {
   const hint = pet.hint;
   const box = document.createElement('div'); box.className = 'panel';
@@ -277,13 +322,35 @@ function eggCard(pet: WirePet, now: number): HTMLElement {
 
   const actions = document.createElement('div');
   // canWarm は Pet(species 必須)を取るので卵には使えない。同じ式をここで書く。
-  const allowed = pet.hatchedAt <= 0 && now - pet.lastWarmAt >= WARM_INTERVAL_MS;
-  actions.append(button('温める', () => warmEgg(pet), !allowed,
-    allowed ? '' : '前回から十分な時間が空いていません。'));
-  if (!allowed) {
-    const why = document.createElement('span'); why.className = 'note';
-    why.textContent = ' まだ温められません。'; actions.append(why);
-  }
+  const 次に温められる時刻 = pet.lastWarmAt + WARM_INTERVAL_MS;
+  const allowed = pet.hatchedAt <= 0 && now >= 次に温められる時刻;
+  const 温めボタン = button('温める', () => warmEgg(pet), !allowed,
+    allowed ? '' : '前回から十分な時間が空いていません。');
+  actions.append(温めボタン);
+
+  // 残り時間。1分ごとに数え直す。
+  //
+  // ★ 描いた時の文字を貼るだけでは駄目。開いたまま待つ人には、
+  //   何分経っても「あと3時間」のまま止まって見える。
+  // ★ 数え終わったらボタンを自分で押せるようにする。
+  //   通信し直さないと押せないのでは、待った意味が薄い。
+  const 残り = document.createElement('span'); 残り.className = 'note egg-left';
+  actions.append(残り);
+  // ★ ここで isConnected を見てはいけない。初回は画面へ差し込む前に
+  //   呼ぶので必ず素通りし、文字が空のままになる(実際にそうなった)。
+  //   画面から消えたものを止めるのは、見張り側で行う。
+  const 数える = (): void => {
+    const 差 = 次に温められる時刻 - サーバーの今();
+    if (差 > 0) {
+      残り.textContent = ` 温められるまで ${残り時間文(差)}`;
+      return;
+    }
+    残り.textContent = ' 温められます';
+    温めボタン.disabled = false;
+    温めボタン.title = '';
+  };
+  数える();
+  if (!allowed) 卵の見張り.push({ el: 残り, 数える });
   actions.append(button('手放す', async () => {
     const ok = await askConfirm({
       title: 'この卵を手放す?',
@@ -318,7 +385,7 @@ function petCard(pet: Pet, now: number, pets: WirePet[], board: WirePet[]): HTML
     b.textContent = stage === 'elder'
       ? `交配: 年を取りすぎてもう産めない`
       : `交配: あと${breedLeft(pet)}回（一生に${BREED_MAX_COUNT}回まで）`
-        + (待ち > 0 ? `　休み中 ${duration(待ち)}` : '');
+        + (待ち > 0 ? `　休み中 ${残り時間文(待ち)}` : '');
     box.append(b);
   }
 
@@ -386,6 +453,8 @@ async function act(path: string, extra: Record<string, unknown>): Promise<void> 
 
 export async function renderPets(): Promise<void> {
   const list = $('#pet-list'); const msg = $('#pet-msg'); list.replaceChildren();
+  卵の見張り.length = 0;   // 前に描いたぶんの数え直しは捨てる
+  卵の時計を回す();
   if (!(PETS_PUBLIC || isAdmin())) {
     msg.textContent = '管理者モードでのみ利用できます。'; return;
   }
@@ -393,7 +462,9 @@ export async function renderPets(): Promise<void> {
   msg.textContent = '読み込み中…';
   try {
     const data = await call('list');
-    const pets = data.pets ?? []; const board = data.board ?? []; const now = data.now ?? Date.now();
+    const pets = data.pets ?? []; const board = data.board ?? [];
+    const now = data.now ?? Date.now();
+    時計のずれ = now - Date.now();
     setBadge(actionableCount(pets, now));          // 同じ返事で印も直す
     控える(pets, now);                              // 戦闘へ渡す控えも直す
     const mineTitle = document.createElement('h3'); mineTitle.textContent = '手持ち'; list.append(mineTitle);
