@@ -17,12 +17,21 @@ export interface ChangeNote {
   text: string;
 }
 
-// 帯に何日ぶん流すか。ここを伸ばすと古い話まで流れ続ける。
+// 帯に流す件数。履歴の新しい方からこの数だけ流す。
 //
-// ★ 帯から消えても、変更点そのものは消さない。
+// ★ 日数で切るのをやめた(2026-08-13)。4日で消える作りだったが、
+//   間が空くと帯そのものが出なくなり、久しぶりに来た人は何が
+//   変わったのか分からないまま遊ぶことになる。件数で切れば、
+//   いつ来ても直近のぶんは必ず読める。
+//
+// ★ 増やしすぎないこと。帯は1周ぶんを読み終えるまで目を離せない。
+//   2件で幅3,845px・1周70秒だった(2026-08-13に実測)。1件増えるごとに
+//   30秒前後は延びる。4件流していた頃は1周2分を超えていた。
+//
+// ★ 帯から外れても、変更点そのものは消さない。
 //   設定の「更新履歴」に日付と版番号を添えて残り続ける。
 //   流れているうちに読み逃した人が、あとから辿れるようにするため。
-export const CHANGE_DAYS = 4;
+export const TICKER_COUNT = 2;
 
 // ★ 遊ぶ人が触れないものを書かないこと。
 //   ペット(試験中)は管理者モードでしか開けないので、8種目の鳥を
@@ -79,15 +88,17 @@ function daysBetween(from: string, to: string): number {
   return Math.round((b - a) / 86400000);
 }
 
-// 今日出すぶんだけを返す。新しい順。
+// 帯に出すぶんだけを返す。新しい順に TICKER_COUNT 件。
+//
+// ★ 並べ替えは allChanges() に任せる。ここで別に並べ替えを書くと、
+//   帯と更新履歴で順番が食い違う余地が残る。
+// ★ 未来の日付は出さない。先の日付で書き置きした時に、まだ効いて
+//   いない話が流れてしまう。
 export function recentChanges(now = new Date()): ChangeNote[] {
   const key = todayKey(now);
-  return CHANGES
-    .filter(c => {
-      const d = daysBetween(c.date, key);
-      return d >= 0 && d < CHANGE_DAYS;   // 未来の日付は出さない
-    })
-    .slice();
+  return allChanges()
+    .filter(c => daysBetween(c.date, key) >= 0)
+    .slice(0, TICKER_COUNT);
 }
 
 // 帯が流れる速さ(1秒あたりの画素数)。
