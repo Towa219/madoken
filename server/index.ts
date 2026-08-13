@@ -25,6 +25,7 @@ import {
 import type { Pet } from '../shared/pets';
 import { boardPet, listBoard, listPets, savePets, serializePet, unboardPet } from './pets';
 import { redis } from './upstash';
+import { roomCrashes } from './crashlog';
 
 const { Server } = colyseusPkg;
 const { WebSocketTransport } = wsTransportPkg;
@@ -579,6 +580,9 @@ app.get('/api/ping', (_req, res) => {
     rssMB: Math.round(m.rss / 1048576),
     heapMB: Math.round(m.heapUsed / 1048576),
     lastExit,   // 前回どう終わったか(これが分かれば次の手が決まる)
+    // 部屋の計算で出た例外。落とさずに続けているので、ここを見ないと
+    // 起きたことに誰も気づけない。
+    roomCrashes: roomCrashes().slice(0, 5),
   });
 });
 

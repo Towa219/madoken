@@ -22,6 +22,7 @@ import { claimBattleSlot, releaseBattleSlot } from '../activeBattle';
 import { CODE_REPLACED } from '../../shared/netcodes';
 import { clampNickname } from '../../shared/nickname';
 import { clampCharId } from '../../shared/characters';
+import { noteRoomCrash } from '../crashlog';
 import type { ServerSpell } from '../spellPayload';
 import type { ElementId, SpellStats } from '../../shared/types';
 
@@ -140,7 +141,19 @@ export class DuelRoom extends Room<DuelState> {
       this.tryCast(client.sessionId, Math.floor(Number(msg?.idx)));
     });
 
-    this.setSimulationInterval(dtMs => this.update(dtMs / 1000), 50);
+    // ★ 共闘と同じ理由で受け皿を置く。ここで投げた例外は誰も拾わず、
+    //   Node はプロセスごと終わる ― この部屋の計算が1回失敗しただけで、
+    //   サーバー全体の全員が切れる。握り潰さず、必ず声を上げる。
+    this.setSimulationInterval(dtMs => {
+      try {
+        this.update(dtMs / 1000);
+      } catch (err) {
+        const e = err as Error;
+        console.error(`[決闘${this.roomId}] 計算中の例外(部屋は続行):`,
+          e?.stack ?? e?.message ?? String(err));
+        noteRoomCrash(`決闘: ${e?.message ?? String(err)}`);
+      }
+    }, 50);
   }
 
   // ニックネームの所有を確認しつつ、接続元IPを控えて接続ログに使う

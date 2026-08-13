@@ -33,6 +33,7 @@ import type { AffinityGrade, EnemyDef } from '../../shared/data';
 import type { ElementCounts, ElementId, SpellStats } from '../../shared/types';
 import { chosenPetOf, partyBonusOf } from '../../shared/pets';
 import { grantBossEggOnce, hasBossEggRecord, listPets } from '../pets';
+import { noteRoomCrash } from '../crashlog';
 
 export const PLAYER_XS = [110, 165, 220];
 
@@ -190,7 +191,24 @@ export class CoopRoom extends Room<CoopState> {
       if (this.outcome) client.send(this.outcome.type, this.outcome.payload);
     });
 
-    this.setSimulationInterval(dtMs => this.update(dtMs / 1000), 50);
+    // ★ 1回の計算で例外が出ても、部屋も全員も落とさないこと。
+    //   ここは Colyseus が呼ぶ 20Hz のループで、投げた例外は誰も拾わない。
+    //   Node は拾われない例外でプロセスごと終わるので、**この部屋の
+    //   計算が1回失敗しただけで、サーバー全体・全部屋の全員が切れる**。
+    //   「ボス戦でだけ落ちる」という報告と符合する(ボス戦は全体攻撃の
+    //   予告など、ここを通る処理が一番多い)。
+    // ★ 握り潰さないこと。必ず声を上げる。黙って続けると、壊れた部屋で
+    //   延々と例外を出しながら誰も気づかない状態になる。
+    this.setSimulationInterval(dtMs => {
+      try {
+        this.update(dtMs / 1000);
+      } catch (err) {
+        const e = err as Error;
+        console.error(`[共闘${this.roomId}] 計算中の例外(部屋は続行):`,
+          e?.stack ?? e?.message ?? String(err));
+        noteRoomCrash(`共闘 ステージ${this.state.stage}: ${e?.message ?? String(err)}`);
+      }
+    }, 50);
   }
 
   async onJoin(
@@ -460,11 +478,22 @@ export class CoopRoom extends Room<CoopState> {
 
   private update(dt: number): void {
     // 予約イベント(弾の着弾・次ステージ移行)はクリア演出中も進める
-    this.pending = this.pending.filter(ev => {
+    // ★ 予約1件の失敗で、残りの予約を巻き添えにしないこと。
+    //   filter の中で投げると this.pending が入れ替わらないまま抜けるので、
+    //   同じ予約が毎ティック投げ続け、部屋が二度と進まなくなる。
+    const 残す: { t: number; fn: () => void }[] = [];
+    for (const ev of this.pending) {
       ev.t -= dt;
-      if (ev.t <= 0) { ev.fn(); return false; }
-      return true;
-    });
+      if (ev.t > 0) { 残す.push(ev); continue; }
+      try {
+        ev.fn();
+      } catch (err) {
+        const e = err as Error;
+        console.error(`[共闘${this.roomId}] 予約処理の例外:`, e?.stack ?? String(err));
+        noteRoomCrash(`共闘の予約 ステージ${this.state.stage}: ${e?.message ?? String(err)}`);
+      }
+    }
+    this.pending = 残す;
 
     // カウントダウン中は誰も動かない(敵の攻撃も詠唱も止まる)
     if (this.state.phase === 'count') {
