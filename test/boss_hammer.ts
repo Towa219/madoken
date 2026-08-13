@@ -27,9 +27,12 @@ const 使った名前: TestName[] = [];
 const 時刻 = () => new Date().toLocaleTimeString('ja-JP', { hour12: false });
 
 // 深いボスまで進めるだけの火力。目的は「ボス戦を何度も通すこと」。
+// ★ 回復(慈雨=光3+水1)を必ず1本入れること。攻撃だけだと深いボスの
+//   手前で全滅し、狙っている段のボスに一度も触れないまま終わる
+//   (最初これで、毎回ステージ10で死んで15以降を試せなかった)。
 const 魔法 = [
   { name: '爆炎', recipe: { fire: 3 }, level: 9, rarity: 'legend' },
-  { name: '聖光', recipe: { light: 3 }, level: 9, rarity: 'legend' },
+  { name: '慈雨', recipe: { light: 3, water: 1 }, level: 9, rarity: 'legend' },
   { name: '大地', recipe: { earth: 2, wind: 1 }, level: 9, rarity: 'legend' },
   { name: '氷嵐', recipe: { ice: 2, water: 1 }, level: 9, rarity: 'legend' },
 ];
