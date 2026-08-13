@@ -404,7 +404,7 @@ function main(): void {
   // 管理者になるのは非同期(合言葉をサーバーへ確かめに行く)。
   // 先に控えを取りに行っても空になるので、変わった時に取り直す。
   setAdminChangeHandler(refreshPetCache);
-  initAdmin();   // 「ペット」タブは管理者モードの間だけ出る(試験中)
+  initAdmin();   // 「ペット」タブの出し入れもここ(PETS_PUBLIC で決まる)
   startPetWatch();  // 温められる卵・交配の相手ができたらタブに数字を出す
   updateTopbar();
   renderLab();
