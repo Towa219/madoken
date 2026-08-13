@@ -538,8 +538,39 @@ app.get('/api/heartbeat', (req, res) => {
 // 残してあるのは手元からの確認用。リリースのたびに
 //   curl https://madoken.onrender.com/api/ping
 // で「本番がどの版か」「起きているか」を見ている。
+// サーバーが詰まっていないかを測る(イベントループの遅れ)。
+//
+// ★ HTTPの往復時間では切り分けられない。あれには回線とRenderの
+//   プロキシが混ざるので、遅くても原因がサーバーとは限らない。
+//   ここでは「500msごとに起きるはずの処理が、実際に何ms遅れて
+//   起きたか」を測る。これが伸びていればサーバー自身が詰まっている。
+//
+// ★ なぜ要るか(2026-08-13)
+//   「ボス戦で切断される」が手元でも本番でも再現しない。サーバーは
+//   落ちておらず、部屋だけが消えている。Colyseus は返事の無い接続を
+//   25秒(ping 5秒×5回)で閉じるので、サーバーが詰まって pong を
+//   捌けないと、生きている人まで切られる。無料プランは CPU 0.1 しか
+//   無いため、ボス戦の計算で詰まる筋は十分ある。それを数字で見る。
+let 遅れ今 = 0;
+let 遅れ最大 = 0;
+let 前回tick = Date.now();
+const TICK = 500;
+setInterval(() => {
+  const 今 = Date.now();
+  遅れ今 = Math.max(0, 今 - 前回tick - TICK);
+  前回tick = 今;
+  if (遅れ今 > 遅れ最大) 遅れ最大 = 遅れ今;
+}, TICK);
+
 app.get('/api/ping', (_req, res) => {
-  res.json({ ok: true, uptime: Math.round(process.uptime()), version: VERSION });
+  // peak は前回聞かれてからの最大値。聞くたびに0へ戻すので、
+  // 見張りが5秒おきに聞けば「その5秒間で一番詰まった瞬間」が取れる。
+  const peak = 遅れ最大;
+  遅れ最大 = 0;
+  res.json({
+    ok: true, uptime: Math.round(process.uptime()), version: VERSION,
+    lag: 遅れ今, peakLag: peak,
+  });
 });
 
 // サーバーの稼働状態(秘密情報は含めない・動作確認用)

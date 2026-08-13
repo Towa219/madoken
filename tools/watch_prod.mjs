@@ -19,6 +19,14 @@ const 時刻 = () => new Date().toLocaleTimeString('ja-JP', { hour12: false });
 let 前の稼働 = null;
 let 前の版 = null;
 let 連続無応答 = 0;
+let 最大遅れ = 0;
+
+// ★ 応答の遅さも測る。
+//   Renderの無料プランは CPU 0.1 しか無い。ボス戦はサーバー側の計算が
+//   一番重いので、詰まると ping の応答が返せず、Colyseus が
+//   「返事が無い」と見なして接続を閉じる(pingInterval 5秒 × 5回 = 25秒)。
+//   落ちた時刻に応答が遅くなっていれば、それが原因だと分かる。
+const 遅い = 1000;   // これを超えたら目立たせる
 
 console.log(`本番を見張ります: ${基点}(${間隔 / 1000}秒おき)`);
 console.log('稼働時間が減ったら「★再起動」と出します。Ctrl+Cで止まります。');
@@ -26,9 +34,13 @@ console.log('稼働時間が減ったら「★再起動」と出します。Ctrl
 async function 一回() {
   let ping = null;
   let status = null;
+  let 遅れ = 0;
   try {
     const c = AbortSignal.timeout(20000);
+    const t0 = Date.now();
     ping = await fetch(`${基点}/api/ping`, { signal: c }).then(r => r.json());
+    遅れ = Date.now() - t0;
+    if (遅れ > 最大遅れ) 最大遅れ = 遅れ;
   } catch (e) {
     連続無応答++;
     console.log(`${時刻()}  ✖ 応答なし(${連続無応答}回連続) ${String(e.message ?? e).slice(0, 60)}`);
@@ -53,7 +65,13 @@ async function 一回() {
     console.log(`${時刻()}  ★再起動 稼働${前の稼働}秒 → ${稼働}秒`
       + `${版 !== 前の版 ? `(版 ${前の版} → ${版}=配備)` : '(版は同じ=配備ではない)'}`);
   } else {
-    console.log(`${時刻()}  稼働${稼働}秒 v${版} 在室${人}人 ${部屋}`);
+    // lag はサーバー自身の詰まり(回線が混ざらない)。peakLag は前回聞いてから
+    // の最大値なので、5秒おきに聞けば取りこぼしが無い。
+    const 詰まり = ping.peakLag === undefined
+      ? ''
+      : ` 詰まり${String(ping.peakLag).padStart(5)}ms${ping.peakLag > 2000 ? ' ★★詰まっている' : ''}`;
+    console.log(`${時刻()}  稼働${稼働}秒 応答${String(遅れ).padStart(5)}ms`
+      + `${遅れ > 遅い ? ' ★遅い' : ''}${詰まり} v${版} 在室${人}人 ${部屋}`);
   }
   前の稼働 = 稼働;
   前の版 = 版;
