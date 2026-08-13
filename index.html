@@ -49,11 +49,12 @@
       <nav>
         <button id="tab-lab" class="tab active">研究室</button>
         <button id="tab-battle" class="tab">戦闘</button>
+        <!-- 出す・出さないは PETS_PUBLIC で決まる(src/admin.ts が外す)。
+             最初は hidden にしておき、判断がついてから出す。 -->
+        <button id="tab-pet" class="tab hidden" title="試験中">ペット</button>
         <button id="tab-shop" class="tab">交易所</button>
         <button id="tab-book" class="tab">発見図鑑</button>
         <button id="tab-manual" class="tab">説明書</button>
-        <!-- ペットは試験中。管理者モードに入っている間だけ出る(src/admin.ts) -->
-        <button id="tab-pet" class="tab hidden" title="試験中">ペット</button>
         <button id="tab-settings" class="tab" title="引き継ぎ・初期化">⚙ 設定</button>
       </nav>
     </header>

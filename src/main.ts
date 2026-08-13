@@ -53,8 +53,8 @@ function battleInProgress(): boolean {
 
 // 画面に並んでいる順(index.html の nav と同じにしておく)
 const TAB_BUTTONS = [
-  '#tab-lab', '#tab-battle', '#tab-shop', '#tab-book', '#tab-manual',
-  '#tab-pet', '#tab-settings',
+  '#tab-lab', '#tab-battle', '#tab-pet', '#tab-shop', '#tab-book',
+  '#tab-manual', '#tab-settings',
 ];
 
 // 戦闘中・取引中は、今表示しているタブ以外を押せなくする
