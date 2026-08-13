@@ -24,6 +24,7 @@ import {
 } from '../shared/pets';
 import type { Pet } from '../shared/pets';
 import { boardPet, listBoard, listPets, savePets, serializePet, unboardPet } from './pets';
+import { redis } from './upstash';
 
 const { Server } = colyseusPkg;
 const { WebSocketTransport } = wsTransportPkg;
@@ -577,6 +578,7 @@ app.get('/api/ping', (_req, res) => {
     lag: 遅れ今, peakLag: peak,
     rssMB: Math.round(m.rss / 1048576),
     heapMB: Math.round(m.heapUsed / 1048576),
+    lastExit,   // 前回どう終わったか(これが分かれば次の手が決まる)
   });
 });
 
@@ -610,6 +612,67 @@ app.get('/api/discord-test', (req, res) => {
 // ビルド済みクライアントを配信
 const distPath = path.resolve(process.cwd(), 'dist');
 app.use(express.static(distPath));
+
+// ---------------------------------------------------------------- 死に方を残す
+//
+// ★ なぜ要るか(2026-08-13)
+//   稼働53分で、配備でもないのにサーバーのプロセスが入れ替わった。
+//   共闘で戦っていた人は code=1006 で切られている。だが「なぜ死んだか」は
+//   死んだ後には何も残らない。Renderのログは手元から読めないので、
+//   サーバー自身に書き残させる。
+//
+// ★ 読み取りの決まり
+//   起きた時に前回の記録を読み、**すぐ消す**。次に死ぬ時に書き残せなければ
+//   記録は空のままになる。つまり:
+//     ・「SIGTERM」  … プラットフォームが止めた(配備・再配置・スリープ)
+//     ・「crash: …」 … こちらのコードの例外
+//     ・記録なし      … 書く暇もなく殺された(メモリ超過=SIGKILLが濃厚)
+//   この3つを分けられれば、次に打つ手が決まる。
+const EXIT_KEY = 'madoken:lastexit';
+let lastExit = '(まだ読んでいない)';
+
+async function 終わり方を残す(理由: string): Promise<void> {
+  const 行 = `${new Date().toISOString()} ${理由}`;
+  console.error(`[終了] ${行}`);
+  if (!persistent) return;
+  try { await redis(['SET', EXIT_KEY, 行]); } catch { /* 書けなくても止めない */ }
+}
+
+void (async () => {
+  if (!persistent) { lastExit = '(手元では記録しない)'; return; }
+  try {
+    const v = await redis(['GET', EXIT_KEY]);
+    lastExit = v ? String(v) : '記録なし(書く暇もなく殺された=メモリ超過が濃厚)';
+    // ★ 読んだら必ず消す。残したままだと、次に書き残せずに死んだ時に
+    //   前回の記録を今回のものと読み違える。
+    await redis(['DEL', EXIT_KEY]);
+  } catch { lastExit = '(読めなかった)'; }
+})();
+
+// ★ 受け皿を置く。今まで一つも無かった。
+//   Node は約束事の取りこぼし(unhandledRejection)だけでプロセスを
+//   終わらせる。サーバーのどこか1か所の書き忘れで、遊んでいる全員が
+//   落ちることになる。まず声を上げさせ、落とさずに続ける。
+process.on('unhandledRejection', (理由: unknown) => {
+  const 文 = 理由 instanceof Error ? `${理由.message}\n${理由.stack ?? ''}` : String(理由);
+  console.error('[取りこぼし] 約束事が失敗したまま拾われませんでした:', 文);
+  void 終わり方を残す(`unhandledRejection(続行した): ${文.slice(0, 300)}`);
+  // ★ ここで落とさないこと。落とすと部屋ごと全員が切れる。
+});
+
+process.on('uncaughtException', (err: Error) => {
+  console.error('[致命] 拾われなかった例外:', err.stack ?? err.message);
+  // こちらは状態が壊れている可能性が高いので、書き残してから終わる。
+  void 終わり方を残す(`uncaughtException: ${err.message}`)
+    .finally(() => process.exit(1));
+});
+
+for (const 合図 of ['SIGTERM', 'SIGINT'] as const) {
+  process.on(合図, () => {
+    void 終わり方を残す(`${合図}(プラットフォームまたは人が止めた)`)
+      .finally(() => process.exit(0));
+  });
+}
 
 const httpServer = createServer(app);
 
