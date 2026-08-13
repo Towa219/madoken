@@ -567,9 +567,16 @@ app.get('/api/ping', (_req, res) => {
   // 見張りが5秒おきに聞けば「その5秒間で一番詰まった瞬間」が取れる。
   const peak = 遅れ最大;
   遅れ最大 = 0;
+  // ★ メモリも出す。無料プランは512MBで、超えると問答無用で殺される。
+  //   2026-08-13、版が同じまま(=配備ではない)のにサーバーが勝手に
+  //   再起動し、共闘中の人が code=1006 で切られた。稼働53分だった。
+  //   じわじわ増えて上限に当たっているなら、ここに出る。
+  const m = process.memoryUsage();
   res.json({
     ok: true, uptime: Math.round(process.uptime()), version: VERSION,
     lag: 遅れ今, peakLag: peak,
+    rssMB: Math.round(m.rss / 1048576),
+    heapMB: Math.round(m.heapUsed / 1048576),
   });
 });
 

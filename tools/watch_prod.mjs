@@ -70,8 +70,13 @@ async function 一回() {
     const 詰まり = ping.peakLag === undefined
       ? ''
       : ` 詰まり${String(ping.peakLag).padStart(5)}ms${ping.peakLag > 2000 ? ' ★★詰まっている' : ''}`;
+    // ★ メモリを見る。無料プランは512MBで、超えると問答無用で殺される。
+    //   じわじわ増えて上限に当たっているなら、再起動の直前に跳ねる。
+    const メモリ = ping.rssMB === undefined
+      ? ''
+      : ` メモリ${String(ping.rssMB).padStart(3)}MB${ping.rssMB > 400 ? ' ★★上限が近い' : ''}`;
     console.log(`${時刻()}  稼働${稼働}秒 応答${String(遅れ).padStart(5)}ms`
-      + `${遅れ > 遅い ? ' ★遅い' : ''}${詰まり} v${版} 在室${人}人 ${部屋}`);
+      + `${遅れ > 遅い ? ' ★遅い' : ''}${詰まり}${メモリ} v${版} 在室${人}人 ${部屋}`);
   }
   前の稼働 = 稼働;
   前の版 = 版;
