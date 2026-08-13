@@ -23,6 +23,7 @@ import { currentAllyCharId, renderAllyPicker } from './allypick';
 import { ALLY_RP_MUL } from '../shared/allies';
 import { renderTips } from './tips';
 import { renderChanges, renderChangeHistory } from './changes';
+import { clearDrops, renderDropLog } from './droplog';
 import { initShare } from './share';
 import { loadArtwork } from './artwork';
 import { initCharPicker, renderCharPickers } from './character';
@@ -132,6 +133,7 @@ function switchTab(tab: Tab): void {
   if (tab === 'manual') renderManual();
   if (tab === 'pet') void renderPets();
   if (tab === 'settings') {
+    renderDropLog();         // 切断の記録(再現しない切断を追う手掛かり)
     renderChangeHistory();   // 更新履歴(帯から消えたぶんもここに残る)
     renderCloudStatus();
     renderCharPickers();
@@ -346,6 +348,11 @@ function main(): void {
 
   $('#btn-solo-go').addEventListener('click', () => {
     void startBattle(selectedStage(state.maxStage));
+  });
+
+  $('#btn-clear-drops').addEventListener('click', () => {
+    clearDrops();
+    showToast('切断の記録を消した。');
   });
 
   const resetBtn = $('#btn-reset');

@@ -226,8 +226,20 @@
         <div id="support-box" class="hidden"></div>
       </section>
 
-      <!-- 更新履歴。画面上を流れる「最近の変更点」は4日で消えるが、
-           ここには日付と版番号を添えて残る(src/changes.ts)。 -->
+      <!-- 切断の記録。共闘・決闘で切れた時の理由(コード)を端末に残す。
+           再現しない切断を追うための唯一の手掛かりになる(src/droplog.ts)。 -->
+      <section class="panel" id="drop-panel">
+        <h2>切断の記録</h2>
+        <p class="note">共闘や決闘で通信が切れた時、その理由をここに残します。
+        落ちた時の行を教えていただけると原因を絞れます。</p>
+        <div id="drop-log"></div>
+        <div style="margin-top:10px">
+          <button id="btn-clear-drops">記録を消す</button>
+        </div>
+      </section>
+
+      <!-- 更新履歴。画面上を流れる「最近の変更点」は新しい方から2件だけ
+           流れるが、ここには日付と版番号を添えて全部残る(src/changes.ts)。 -->
       <section class="panel" id="history-panel">
         <h2>更新履歴</h2>
         <p class="note">画面の上を流れた「最近の変更点」は、ここに残ります。</p>

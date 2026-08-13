@@ -22,6 +22,7 @@ import { addElements, equippedSpells, markBossCleared, notify, state } from './s
 import type { ElementId, Spell } from '../shared/types';
 import { playBgm, playSfx, startSfxLoop, stopAllSfxLoops, stopSfxLoop } from './sound';
 import { PET_SPECIES } from '../shared/pets';
+import { dropReason, noteDrop } from './droplog';
 
 const W = 960;
 const H = 540;
@@ -558,6 +559,9 @@ export class CoopView {
     // 誰かが離脱 → 前ステージまでのクリア扱いで全員ロビーへ
     room.onMessage('aborted', (m: { name: string; clearedStage: number }) => {
       this.toldWhy = true;
+      // ★ 記録に残す。全員が切れた時にサーバーがこれを送って部屋を畳むので、
+      //   「一人落ちてから残りも続けて落ちた」時の最後の1人がここを通る。
+      noteDrop(`共闘中断 ${m.name} の離脱 ステージ${m.clearedStage}まで`);
       const overlay = this.$('#coop-overlay');
       overlay.innerHTML =
         `<div class="result-box">` +
@@ -599,8 +603,14 @@ export class CoopView {
       showToast(`${m.name} が離脱した。残りの人数で続行する。`);
     });
 
-    room.onLeave(() => void this.handleDisconnect());
-    room.onError(() => void this.handleDisconnect());
+    // ★ 理由(コード)を捨てないこと。捨てていたせいで、遊んでいる人から
+    //   「サーバー切断で落ちる」と言われても、回線なのかサーバーなのか
+    //   プロキシなのかを分ける手掛かりが何も残らなかった。
+    //   1000=正常 / 1001=サーバーが閉じた / 1006=前触れなく切断(回線・プロキシ)
+    //   4000番台=Colyseusの都合。ここが分かれば見る場所が決まる。
+    room.onLeave((code: number) => void this.handleDisconnect(dropReason(code)));
+    room.onError((code: number, msg?: string) =>
+      void this.handleDisconnect(`エラー ${code}${msg ? ` ${msg}` : ''}`));
 
     // 留守の間に決着していないかをサーバーに聞く。
     // 受け取り口を用意し終えてから聞くので、取りこぼしがない。
@@ -665,20 +675,29 @@ export class CoopView {
   // 電波が一瞬途切れただけのことが多いので、まず共闘へ戻ることを試みる。
   // 以前はここで即座に退出しており、しかもサーバー側は1人の離脱で
   // 部屋全員のランを終わらせていたため、巻き添えが大きかった。
-  private async handleDisconnect(): Promise<void> {
-    if (this.exited || this.toldWhy) { this.handleExit(); return; }
+  private async handleDisconnect(理由 = ''): Promise<void> {
+    // ★ 黙って抜けないこと。ここは「もう結果を伝えてある」時に通るが、
+    //   結果を見る前に切れた場合も同じ道を通り、遊んでいる人には
+    //   「いきなり戦闘選択に戻った」としか見えない。何が起きたかを残す。
+    if (this.exited || this.toldWhy) {
+      noteDrop(`決着後に切断 ${理由}`);
+      this.handleExit(); return;
+    }
     if (this.reconnecting) return;
     this.reconnecting = true;
-    showToast('通信が切れた。共闘への復帰を試みている…');
+    noteDrop(`戦闘中に切断 ${理由}`);
+    showToast(`通信が切れた(${理由 || '理由不明'})。共闘への復帰を試みている…`);
 
     const back = await this.tryReconnect();
     this.reconnecting = false;
     if (back) {
+      noteDrop('復帰した');
       showToast('共闘に復帰した。');
       return;
     }
-    showToast('共闘に復帰できなかった。'
-      + 'サーバーが更新された可能性がある。ロビーから入り直してほしい。');
+    noteDrop(`復帰できなかった ${理由}`);
+    showToast(`共闘に復帰できなかった(${理由 || '理由不明'})。`
+      + 'ロビーから入り直してほしい。設定の下に記録が残ります。');
     this.handleExit();
   }
 
