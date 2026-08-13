@@ -349,16 +349,26 @@ export function equipSlotNo(id: string): number {
 // 魔導書の並び順にそろえる。研究室で見えている順が、そのまま戦闘のキー1〜6になる。
 export function sortSpells(list: Spell[]): Spell[] {
   const out = [...list];
+  if (state.sortMode === 'order') return out;   // 調合した順のまま
+
+  // ★ 並べ替えも「画面に出ている数字」で行うこと。
+  //   sp.stats は素の値で、魔導書が出す数字は得意エレメントの上乗せ
+  //   (+10%)が乗っている。素で並べると、出ている数字が降順にならない。
+  //   実際に 137 → 142 と下から上がっていた(2026-08-13に画面で確認)。
+  // ★ 値は先に1回だけ出して控える。比べるたびに withCharBonus を
+  //   呼ぶと、並べ替えのたびに性能を作り直すことになる。
+  const 魔導値 = new Map<string, number>();
+  for (const sp of out) 魔導値.set(sp.id, spellMagicValue(withCharBonus(sp).stats));
+  const mv = (sp: Spell): number => 魔導値.get(sp.id) ?? 0;
+
   if (state.sortMode === 'power') {
-    out.sort((a, b) => spellMagicValue(b.stats) - spellMagicValue(a.stats));
+    out.sort((a, b) => mv(b) - mv(a));
   } else if (state.sortMode === 'use') {
     // 装備回数が同じなら魔導値の高い方を上に。
     // 回数が0どうし(まだ一度も装備していない)でも並びが安定する。
-    out.sort((a, b) =>
-      (b.equipCount ?? 0) - (a.equipCount ?? 0)
-      || spellMagicValue(b.stats) - spellMagicValue(a.stats));
+    out.sort((a, b) => (b.equipCount ?? 0) - (a.equipCount ?? 0) || mv(b) - mv(a));
   }
-  return out;   // order は調合した順のまま
+  return out;
 }
 
 export function totalInventory(): number {
