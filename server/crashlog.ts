@@ -27,3 +27,29 @@ export function noteRoomCrash(text: string): void {
 export function roomCrashes(): RoomCrash[] {
   return 控え.slice();
 }
+
+// ---------------------------------------------------------------- 切れ方
+//
+// ★ なぜサーバー側でも記録するか(2026-08-14)
+//   遊んでいる人の画面には必ず code=1006 が出る。前触れなく切れると
+//   閉じる挨拶が届かないので、原因が何であれ 1006 になってしまう。
+//   これでは「サーバーが閉じた」のか「間の回線・プロキシで切れた」のかを
+//   分けられない。サーバー側が見た番号と、在室していた秒数を残す。
+//
+//   ・server-code=1006 … サーバーから見ても前触れなく切れた
+//                        = 間(回線・Renderのプロキシ)で切れている
+//   ・1000/1001 など    … 相手がきちんと閉じた
+//   ・25秒前後で毎回切れる … 返事が無いとみなして**サーバーが閉じている**
+//                        (pingInterval 5秒 × pingMaxRetries 5回)
+
+const 切れ控え: RoomCrash[] = [];
+
+export function noteDisconnect(text: string): void {
+  切れ控え.unshift({ at: new Date().toISOString(), text: text.slice(0, 300) });
+  if (切れ控え.length > KEEP) 切れ控え.length = KEEP;
+  console.log(`[切断] ${text}`);
+}
+
+export function disconnects(): RoomCrash[] {
+  return 切れ控え.slice();
+}

@@ -25,7 +25,7 @@ import {
 import type { Pet } from '../shared/pets';
 import { boardPet, listBoard, listPets, savePets, serializePet, unboardPet } from './pets';
 import { redis } from './upstash';
-import { roomCrashes } from './crashlog';
+import { disconnects, roomCrashes } from './crashlog';
 
 const { Server } = colyseusPkg;
 const { WebSocketTransport } = wsTransportPkg;
@@ -583,6 +583,7 @@ app.get('/api/ping', (_req, res) => {
     // 部屋の計算で出た例外。落とさずに続けているので、ここを見ないと
     // 起きたことに誰も気づけない。
     roomCrashes: roomCrashes().slice(0, 5),
+    disconnects: disconnects().slice(0, 8),
   });
 });
 

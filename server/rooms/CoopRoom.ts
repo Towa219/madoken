@@ -33,7 +33,7 @@ import type { AffinityGrade, EnemyDef } from '../../shared/data';
 import type { ElementCounts, ElementId, SpellStats } from '../../shared/types';
 import { chosenPetOf, partyBonusOf } from '../../shared/pets';
 import { grantBossEggOnce, hasBossEggRecord, listPets } from '../pets';
-import { noteRoomCrash } from '../crashlog';
+import { noteDisconnect, noteRoomCrash } from '../crashlog';
 
 export const PLAYER_XS = [110, 165, 220];
 
@@ -250,6 +250,30 @@ export class CoopRoom extends Room<CoopState> {
       `共闘(ステージ${this.state.stage})`, p.name,
       (client.auth as { ip?: string } | undefined)?.ip ?? '',
     );
+
+    // ★ サーバー側から見た切れ方を残す。
+    //   遊んでいる人の画面には必ず 1006 が出る ― 前触れなく切れると
+    //   閉じる挨拶が届かないので、原因が何であれ 1006 になる。
+    //   これでは「サーバーが閉じた」のか「間の回線・プロキシで切れた」のかを
+    //   分けられない。サーバーが見た番号と在室秒数があれば分けられる。
+    //   ★ 25秒前後で毎回切れているなら、返事が無いとみなして
+    //     **サーバー自身が閉じている**(pingInterval 5秒 × 5回)。
+    const 入室 = Date.now();
+    const 生 = (client as unknown as {
+      ref?: { on?: (ev: string, fn: (...a: unknown[]) => void) => void };
+    }).ref;
+    try {
+      生?.on?.('close', (code: unknown, reason: unknown) => {
+        const 秒 = Math.round((Date.now() - 入室) / 1000);
+        const r = typeof reason === 'string' ? reason
+          : reason && typeof (reason as { toString?: unknown }).toString === 'function'
+            ? String(reason) : '';
+        noteDisconnect(
+          `共闘 ステージ${this.state.stage} "${p.name}" 在室${秒}秒 相=${this.state.phase} `
+          + `server-code=${String(code)}${r ? ` 理由=${r}` : ''}`,
+        );
+      });
+    } catch { /* 覗けなくてもゲームは止めない */ }
 
     // 同じ人が別の戦闘部屋にいたら、そちらを閉じる(部屋の乱立を防ぐ)
     claimBattleSlot(p.name, client.sessionId, () => {
