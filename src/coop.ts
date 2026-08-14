@@ -313,9 +313,9 @@ export class CoopView {
   }
 
   // どんな状態でも確実に共闘画面から抜ける(サーバーへのleaveは投げっぱなし)
-  private exitNow(): void {
+  private exitNow(理由 = '自分で退出'): void {
     try { void this.room?.leave(); } catch { /* 切断済みでも無視 */ }
-    this.handleExit();
+    this.handleExit(理由);
   }
 
   private buildEnemyStatus(enemies: { defId: string; name: string }[]): void {
@@ -610,7 +610,7 @@ export class CoopView {
       this.toldWhy = true;
       showToast('別の部屋に入ったため、こちらの部屋からは退出した。');
       void room.leave();
-      this.handleExit();
+      this.handleExit('別の部屋に入った(replaced)');
     });
     // 仲間が切れた/戻ってきた
     // 自分のことは出さない。自分には「復帰を試みている」を別に出しており、
@@ -709,7 +709,7 @@ export class CoopView {
     //   本当に落ちた時の手掛かりになる。
     if (this.exited || this.toldWhy) {
       noteDrop(`決着後に部屋が閉じた(正常) ${理由}`);
-      this.handleExit(); return;
+      this.handleExit('決着後'); return;
     }
     if (this.reconnecting) return;
     this.reconnecting = true;
@@ -726,7 +726,7 @@ export class CoopView {
     noteDrop(`復帰できなかった ${理由}`);
     showToast(`共闘に復帰できなかった(${理由 || '理由不明'})。`
       + 'ロビーから入り直してほしい。設定の下に記録が残ります。');
-    this.handleExit();
+    this.handleExit('復帰を諦めた');
   }
 
   // 少し間を置いて何度か試す。
@@ -773,8 +773,13 @@ export class CoopView {
     }
   }
 
-  private handleExit(): void {
+  // ★ 誰が退出させたかを必ず残すこと。
+  //   2026-08-14、切断から5秒で「復帰できなかった」と出た。復帰は90秒
+  //   粘る設計なので、途中で this.exited が立って打ち切られている。
+  //   どこで立ったのかは、記録が無ければ延々と当てずっぽうになる。
+  private handleExit(理由 = '(不明)'): void {
     if (this.exited) return;
+    noteDrop(`共闘の画面を閉じた: ${理由}`);
     this.exited = true;
     stopAllSfxLoops();
     this.room = null;

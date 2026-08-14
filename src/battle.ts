@@ -1040,6 +1040,15 @@ export class BattleManager {
     (window as unknown as { __playerDebug?: unknown }).__playerDebug = {
       mp: this.mp, maxMp: this.maxMp, mpRegen: this.mpRegen,
       hp: this.hp, maxHp: this.maxHp, pet: battlePet()?.species ?? '',
+      // 瞑想(focus)がいつ効き始めたかを測るため。
+      // ★ 「効果が詠唱開始から出ている気がする」と言われた時、
+      //   コードを読んで「完了時です」と答えるだけでは足りない。
+      //   詠唱は1.1〜1.3秒しかなく、唱えた瞬間にMPが22減って
+      //   そこから通常回復で戻り始めるので、目には早く見える。
+      //   上乗せが立つ時刻と詠唱時間を並べて測れるようにしておく。
+      mpRegenBonus: this.mpRegenBonus,
+      casting: this.casting ? this.casting.spell.stats.castTime : 0,
+      castT: this.casting ? this.casting.t : -1,
     };
   }
 
