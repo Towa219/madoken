@@ -33,6 +33,9 @@ const 直前 = [];
 const 直前の数 = 40;
 let 前の部屋 = '';
 let 前の出力 = null;
+// 同じ切断を何度も出さないための控え。
+const 見た切断 = new Set();
+let 初回読み込み = true;
 
 console.log(`本番を見張ります: ${基点}(${間隔 / 1000}秒おき)`);
 console.log('稼働時間が減ったら「★再起動」と出します。Ctrl+Cで止まります。');
@@ -107,6 +110,25 @@ async function 一回() {
       前の出力 = 稼働;
     }
     前の部屋 = 部屋;
+
+    // ★ サーバー側から見た切れ方。ここが本命。
+    //   遊んでいる人の画面は原因が何であれ 1006 になるので、
+    //   サーバーが見た番号と在室秒数が無いと切り分けられない。
+    for (const d of (ping.disconnects ?? []).slice().reverse()) {
+      const 鍵 = `${d.at}|${d.text}`;
+      if (見た切断.has(鍵)) continue;
+      見た切断.add(鍵);
+      if (初回読み込み) continue;   // 起動時に溜まっていたぶんは流さない
+      console.log(`  ▼切断 ${d.at.slice(11, 19)} ${d.text}`);
+    }
+    初回読み込み = false;
+
+    for (const c of (ping.roomCrashes ?? [])) {
+      const 鍵 = `c|${c.at}|${c.text}`;
+      if (見た切断.has(鍵)) continue;
+      見た切断.add(鍵);
+      console.log(`  ▼▼部屋の例外 ${c.at.slice(11, 19)} ${c.text}`);
+    }
   }
   前の稼働 = 稼働;
   前の版 = 版;

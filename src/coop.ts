@@ -23,6 +23,7 @@ import type { ElementId, Spell } from '../shared/types';
 import { playBgm, playSfx, startSfxLoop, stopAllSfxLoops, stopSfxLoop } from './sound';
 import { PET_SPECIES } from '../shared/pets';
 import { dropReason, noteDrop } from './droplog';
+import { askConfirm } from './confirm';
 
 const W = 960;
 const H = 540;
@@ -281,10 +282,34 @@ export class CoopView {
     const esc2 = document.createElement('button');
     esc2.id = 'btn-escape';
     esc2.textContent = '退出';
-    esc2.addEventListener('click', () => this.exitNow());
+    esc2.addEventListener('click', () => { void this.confirmExit(); });
     escRow.appendChild(esc2);
     bar.appendChild(escRow);
     bar.classList.remove('hidden');
+  }
+
+  // 退出の手前で一度聞く。
+  //
+  // ★ 退出ボタンは魔法ボタンのすぐ下にある。戦っている最中に押し間違えると
+  //   そこまでの戦果が消え、仲間がいれば残された側にも影響する。
+  // ★ 決着がついた後(done)は聞かない。もう失うものが無いのに毎回聞くと、
+  //   ただの邪魔になる。
+  // ★ 聞いている間も戦闘は止めない。止めると「窓を開けているあいだは
+  //   無敵」になり、危なくなったら開いて凌ぐ手が生まれる。
+  //   そのぶん、止まらないことを窓の中に必ず書く。
+  private async confirmExit(): Promise<void> {
+    const 相 = (this.room?.state as { phase?: string } | undefined)?.phase;
+    if (this.exited || !this.room || 相 === 'done' || 相 === undefined) {
+      this.exitNow(); return;
+    }
+    const ok = await askConfirm({
+      title: '共闘から退出する?',
+      body: 'ここまでの戦果は記録されません。仲間がいる場合、'
+        + '残った人はそのまま続きます。<br>'
+        + '<b>確かめている間も戦闘は止まりません。</b>',
+      yes: '退出する', danger: true,
+    });
+    if (ok) this.exitNow();
   }
 
   // どんな状態でも確実に共闘画面から抜ける(サーバーへのleaveは投げっぱなし)
