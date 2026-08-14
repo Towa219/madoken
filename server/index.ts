@@ -656,7 +656,9 @@ async function 終わり方を残す(理由: string): Promise<void> {
   const 行 = `${new Date().toISOString()} ${理由}`;
   console.error(`[終了] ${行}`);
   if (!persistent) return;
-  try { await redis(['SET', EXIT_KEY, 行]); } catch { /* 書けなくても止めない */ }
+  // ★ 黙って握り潰さないこと。書けていないのに気づけなくなる。
+  try { await redis(['SET', EXIT_KEY, 行]); }
+  catch (e) { console.error('[終了] 記録を書けませんでした:', e); }
 }
 
 // 聞かれるたびに読み直す(20秒だけ控える)。
@@ -684,17 +686,47 @@ process.on('unhandledRejection', (理由: unknown) => {
   // ★ ここで落とさないこと。落とすと部屋ごと全員が切れる。
 });
 
+// ★ 終わり方は「書いてから」たたむ。順番を逆にすると何も残らない。
+//
+//   2026-08-14に実測: SIGTERMを受けても記録が一度も書かれなかった。
+//   原因はこちらの取りこぼしではなく**順番**だった。Colyseus は
+//   既定で自前の SIGTERM/SIGINT/uncaughtException を登録し
+//   (@colyseus/core の registerGracefulShutdown)、部屋をたたみ終えると
+//   その場で process.exit を呼ぶ。在室0人なら数ミリ秒で終わるので、
+//   こちらの Upstash 書き込み(往復100〜300ms)は毎回間に合わない。
+//   「記録が空 = 書く暇もなく殺された」と読んでしまうところだった。
+//
+//   直し方: Colyseus の自動終了を切り(gracefullyShutdown: false)、
+//   締めの手順をこちらが持つ。記録 → 部屋をたたむ → 終了 の順を守る。
+let 部屋をたたむ: (() => Promise<void>) | null = null;
+let 締め中 = false;
+
+async function 締める(理由: string, 終了コード: number): Promise<void> {
+  if (締め中) return;   // 合図が二重に来ても一度だけ
+  締め中 = true;
+  // ★ 記録が先。ここで待たないと今までと同じことになる。
+  await 終わり方を残す(理由);
+  try {
+    // 部屋たたみが詰まっても道連れにしない(5秒で見切る)。
+    await Promise.race([
+      部屋をたたむ?.() ?? Promise.resolve(),
+      new Promise<void>(r => setTimeout(r, 5000)),
+    ]);
+  } catch (e) {
+    console.error('[終了] 部屋をたたむ途中で失敗:', e);
+  }
+  process.exit(終了コード);
+}
+
 process.on('uncaughtException', (err: Error) => {
   console.error('[致命] 拾われなかった例外:', err.stack ?? err.message);
   // こちらは状態が壊れている可能性が高いので、書き残してから終わる。
-  void 終わり方を残す(`uncaughtException: ${err.message}`)
-    .finally(() => process.exit(1));
+  void 締める(`uncaughtException: ${err.message}`, 1);
 });
 
 for (const 合図 of ['SIGTERM', 'SIGINT'] as const) {
-  process.on(合図, () => {
-    void 終わり方を残す(`${合図}(プラットフォームまたは人が止めた)`)
-      .finally(() => process.exit(0));
+  process.once(合図, () => {
+    void 締める(`${合図}(プラットフォームまたは人が止めた)`, 0);
   });
 }
 
@@ -709,7 +741,16 @@ const gameServer = new Server({
     pingInterval: 5000,
     pingMaxRetries: 5,
   }),
+  // ★ 切らないこと。既定(true)だと Colyseus が SIGTERM を先に掴み、
+  //   部屋をたたんだ直後に process.exit を呼ぶ。こちらの「終わり方の記録」が
+  //   毎回間に合わず、死因が永久に空欄になる(上の 締める() の説明を参照)。
+  //   代わりに 締める() から gracefullyShutdown を呼ぶ。
+  gracefullyShutdown: false,
 });
+
+// 締めの手順に、部屋のたたみ方を渡す。
+// exit=false にして、終了そのものは 締める() が受け持つ。
+部屋をたたむ = () => gameServer.gracefullyShutdown(false);
 
 gameServer.define('lobby_chat', LobbyChatRoom);
 gameServer.define('coop', CoopRoom);
