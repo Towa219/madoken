@@ -574,17 +574,20 @@ app.get('/api/ping', (_req, res) => {
   //   再起動し、共闘中の人が code=1006 で切られた。稼働53分だった。
   //   じわじわ増えて上限に当たっているなら、ここに出る。
   const m = process.memoryUsage();
-  res.json({
+  // ★ lastExit は聞かれるたびに読み直す。起動時に一度だけ読むと、
+  //   Renderの入れ替え(新しい方が先に起きる)で必ず取り逃す。
+  void 前回の終わり方().then(前回 => res.json({
     ok: true, uptime: Math.round(process.uptime()), version: VERSION,
+    startedAt: 起動時刻,   // 記録の時刻と突き合わせるため
     lag: 遅れ今, peakLag: peak,
     rssMB: Math.round(m.rss / 1048576),
     heapMB: Math.round(m.heapUsed / 1048576),
-    lastExit,   // 前回どう終わったか(これが分かれば次の手が決まる)
+    lastExit: 前回,   // 前回どう終わったか(時刻で突き合わせる)
     // 部屋の計算で出た例外。落とさずに続けているので、ここを見ないと
     // 起きたことに誰も気づけない。
     roomCrashes: roomCrashes().slice(0, 5),
     disconnects: disconnects().slice(0, 8),
-  });
+  }));
 });
 
 // サーバーの稼働状態(秘密情報は含めない・動作確認用)
@@ -626,15 +629,28 @@ app.use(express.static(distPath));
 //   死んだ後には何も残らない。Renderのログは手元から読めないので、
 //   サーバー自身に書き残させる。
 //
-// ★ 読み取りの決まり
-//   起きた時に前回の記録を読み、**すぐ消す**。次に死ぬ時に書き残せなければ
-//   記録は空のままになる。つまり:
+// ★ 読み取りの決まり(2026-08-14に作り直した)
+//
+//   最初は「起きた時に読んで、すぐ消す」にしていた。これは間違いだった。
+//   Renderは**新しい方を起こしてから古い方を止める**ので、新しい方が
+//   読む時点では古い方はまだ書いていない。結果、ただの配備でも必ず
+//   「記録なし」になり、しかもそこに「メモリ超過が濃厚」と書いてあった。
+//   正常な配備で嘘をつく道具になっていた(実際に20:22の配備で確認)。
+//
+//   直した形:
+//     ・消さない。書いた記録は時刻つきでそのまま残す。
+//     ・起動時に一度だけ読むのではなく、聞かれるたびに読み直す
+//       (少しの間だけ控える)。遅れて書かれても次に聞けば読める。
+//     ・どの死のものかは**時刻で突き合わせる**。見張り(tools/watch_prod.mjs)が
+//       再起動を見つけた時刻と、記録の時刻を並べれば判断できる。
+//
+//   記録の読み方:
 //     ・「SIGTERM」  … プラットフォームが止めた(配備・再配置・スリープ)
 //     ・「crash: …」 … こちらのコードの例外
-//     ・記録なし      … 書く暇もなく殺された(メモリ超過=SIGKILLが濃厚)
-//   この3つを分けられれば、次に打つ手が決まる。
+//     ・再起動の時刻より古い記録しか無い … 書く暇もなく殺された
+//       (メモリ超過=SIGKILLが濃厚)
 const EXIT_KEY = 'madoken:lastexit';
-let lastExit = '(まだ読んでいない)';
+const 起動時刻 = new Date().toISOString();
 
 async function 終わり方を残す(理由: string): Promise<void> {
   const 行 = `${new Date().toISOString()} ${理由}`;
@@ -643,16 +659,19 @@ async function 終わり方を残す(理由: string): Promise<void> {
   try { await redis(['SET', EXIT_KEY, 行]); } catch { /* 書けなくても止めない */ }
 }
 
-void (async () => {
-  if (!persistent) { lastExit = '(手元では記録しない)'; return; }
+// 聞かれるたびに読み直す(20秒だけ控える)。
+let 控え = '(まだ読んでいない)';
+let 控えた時刻 = 0;
+async function 前回の終わり方(): Promise<string> {
+  if (!persistent) return '(手元では記録しない)';
+  if (Date.now() - 控えた時刻 < 20_000) return 控え;
   try {
     const v = await redis(['GET', EXIT_KEY]);
-    lastExit = v ? String(v) : '記録なし(書く暇もなく殺された=メモリ超過が濃厚)';
-    // ★ 読んだら必ず消す。残したままだと、次に書き残せずに死んだ時に
-    //   前回の記録を今回のものと読み違える。
-    await redis(['DEL', EXIT_KEY]);
-  } catch { lastExit = '(読めなかった)'; }
-})();
+    控え = v ? String(v) : '記録がまだ一度も書かれていない';
+    控えた時刻 = Date.now();
+  } catch { return '(読めなかった)'; }
+  return 控え;
+}
 
 // ★ 受け皿を置く。今まで一つも無かった。
 //   Node は約束事の取りこぼし(unhandledRejection)だけでプロセスを
