@@ -16,7 +16,7 @@ import {
 } from '../shared/spellcraft';
 import {
   addElements, addSpell, applyLoadout, deleteSpell, equipSlotNo, equipSlots,
-  hasBossCleared, loadoutIsCurrent, notify, renameLoadout, save, saveLoadout,
+  hasBossCleared, loadoutIsCurrent, notify, playerMagicTotal, renameLoadout, save, saveLoadout,
   sortSpells, spendElements, state, toggleEquip, totalInventory, withCharBonus,
 } from './state';
 import type { ElementCounts, ElementId, Spell, SpellSort } from '../shared/types';
@@ -799,6 +799,21 @@ function renderSpellbook(): void {
   // 装備できる数はボスを倒すと増えるので、見出しも案内も毎回作り直す
   const cap = equipSlots();
   $('#equip-cap').textContent = `(装備は${cap}つまで)`;
+  // 魔導値合計。オンラインの順位はこの数字で競う。
+  //
+  // ★ 「戦闘力」と混同させないこと。あれは今装備している魔法だけを見る。
+  //   こちらは**持っている魔法すべて**から強い順に cap 本ぶんを足すので、
+  //   装備していない魔法も数に入る。同じ画面に別々の数字が2つ出るので、
+  //   何が違うのかを必ず書き添える。
+  // ★ 数え方はサーバーの順位計算(server/ranking.ts の magicRankScore)と
+  //   同じものを使うこと。別々に書くと、画面の数字と順位表がずれる。
+  $('#magic-total').innerHTML =
+    `<b>魔導値合計 ${playerMagicTotal()}</b> ― `
+    + `持っている魔法のうち<b>強い順に${cap}本</b>ぶんの合計`
+    + '(装備していない魔法も数に入る)。'
+    + '<span class="chance-mid">オンラインの順位はこの数字で競う。</span>'
+    + '上の帯の「戦闘力」は今装備している魔法だけを見た別の数字。';
+
   const next = nextEquipUnlock(state.bossCleared);
   $('#equip-note').innerHTML =
     `①②③…の番号が、そのまま戦闘のキー1〜${cap}になる。`
