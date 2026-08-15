@@ -120,15 +120,22 @@ async function main(): Promise<void> {
     確認('弾幕の器を用意できた', 用意 === 'ok', 用意);
     if (用意 !== 'ok') throw new Error(用意);
 
-    // お試しの対象ステージ
-    const 対象 = await ev<{ list: number[]; five: boolean; six: boolean }>(`({
-      list: [...window.__dm.DANMAKU_BOSS_STAGES],
-      five: window.__dm.isDanmakuStage(5),
-      six: window.__dm.isDanmakuStage(10),
+    // 対象ステージ: ボス戦(5の倍数)すべて。ボスでない回では出ない。
+    const 対象 = await ev<Record<string, boolean>>(`({
+      s5: window.__dm.isDanmakuStage(5),
+      s10: window.__dm.isDanmakuStage(10),
+      s25: window.__dm.isDanmakuStage(25),
+      s50: window.__dm.isDanmakuStage(50),
+      s4: window.__dm.isDanmakuStage(4),
+      s7: window.__dm.isDanmakuStage(7),
+      s11: window.__dm.isDanmakuStage(11),
     })`);
-    確認('ステージ5では出る', 対象.five);
-    確認('ステージ10ではまだ出ない(お試しのため)', !対象.six,
-      `対象は ${対象.list.join('・')}`);
+    確認('ボス戦(5・10・25・50)では出る',
+      対象.s5 && 対象.s10 && 対象.s25 && 対象.s50,
+      `5=${対象.s5} 10=${対象.s10} 25=${対象.s25} 50=${対象.s50}`);
+    確認('ボスでない回(4・7・11)では出ない',
+      !対象.s4 && !対象.s7 && !対象.s11,
+      `4=${対象.s4} 7=${対象.s7} 11=${対象.s11}`);
 
     // --- 1回目 ---
     await ev(`window.__dm.playDanmaku('room1:5', ${JSON.stringify(名前)})`);

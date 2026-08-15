@@ -13,15 +13,16 @@
 //   ボス撃破の4秒後には次のステージが始まるので、出し切るまでを
 //   短く抑えてある(下の 幕 を参照)。
 
-// お試しとして、まずはこのステージのボスを倒した時だけ出す。
-//
-// ★ 増やす時はここに足すだけでよい。
-//   全ボスに広げるなら DANMAKU_BOSS_STAGES を使う側で
-//   「5の倍数すべて」に読み替える。
-export const DANMAKU_BOSS_STAGES: readonly number[] = [5];
+import { isBossStage } from '../shared/data';
 
+// どのボスを倒した時に流すか。
+//
+// ★ 2026-08-15: ステージ5だけのお試しから、ボス戦すべてに広げた。
+//   ボスは5の倍数のステージにしか出ないので、判定は isBossStage に任せる
+//   (節目を動かしても勝手に追いてくる)。
+//   一部のボスだけに戻したくなったら、ここで stage を見て絞ればよい。
 export function isDanmakuStage(stage: number): boolean {
-  return DANMAKU_BOSS_STAGES.includes(stage);
+  return isBossStage(stage);
 }
 
 // 流す言葉。称賛を多めに。
