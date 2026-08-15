@@ -27,6 +27,7 @@ import {
   pickEnemiesForStage, POSE_CAST, POSE_HURT, POSE_HURT_SEC, POSE_IDLE,
   POSE_RELEASE, POSE_RELEASE_SEC,
   RECONNECT_SEC, PLAYER_MAX_HP, PLAYER_MAX_MP, PLAYER_MP_REGEN, REVIVE_HP_RATE,
+  BOSS_CELEBRATE_SEC, STAGE_NEXT_SEC,
   stageAtkMul, stageHpMul,
 } from '../../shared/data';
 import type { AffinityGrade, EnemyDef } from '../../shared/data';
@@ -1153,7 +1154,7 @@ export class CoopRoom extends Room<CoopState> {
         }
         // ★ クリアの知らせは、卵の保存を待たずに先に送る。
         //   待たせると、Upstash が遅い時に素材と研究Pの表示が届かないまま
-        //   4秒後の自動送りが来てしまう。卵は後から別便で知らせればよい。
+        //   次ステージへの自動送りが来てしまう。卵は後から別便で知らせればよい。
         client.send('stageclear', { stage, drops, rp, boss });
         if (boss && stage > 0 && stage % 5 === 0) {
           const who = this.state.players.get(client.sessionId)?.name ?? '';
@@ -1162,7 +1163,12 @@ export class CoopRoom extends Room<CoopState> {
             .catch(() => { try { client.send('bossegg', { stage, egg: 'error' }); } catch { /* 同上 */ } });
         }
       }
-      this.pending.push({ t: 4, fn: () => this.nextStage() });
+      // ★ ボスの後は長めに待つ。コメント弾幕を読み切る間を取るため
+      //   (shared/data.ts の BOSS_CELEBRATE_SEC。弾幕もこの数字から組む)。
+      this.pending.push({
+        t: boss ? BOSS_CELEBRATE_SEC : STAGE_NEXT_SEC,
+        fn: () => this.nextStage(),
+      });
       return;
     }
 

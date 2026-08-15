@@ -18,6 +18,7 @@ import { spawn } from 'node:child_process';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { BOSS_CELEBRATE_SEC } from '../shared/data';
 
 const PAGE = process.env.MADOKEN_URL ?? 'http://localhost:5173';
 const CHROME = process.env.CHROME_PATH
@@ -294,14 +295,39 @@ async function main(): Promise<void> {
       三回目.slice(0, 短い).join('|') !== 一回目.語.slice(0, 短い).join('|'),
       三回目.slice(0, 3).join(' / '));
 
-    // --- 時間が来たら消えるか ---
-    console.log('     出し切って消えるまで待ちます(約10秒)…');
-    await sleep(11_000);
+    // --- 次のステージが始まるまでに出し切れているか ---
+    //
+    // ★ ここが肝。弾幕が残ったまま戦闘が始まると、読む余裕が無いどころか
+    //   敵が見えない。BOSS_CELEBRATE_SEC より前に空になっていること。
+    await ev('window.__dm.stopDanmaku()');
+    await sleep(200);
+    const 始め = Date.now();
+    await ev(`window.__dm.playDanmaku('room1:5', ${JSON.stringify(名前)})`);
+    console.log(`     次のステージが始まる ${BOSS_CELEBRATE_SEC}秒後までに`
+      + '出し切れるかを見ます…');
+
+    let 空になった = 0;
+    let 最多 = 0;
+    for (let i = 0; i < 80; i++) {
+      const n = await ev<number>('document.querySelectorAll("#danmaku .dm-item").length');
+      最多 = Math.max(最多, n);
+      if (n === 0 && Date.now() - 始め > 2000) { 空になった = Date.now() - 始め; break; }
+      await sleep(250);
+    }
+    const 秒 = 空になった / 1000;
+    console.log(`     同時に出ていた最大 ${最多}本 / 空になったのは ${秒.toFixed(1)}秒`);
+    確認('次のステージが始まる前に流し終わる', 空になった > 0 && 秒 <= BOSS_CELEBRATE_SEC,
+      `${秒.toFixed(1)}秒 ≦ ${BOSS_CELEBRATE_SEC}秒`);
+    確認('同時に出すぎていない(読む余裕がある)', 最多 <= 20, `最大${最多}本`);
+
+    // ★ 器を畳むのは最後の1本が渡り終えた少し後。空になった瞬間に
+    //   見に行くと、まだ畳まれていなくて当たり前(試験が早すぎた)。
+    await sleep(1500);
     const 残り = await ev<{ 数: number; 隠れ: boolean }>(`({
       数: document.querySelectorAll('#danmaku .dm-item').length,
       隠れ: document.getElementById('danmaku').classList.contains('hidden'),
     })`);
-    確認('流し終わったら消える', 残り.数 === 0 && 残り.隠れ,
+    確認('流し終わったら器も畳む', 残り.数 === 0 && 残り.隠れ,
       `残り${残り.数}本 / 隠れ=${残り.隠れ}`);
 
     sock.close();
