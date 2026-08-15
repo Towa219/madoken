@@ -215,6 +215,33 @@ async function main(): Promise<void> {
       確認('速さを測れた', false, `突き合わせられたのは${速さ表.length}本`);
     }
 
+    // ★ 1回の弾幕に同じ言葉が2度出ていないか。
+    //   以前は称賛の山を3倍にして切っていたので、30本のうち
+    //   「拍手喝采」「お見事」「しびれた」がそれぞれ2回出ていた。
+    //   言葉の数は足りていても、目には「種類が少ない」と映る。
+    let 重複 = '';
+    const 見た = new Map<string, number>();   // 言葉 → 見かけた車線(top)
+    for (let 回 = 0; 回 < 12 && !重複; 回++) {
+      const 今 = await ev<{ s: string; top: number }[]>(`(() => {
+        return [...document.querySelectorAll('#danmaku .dm-item')].map(e => ({
+          s: e.textContent, top: Math.round(e.getBoundingClientRect().top),
+        }));
+      })()`);
+      // 同時に2つ出ていれば即アウト
+      const 並び = 今.map(x => x.s);
+      const 重 = 並び.find((s, i) => 並び.indexOf(s) !== i);
+      if (重) { 重複 = `同時に2本:「${重}」`; break; }
+      // 別の車線で同じ言葉が出たら、それも重複(1回の弾幕で2度使っている)
+      for (const x of 今) {
+        const 前 = 見た.get(x.s);
+        if (前 !== undefined && 前 !== x.top) { 重複 = `別の車線で再登場:「${x.s}」`; break; }
+        見た.set(x.s, x.top);
+      }
+      await sleep(400);
+    }
+    確認('1回の弾幕に同じ言葉が2度出ない', 重複 === '',
+      重複 || `${見た.size}種類を確認`);
+
     // ★ 同じ車線で文字が重なっていないか。
     //   速さを1本ごとに散らすと後ろが前に追いつき、読めなくなる
     //   (最初の版が実際にそうなっていた)。何度か覗いて確かめる。
