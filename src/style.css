@@ -705,6 +705,60 @@ button.tab:disabled { opacity: 0.4; cursor: not-allowed; }
 #coop-overlay h2.win { color: #88ddaa; font-size: 22px; margin-bottom: 12px; }
 #coop-overlay h2.lose { color: #ff8877; font-size: 22px; margin-bottom: 12px; }
 
+/* ===== ボス撃破後のコメント弾幕(src/danmaku.ts) ===== */
+
+/* ★ 触れないこと(pointer-events:none)。盤面の上に乗るので、
+   これを外すと魔法のボタンが押せなくなる。
+   ★ 決着の overlay(z-index:10)より下に置く。勝敗の知らせは隠さない。 */
+#danmaku {
+  position: absolute; overflow: hidden; pointer-events: none;
+  z-index: 9; border-radius: 8px;
+}
+.dm-item {
+  position: absolute; white-space: nowrap;
+  /* ★ 白字に黒フチ。本家と同じで、色は付けない。
+     色を混ぜると盤面の色とぶつかって読みにくくなる。 */
+  color: #fff;
+  /* 本家の見た目に寄せた太ゴシック。日本語が入っている順に並べる */
+  font-family: 'ＭＳ Ｐゴシック', 'MS PGothic', 'Yu Gothic', 'Meiryo',
+    'Hiragino Kaku Gothic ProN', sans-serif;
+  font-weight: 700; line-height: 1.25;
+  /* 8方向に置いて、細い部分でもフチが切れないようにする */
+  text-shadow:
+    -1px -1px 0 #000, 0 -1px 0 #000, 1px -1px 0 #000,
+    -1px  0   0 #000,                1px  0   0 #000,
+    -1px  1px 0 #000, 0  1px 0 #000, 1px  1px 0 #000;
+  will-change: transform;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+  /* ★ 保険。0秒だと貼った瞬間に終わってしまう(下の dm-go の説明を参照) */
+  animation-duration: 5s;
+}
+/* ★ 動き出しは JS が dm-go を付けてから。
+   貼ってすぐ animation-name を効かせてはいけない。
+   文字幅を測る el.offsetWidth がその場でスタイルを確定させるため、
+   まだ animation-duration が既定(0秒)のままアニメが始まって即座に終わり、
+   animationend で自分を消してしまう。1本も残らなかった原因がこれ
+   (2026-08-15 に実測。仕掛けたタイマーは発火していたのに画面は空だった)。
+   測ってから終点と長さを入れ、最後に dm-go を付ける。 */
+.dm-item.dm-go { animation-name: dm-fly; }
+@keyframes dm-fly {
+  from { transform: translateX(0); }
+  to   { transform: translateX(var(--dm-end, -100vw)); }
+}
+
+/* ★ 動きを減らす設定の人には流さない。画面を横切る文字が続くのは
+   目が回る人がいる。消すのではなく、動かさずに薄く出して消す。 */
+@media (prefers-reduced-motion: reduce) {
+  .dm-item.dm-go { animation-name: dm-fade; animation-duration: 2.5s !important; }
+  @keyframes dm-fade {
+    0%   { opacity: 0; transform: translateX(-40px); }
+    20%  { opacity: 1; transform: translateX(-60px); }
+    80%  { opacity: 1; transform: translateX(-70px); }
+    100% { opacity: 0; transform: translateX(-90px); }
+  }
+}
+
 /* ===== 交易所(ガチャ) ===== */
 
 #gacha-box { display: flex; gap: 24px; align-items: center; flex-wrap: wrap; }

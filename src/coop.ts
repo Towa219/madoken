@@ -24,6 +24,7 @@ import { playBgm, playSfx, startSfxLoop, stopAllSfxLoops, stopSfxLoop } from './
 import { PET_SPECIES } from '../shared/pets';
 import { dropReason, noteDrop } from './droplog';
 import { askConfirm } from './confirm';
+import { isDanmakuStage, playDanmaku, stopDanmaku } from './danmaku';
 
 const W = 960;
 const H = 540;
@@ -571,6 +572,14 @@ export class CoopView {
         markBossCleared(m.stage);
         // 最深部のボスは初回だけレジェンドを授ける
         grantBossReward(m.stage); // 深いボスなら討伐報酬(初回だけ)
+        // 撃破を祝うコメント弾幕(いまはお試しでステージ5だけ)。
+        // ★ 種を部屋IDとステージから作る。同じ部屋の全員が同じ並びを見る。
+        if (isDanmakuStage(m.stage)) {
+          const 名前: string[] = [];
+          (this.room?.state as { players?: { forEach: (f: (p: { name?: string }) => void) => void } })
+            ?.players?.forEach(p => { if (p.name) 名前.push(p.name); });
+          playDanmaku(`${this.room?.roomId ?? 'solo'}:${m.stage}`, 名前);
+        }
       }
       notify();
       const dropStr = m.drops.length > 0
@@ -788,6 +797,8 @@ export class CoopView {
     this.$('#coop-enemy-status').innerHTML = '';
     this.$('#coop-waiting').classList.add('hidden');
     this.$('#coop-overlay').classList.add('hidden');
+    // 流している途中で抜けても残さない(次に共闘へ入った時に出てくる)
+    stopDanmaku();
     this.onExit?.();
   }
 
