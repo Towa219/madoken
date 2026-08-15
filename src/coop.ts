@@ -642,7 +642,7 @@ export class CoopView {
     //   プロキシなのかを分ける手掛かりが何も残らなかった。
     //   1000=正常 / 1001=サーバーが閉じた / 1006=前触れなく切断(回線・プロキシ)
     //   4000番台=Colyseusの都合。ここが分かれば見る場所が決まる。
-    room.onLeave((code: number) => void this.handleDisconnect(dropReason(code)));
+    room.onLeave((code: number) => void this.handleDisconnect(dropReason(code), code));
     room.onError((code: number, msg?: string) =>
       void this.handleDisconnect(`エラー ${code}${msg ? ` ${msg}` : ''}`));
 
@@ -709,7 +709,7 @@ export class CoopView {
   // 電波が一瞬途切れただけのことが多いので、まず共闘へ戻ることを試みる。
   // 以前はここで即座に退出しており、しかもサーバー側は1人の離脱で
   // 部屋全員のランを終わらせていたため、巻き添えが大きかった。
-  private async handleDisconnect(理由 = ''): Promise<void> {
+  private async handleDisconnect(理由 = '', code?: number): Promise<void> {
     // ★ 決着を伝えたあとに接続が閉じるのは正常な動き。部屋が畳まれる
     //   ときに一緒に閉じるだけで、不具合ではない。「切断」と書くと
     //   何ともないことで驚かせるので、正常だと分かる書き方にする
@@ -717,7 +717,12 @@ export class CoopView {
     // ★ それでも記録は残す。決着の前後どちらで切れたかを分けられることが、
     //   本当に落ちた時の手掛かりになる。
     if (this.exited || this.toldWhy) {
-      noteDrop(`決着後に部屋が閉じた(正常) ${理由}`);
+      // ★ ここに来るのは「もう自分で閉じた後」。届く番号はほぼ 1006 だが、
+      //   「サーバーの突然死」という読みを付けてはいけない。何ともない行が
+      //   毎回いちばん物騒に見え、本当の1件が埋もれる。
+      //   2026-08-15の記録では9行のうち3行がこれで、本物の1件(こちらの
+      //   配備で落とした)を探すのに時間がかかった。閉じた後は番号だけ残す。
+      noteDrop(`決着後に部屋が閉じた(正常) code=${code ?? '不明'}`);
       this.handleExit('決着後'); return;
     }
     if (this.reconnecting) return;
