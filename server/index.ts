@@ -19,7 +19,7 @@ import { checkName, claimName, forceReleaseName, releaseName } from './names';
 import { deleteSave, getSave, putSave } from './save';
 import { BUILD_DATE, VERSION } from '../shared/version';
 import {
-  BREED_EGG_MS, DAY_MS, MAX_PETS, canBreed, canWarm, countHeld, breed,
+  BREED_EGG_MS, DAY_MS, MAX_EGGS, canBreed, canWarm, canTakeEgg, whyCannotHatch, breed,
   canChoose, eggSpeciesForBoss, maskPet, pickPetName, warmLeft, wildGene, WARM_INTERVAL_MS,
 } from '../shared/pets';
 import type { Pet } from '../shared/pets';
@@ -173,7 +173,7 @@ app.post('/api/pet/grant', (req, res) => {
   void serializePet(name, async () => {
     const pets = await listPets(name);
     const now = Date.now();
-    if (countHeld(pets, now) >= MAX_PETS) { res.status(400).json({ error: '手持ちのペットが上限です。' }); return; }
+    if (!canTakeEgg(pets, now)) { res.status(400).json({ error: `卵は${MAX_EGGS}個までです。` }); return; }
     const pet = newEgg(name, eggSpeciesForBoss(Number(body.stage) || 0), now);
     pets.push(pet); await savePets(name, pets); res.json({ ok: true, pet: maskPet(pet, now) });
   }).catch(() => res.status(500).json({ error: '卵を追加できませんでした。' }));
@@ -187,6 +187,15 @@ app.post('/api/pet/warm', (req, res) => {
       if (!pet || pet.boarded) { res.status(404).json({ error: '温める卵が見つかりません。' }); return; }
       const now = Date.now();
       if (!canWarm(pet, now)) { res.status(400).json({ error: 'まだ温められる時間ではありません。' }); return; }
+      // ★ この1回で孵るなら、先に鳥の枠を確かめる。
+      //   卵と鳥で枠を分けたので、確かめないと卵を溜めてから一気に孵して
+      //   鳥の上限を越えられる。温めた回数を消費する前に断ること
+      //   (断ってから回数だけ減っていたら、ただの取り上げになる)。
+      const これで孵る = warmLeft(pet) === 1;
+      if (これで孵る) {
+        const 駄目 = whyCannotHatch(pets, now);
+        if (駄目) { res.status(400).json({ error: 駄目 }); return; }
+      }
       pet.warmCount += 1; pet.lastWarmAt = now;
       const hatched = warmLeft(pet) === 0;
       if (hatched) {
@@ -270,7 +279,7 @@ app.post('/api/pet/breed', (req, res) => {
 
     await serializePet([name, previewPartner.ownerName], async () => {
       const pets = await listPets(name); const now = Date.now();
-      if (countHeld(pets, now) >= MAX_PETS) { res.status(400).json({ error: '手持ちのペットが上限です。' }); return; }
+      if (!canTakeEgg(pets, now)) { res.status(400).json({ error: `卵は${MAX_EGGS}個までです。` }); return; }
       // ★ 預けている鳥からも仕掛けられる(2026-08-15)。
       //   以前は !p.boarded を条件にしていたため、別々の人が♂と♀を預けると
       //   どちらからも仕掛けられず手詰まりになっていた。最初の実装から
@@ -284,8 +293,8 @@ app.post('/api/pet/breed', (req, res) => {
       }
       const sameOwner = partner.ownerName === name;
       const ownerPets = sameOwner ? pets : await listPets(partner.ownerName);
-      if (!sameOwner && countHeld(ownerPets, now) >= MAX_PETS) {
-        res.status(400).json({ error: '預けた側がお礼の卵を受け取れる上限を超えています。' }); return;
+      if (!sameOwner && !canTakeEgg(ownerPets, now)) {
+        res.status(400).json({ error: `預けた側の卵が上限(${MAX_EGGS}個)でお礼の卵を受け取れません。` }); return;
       }
       const partnerOwned = ownerPets.find(p => p.id === partner.id);
       if (!partnerOwned) { res.status(404).json({ error: '相手のペットが見つかりません。' }); return; }

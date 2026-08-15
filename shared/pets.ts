@@ -292,12 +292,44 @@ export function canWarm(pet: Pet, now: number): boolean {
 
 // ---------------------------------------------------------------- 所持
 
-// 手元に置ける数(卵・雛・成鳥をぜんぶ含む)。
-// 交配所へ預けている間は数に入れない ― 預ける動機を作るため。
-export const MAX_PETS = 6;
+// 手元に置ける数。鳥と卵で枠を分けてある(2026-08-15)。
+//
+// ★ 分けた理由。卵は自分の意思と関係なく届く ― ボスを倒した時の卵も、
+//   交配所へ預けたお礼の卵も、こちらからは断れない。鳥と同じ枠にすると
+//   「鳥を育てているせいで卵を取り逃す」ことになり、取り逃した卵は
+//   二度と戻らない。受け取り口だけは別に確保しておく。
+//
+// ★ 代わりに、孵化には鳥の枠の空きが要る(下の canHatch)。
+//   分けた以上これが無いと、卵4個を抱えてから一気に孵して
+//   6羽の上限を越えられてしまう。
+// ★ どちらも交配所へ預けている間は数に入れない ― 預ける動機を作るため。
+export const MAX_PETS = 6;   // 鳥(雛・成鳥・老鳥)
+export const MAX_EGGS = 6;   // 卵・巣
 
-export function countHeld(pets: Pet[], now: number): number {
-  return pets.filter(p => !p.boarded && stageOf(p, now) !== 'dead').length;
+// 鳥の数。卵と、天へ行った子は数えない。
+export function countBirds(pets: Pet[], now: number): number {
+  return pets.filter(p => {
+    if (p.boarded) return false;
+    const st = stageOf(p, now);
+    return st !== 'egg' && st !== 'dead';
+  }).length;
+}
+
+// 卵(巣を含む)の数。
+export function countEggs(pets: Pet[], now: number): number {
+  return pets.filter(p => !p.boarded && stageOf(p, now) === 'egg').length;
+}
+
+// 新しい卵を受け取れるか。
+export function canTakeEgg(pets: Pet[], now: number): boolean {
+  return countEggs(pets, now) < MAX_EGGS;
+}
+
+// 今この卵を孵せるか。鳥の枠が空いていないと孵せない。
+// 孵せない時は理由を返す(画面にそのまま出す)。
+export function whyCannotHatch(pets: Pet[], now: number): string | null {
+  if (countBirds(pets, now) < MAX_PETS) return null;
+  return `鳥がいっぱいで孵せない(${MAX_PETS}羽まで)。手放すか交配所へ預けると孵せる。`;
 }
 
 export function shouldPurge(pet: Pet, now: number): boolean {

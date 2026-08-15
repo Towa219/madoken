@@ -1,5 +1,5 @@
 // 試験中のペット保管。Upstash未設定時はサーバー内メモリへ退避する。
-import { MAX_PETS, countHeld, eggSpeciesForBoss, shouldPurge, wildGene } from '../shared/pets';
+import { canTakeEgg, eggSpeciesForBoss, shouldPurge, wildGene } from '../shared/pets';
 import type { Pet } from '../shared/pets';
 import crypto from 'node:crypto';
 import { nicknameKey, normalizeNickname } from '../shared/nickname';
@@ -129,7 +129,7 @@ async function grantBossEggOnceLocked(name: string, stage: number): Promise<Boss
 
   const pets = await listPets(name);
   const now = Date.now();
-  if (countHeld(pets, now) >= MAX_PETS) return 'full';
+  if (!canTakeEgg(pets, now)) return 'full';   // 卵の枠がいっぱい
   pets.push({
     id: crypto.randomUUID(), ownerName: name, species: eggSpeciesForBoss(stage), name: '',
     sex: Math.random() < 0.5 ? 'm' : 'f', hpGene: wildGene(), mpGene: wildGene(),

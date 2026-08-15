@@ -28,7 +28,7 @@ import { ENHANCE_EASE_PER_LEVEL, ENHANCE_MAX } from '../shared/spellcraft';
 import { NICK_MAX_FULL, NICK_MAX_WIDTH } from '../shared/nickname';
 import {
   BOARD_SETTLE_HOURS, BREED_COOLDOWN_MS, BREED_EGG_HOURS, BREED_MAX_COUNT, DEAD_KEEP_DAYS, ELDER_DAYS,
-  GENE_STAT_HIGH, GENE_STAT_LOW, MAX_PETS,
+  GENE_STAT_HIGH, GENE_STAT_LOW, MAX_EGGS, MAX_PETS,
   PET_SPECIES, PET_SPECIES_ORDER, PETS_PUBLIC, STAGE_POWER, WARM_INTERVAL_MS, regenOf,
 } from '../shared/pets';
 import { isAdmin } from './admin';
@@ -111,11 +111,15 @@ function petSection(): string {
   そのたびに<b>あなたにもお礼の卵が1つ届きます</b>。
   預けている間は戦闘に連れて行けません。いつでも引き取れます。</p>
 
-  <p class="man-note"><b>手元に置けるのは${MAX_PETS}羽まで。</b>
-  <b>卵と巣も1羽として数えます</b>ので、卵を抱えたままだと枠が埋まります。
-  交配所へ預けている間は数に入りません。<br>
-  <b>いっぱいだと卵を受け取れません</b> ― ボスを倒しても卵は落ちず、
-  交配のお礼の卵も届きません。今の数はペットの画面の上に出ています。<br>
+  <p class="man-note"><b>手元の枠は、鳥と卵で別々です</b> ―
+  <b>鳥は${MAX_PETS}羽まで、卵は${MAX_EGGS}個まで</b>(巣は卵に数えます)。
+  交配所へ預けている間はどちらにも数えません。<br>
+  卵を別枠にしてあるのは、<b>卵はこちらの都合と関係なく届く</b>からです。
+  ボスを倒した時の卵も、交配所のお礼の卵も断れません。鳥と同じ枠だと
+  「鳥を育てているせいで卵を取り逃す」ことになり、取り逃した卵は戻りません。<br>
+  <b>ただし、鳥がいっぱいだと卵は孵りません。</b>
+  最後の1回を温める時に鳥の枠が要ります(手放すか、交配所へ預けると空きます)。<br>
+  今の数はペットの画面の上に出ています。
   戦闘に連れて行けるのは1羽だけです。名前は生まれた時に決まります。</p>
 </section>`;
 }

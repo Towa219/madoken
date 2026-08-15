@@ -6,8 +6,8 @@
 //   孵ったあとにしか使えない。
 import {
   BOARD_SETTLE_HOURS,
-  BREED_MAX_COUNT, MAX_PETS, PET_SPECIES, PETS_PUBLIC, STAGE_NAME, WARM_INTERVAL_MS,
-  bonusOf, boardSettleMs, breedLeft, countHeld,
+  BREED_MAX_COUNT, MAX_EGGS, MAX_PETS, PET_SPECIES, PETS_PUBLIC, STAGE_NAME, WARM_INTERVAL_MS,
+  bonusOf, boardSettleMs, breedLeft, countBirds, countEggs, whyCannotHatch,
   breedWaitMs, canBreed, chosenPetOf, isNest, lifetimeMsOf, nestLeftMs, petDisplayName, stageOf,
   wireDisplayName,
 } from '../shared/pets';
@@ -219,13 +219,22 @@ const WATCH_INTERVAL_MS = 5 * 60 * 1000;
 let watchTimer = 0;
 
 function actionableCount(pets: WirePet[], now: number): number {
+  // ★ 押しても断られるものは数えない。印だけ出て何もできないのは、
+  //   知らせないより性質が悪い。
   let n = 0;
+  const 手元 = pets as unknown as Pet[];
+  const 孵せる = whyCannotHatch(手元, now) === null;
   for (const p of pets) {                       // 温められる卵
     if (p.hatchedAt <= 0 && !p.boarded && !isNest(p, now)
-      && now - p.lastWarmAt >= WARM_INTERVAL_MS) n++;
+      && now - p.lastWarmAt >= WARM_INTERVAL_MS) {
+      // 最後の1回は鳥の枠が要る。埋まっているなら押せないので数えない。
+      const 残り = p.hint ? Math.max(0, p.hint.warmNeeded - p.warmCount) : 2;
+      if (残り <= 1 && !孵せる) continue;
+      n++;
+    }
   }
-  // 交配。手持ちに空きが無ければ卵を受け取れないので、その時は数えない。
-  if (pets.filter(p => !p.boarded).length < MAX_PETS) {
+  // 交配。卵の枠が空いていなければ受け取れないので、その時は数えない。
+  if (countEggs(手元, now) < MAX_EGGS) {
     const grownPets = pets.map(grown).filter((p): p is Pet => p !== null && !p.boarded);
     let canPair = false;
     for (let i = 0; i < grownPets.length && !canPair; i++) {
@@ -305,7 +314,10 @@ function 卵の時計を回す(): void {
   }, 30 * 1000);   // 30秒ごと。分の表示が1分ずれたまま残らないように
 }
 
-function eggCard(pet: WirePet, now: number): HTMLElement {
+// 孵せない は「鳥の枠が埋まっていて孵化できない」時の理由(空なら孵せる)。
+// ★ 卵は species を伏せて届くので、あと何回で孵るかは hint からしか出せない。
+//   最後の1回になった卵だけ、鳥の枠を見て止める。
+function eggCard(pet: WirePet, now: number, 孵せない: string | null): HTMLElement {
   const hint = pet.hint;
   const box = document.createElement('div'); box.className = 'panel';
   const h = document.createElement('h3');
@@ -353,10 +365,17 @@ function eggCard(pet: WirePet, now: number): HTMLElement {
   const actions = document.createElement('div');
   // canWarm は Pet(species 必須)を取るので卵には使えない。同じ式をここで書く。
   const 次に温められる時刻 = pet.lastWarmAt + WARM_INTERVAL_MS;
-  const allowed = pet.hatchedAt <= 0 && now >= 次に温められる時刻;
+  // この1回で孵る卵だけ、鳥の枠が埋まっていたら止める(サーバーも同じ判定)。
+  const 塞がれている = left <= 1 ? (孵せない ?? '') : '';
+  const allowed = pet.hatchedAt <= 0 && now >= 次に温められる時刻 && !塞がれている;
   const 温めボタン = button('温める', () => warmEgg(pet), !allowed,
-    allowed ? '' : '前回から十分な時間が空いていません。');
+    塞がれている || (allowed ? '' : '前回から十分な時間が空いていません。'));
   actions.append(温めボタン);
+  if (塞がれている) {
+    const 注意 = document.createElement('p'); 注意.className = 'note pet-full';
+    注意.textContent = 塞がれている;
+    box.append(注意);
+  }
 
   // 残り時間。1分ごとに数え直す。
   //
@@ -376,6 +395,9 @@ function eggCard(pet: WirePet, now: number): HTMLElement {
       return;
     }
     残り.textContent = ' 温められます';
+    // ★ 待ち時間が明けても、鳥の枠が埋まっているなら押させない。
+    //   ここを素通りさせると、押してからサーバーに断られることになる。
+    if (塞がれている) return;
     温めボタン.disabled = false;
     温めボタン.title = '';
   };
@@ -512,32 +534,43 @@ export async function renderPets(): Promise<void> {
     setBadge(actionableCount(pets, now));          // 同じ返事で印も直す
     控える(pets, now);                              // 戦闘へ渡す控えも直す
     // ★ 上限をいつでも見えるところに出す。
-    //   押してから「手持ちが上限です」と断られるまで気づけなかった。
-    //   卵も巣も1羽ぶんの枠を使うので、そのことも書いておく
-    //   (「卵は数に入らない」と思われやすい。2026-08-15に指摘)。
-    // ★ 数え方はサーバーと同じ countHeld を使う。ここで自前に数えると、
+    //   押してから断られるまで気づけなかった。
+    //   鳥と卵は別々の枠なので、別々に数えて出す(2026-08-15)。
+    // ★ 数え方はサーバーと同じ関数を使う。ここで自前に数えると、
     //   画面は「まだ空きがある」と言うのにサーバーが断る、という食い違いが出る。
     //   卵は species を伏せて届くが、stageOf は hatchedAt<=0 を先に見て 'egg' を
     //   返すので、種類が無くても安全に数えられる。
-    const 手持ち数 = countHeld(pets as unknown as Pet[], now);
+    const 手元 = pets as unknown as Pet[];
+    const 鳥数 = countBirds(手元, now);
+    const 卵数 = countEggs(手元, now);
     const mineTitle = document.createElement('h3');
-    mineTitle.textContent = `手持ち ${手持ち数} / ${MAX_PETS}羽`;
-    if (手持ち数 >= MAX_PETS) mineTitle.classList.add('pet-full');
+    mineTitle.textContent = `手持ち　鳥 ${鳥数} / ${MAX_PETS}羽　卵 ${卵数} / ${MAX_EGGS}個`;
+    if (鳥数 >= MAX_PETS || 卵数 >= MAX_EGGS) mineTitle.classList.add('pet-full');
     list.append(mineTitle);
+
+    const 上限の事情: string[] = [];
+    if (卵数 >= MAX_EGGS) {
+      上限の事情.push('卵がいっぱいです。これ以上は受け取れません'
+        + '(ボスの卵も交配のお礼の卵も届きません)。孵すか手放すと空きます。');
+    }
+    if (鳥数 >= MAX_PETS) {
+      上限の事情.push('鳥がいっぱいです。卵を温めても孵りません。'
+        + '手放すか、交配所へ預けると孵せるようになります。');
+    }
     const 上限note = document.createElement('p');
-    上限note.className = 手持ち数 >= MAX_PETS ? 'note pet-full' : 'note';
-    上限note.textContent = 手持ち数 >= MAX_PETS
-      ? `いっぱいです。これ以上は卵を受け取れません(ボスの卵も交配の卵も届きません)。`
-        + `手放すか、交配所へ預けると空きます。`
-      : `卵・巣も1羽として数えます。交配所へ預けている分は数に入りません。`;
+    上限note.className = 上限の事情.length ? 'note pet-full' : 'note';
+    上限note.textContent = 上限の事情.length ? 上限の事情.join(' ')
+      : '鳥と卵は別々の枠です。巣は卵に数えます。'
+        + '交配所へ預けている分はどちらにも数えません。';
     list.append(上限note);
     if (!pets.length) {
       const empty = document.createElement('p'); empty.className = 'note';
       empty.textContent = 'まだペットはいません。'; list.append(empty);
     }
+    const 孵せない = whyCannotHatch(手元, now);
     for (const pet of pets) {
       const born = grown(pet);
-      list.append(born ? petCard(born, now, pets, board) : eggCard(pet, now));
+      list.append(born ? petCard(born, now, pets, board) : eggCard(pet, now, 孵せない));
     }
     // ===== 交配所 =====
     //
