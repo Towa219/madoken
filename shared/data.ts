@@ -20,6 +20,13 @@ export const ELEMENT_ORDER: ElementId[] = [
 
 // desc は素材庫にそのまま出るので、spellcraft.ts の computeSpell の
 // 数式と必ず一致させること。片方だけ直すと、説明と実際の効果が食い違う。
+// ★ desc は説明書のエレメント表と、研究室のエレメントカード(src/lab.ts)の
+//   両方に出る。書き方を揃えること。
+//
+//   MPの増減は必ず「消費MP」と書く。「MP+4」とだけ書くと
+//   "MPが増える(得)" に読めるが、実際は "消費が重くなる(損)" で意味が逆になる。
+//   雷・光・闇の3つが「MP+n」のままで、重い属性が利点のように見えていた
+//   (2026-08-15に指摘されて修正)。
 export const ELEMENTS: Record<ElementId, ElementDef> = {
   fire:    { name: '火', emoji: '🔥', color: 0xff6644, cssColor: '#ff6644',
              desc: '威力+8 / 消費MP+6' },
@@ -30,13 +37,13 @@ export const ELEMENTS: Record<ElementId, ElementDef> = {
   earth:   { name: '土', emoji: '⛰️', color: 0xcc9955, cssColor: '#cc9955',
              desc: '威力+5 / 消費MP+3 / 範囲攻撃(1個で隣に届く)' },
   thunder: { name: '雷', emoji: '⚡', color: 0xffdd44, cssColor: '#ffdd44',
-             desc: '威力+7 / 弾速+130 / 会心+8% / MP+4' },
+             desc: '威力+7 / 弾速+130 / 会心+8% / 消費MP+4' },
   ice:     { name: '氷', emoji: '❄️', color: 0x99eeff, cssColor: '#99eeff',
              desc: '威力+4 / 鈍化+14%' },
   light:   { name: '光', emoji: '✨', color: 0xffffbb, cssColor: '#ffffbb',
-             desc: '威力+3 / 吸収+8% / MP+2' },
+             desc: '威力+3 / 吸収+8% / 消費MP+2' },
   dark:    { name: '闇', emoji: '🌑', color: 0xbb77ee, cssColor: '#bb77ee',
-             desc: '威力+12 / 自傷+4 / MP+6' },
+             desc: '威力+12 / 自傷+4 / 消費MP+6' },
 };
 
 // ===== 隠しレシピ(系統)定義 =====

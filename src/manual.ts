@@ -6,6 +6,7 @@
 import {
   battleRP, DEFEAT_RP_RATE,
   DISASSEMBLE_RATE, DISCOVERY_BONUS_RP, ELEMENTS, ELEMENT_ORDER, ENEMIES,
+  EQUIP_BASE, EQUIP_MAX, EQUIP_UNLOCKS,
   ENEMY_HP_MUL, BOSSES, DUEL_MAX_HP, GACHA_LIVE, GACHA_PRIZES,
   gachaPrizeLabel, gachaPrizePct, GATHER_COST,
   GATHER_COUNT,
@@ -23,7 +24,7 @@ import {
   ALLY_REF_MAGIC, ALLY_RP_MUL, ALLY_SEAL_MUL,
 } from '../shared/allies';
 import { CHARACTERS, characterName } from '../shared/characters';
-import { ENHANCE_MAX } from '../shared/spellcraft';
+import { ENHANCE_EASE_PER_LEVEL, ENHANCE_MAX } from '../shared/spellcraft';
 import { NICK_MAX_FULL, NICK_MAX_WIDTH } from '../shared/nickname';
 import {
   BOARD_SETTLE_HOURS, BREED_COOLDOWN_MS, BREED_EGG_HOURS, BREED_MAX_COUNT, DEAD_KEEP_DAYS, ELDER_DAYS,
@@ -172,9 +173,11 @@ export function renderManual(): void {
   <h3>調合のしくみ</h3>
   <ul>
     <li>スロットにエレメントを置いて「調合する」。<b>ボタンが「本当に調合する」に変わるので、もう一度押す</b>と始まります(1回目では素材は減りません)</li>
-    <li><b>成功率</b>は素材が多いほど、光・闇を使うほど下がります(下限40%)。失敗すると素材の半分を失います</li>
+    <li><b>成功率</b>は素材が多いほど、光・闇を使うほど、<b>強化が進んでいるほど</b>下がります(下限40%)。失敗すると素材の半分を失います</li>
     <li>特定の組み合わせで<b>系統</b>が成立します。初めて出した系統は「発見」となり研究P+${DISCOVERY_BONUS_RP}</li>
-    <li><b>同じ構成をもう一度調合すると強化</b>になります(最大+${ENHANCE_MAX}。1段階ごとに威力+8%・詠唱-2%)</li>
+    <li><b>同じ構成をもう一度調合すると強化</b>になります(最大+${ENHANCE_MAX})。1段階ごとに
+    <b>威力+8%・詠唱-2%</b>、さらに<b>消費MPと再使用時間が${(ENHANCE_EASE_PER_LEVEL * 100).toFixed(1)}%ずつ軽く</b>なります。
+    ただし<b>強化が進むほど調合の成功率は下がる</b>ので、伸ばすほど1回が重くなります</li>
     <li>ごく稀に上位<b>品質</b>で生まれます。素材が多く光・闇を含むほど確率が上がります</li>
     <li><b>魔導書に集めた魔法の「種類」が多いほど上位品質が出やすくなります</b>。
     ただし<b>${LIBRARY_BONUS_START}種類まではボーナス無し</b>で、
@@ -200,7 +203,8 @@ export function renderManual(): void {
 <section class="man-sec">
   <h3>戦闘</h3>
   <ul>
-    <li>3→2→1のカウントダウン後に開始。キー<b>1〜4</b>かボタンで詠唱します(順番は魔導書の並び順)</li>
+    <li>3→2→1のカウントダウン後に開始。<b>①②③…の番号キー</b>かボタンで詠唱します(順番は魔導書の並び順)。
+    最初は${EQUIP_BASE}本で、ボスを倒すと最大${EQUIP_MAX}本まで増えます(下の「装備できる数」を参照)</li>
     <li>自分はHP${PLAYER_MAX_HP} / MP${PLAYER_MAX_MP}。MPは毎秒${PLAYER_MP_REGEN}回復するので、撃ち続けると息切れします</li>
     <li>敵には<b>5段階の属性相性</b>があります: ◎2.0倍 / ○1.5倍 / −等倍 / △0.6倍 / ✕0.25倍</li>
     <li>敵カードの<b>攻撃属性</b>を見て、その属性の耐性(護符)を張ると被害を抑えられます</li>
@@ -312,6 +316,20 @@ ${ALLY_ENABLED ? `
     <li>第6スロット: <b>ステージ${SLOT6_BOSS_STAGE}のボス撃破</b> + 研究P${SLOT6_COST}(上限)</li>
   </ul>
   <p class="man-note">スロットが増えるほど複雑な系統に手が届きますが、成功率は下がります。</p>
+</section>
+
+<section class="man-sec">
+  <h3>装備できる数</h3>
+  <p><b>調合スロットとは別に、戦闘へ持ち込める魔法の数もボス撃破で増えます。</b>
+  最初は<b>${EQUIP_BASE}本</b>で、研究Pは要りません。</p>
+  <ul>
+    ${EQUIP_UNLOCKS.map(u =>
+    `<li>${u.count}本目: <b>ステージ${u.boss}のボス撃破</b></li>`).join('')}
+  </ul>
+  <p class="man-note">増えた枠はそのまま戦闘の番号キーになります(${EQUIP_MAX}本なら①〜${
+    '①②③④⑤⑥⑦⑧⑨'[EQUIP_MAX - 1]})。
+  装備セットに覚えさせた組み合わせは番号の順番ごと保存されるので、
+  枠が増えたら覚えさせ直してください。</p>
 </section>
 
 <section class="man-sec">
