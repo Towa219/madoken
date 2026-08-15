@@ -271,7 +271,11 @@ app.post('/api/pet/breed', (req, res) => {
     await serializePet([name, previewPartner.ownerName], async () => {
       const pets = await listPets(name); const now = Date.now();
       if (countHeld(pets, now) >= MAX_PETS) { res.status(400).json({ error: '手持ちのペットが上限です。' }); return; }
-      const mine = pets.find(p => p.id === String(body.petId ?? '') && !p.boarded);
+      // ★ 預けている鳥からも仕掛けられる(2026-08-15)。
+      //   以前は !p.boarded を条件にしていたため、別々の人が♂と♀を預けると
+      //   どちらからも仕掛けられず手詰まりになっていた。最初の実装から
+      //   入っていた条件だが、理由の注記がなく、意図した制限ではなかった。
+      const mine = pets.find(p => p.id === String(body.petId ?? ''));
       // 自分の手持ちを優先し、そこにいない時だけ交配所を探す。
       const partner = pets.find(p => p.id === partnerId)
         ?? (await listBoard()).find(p => p.id === partnerId);
@@ -283,10 +287,14 @@ app.post('/api/pet/breed', (req, res) => {
       if (!sameOwner && countHeld(ownerPets, now) >= MAX_PETS) {
         res.status(400).json({ error: '預けた側がお礼の卵を受け取れる上限を超えています。' }); return;
       }
-      const reason = canBreed(mine, partner, now);
-      if (reason) { res.status(400).json({ error: reason }); return; }
       const partnerOwned = ownerPets.find(p => p.id === partner.id);
       if (!partnerOwned) { res.status(404).json({ error: '相手のペットが見つかりません。' }); return; }
+      // ★ 可否は「交配所の写し」ではなく持ち主の本体で判定する。
+      //   写しは別に保存してあるので、書き戻しが1回でも漏れると古い履歴が残り、
+      //   20時間の休憩に入ったはずの鳥ともう一度交配できてしまう。
+      //   本体で判定しておけば、写しが古くても素通りしない。
+      const reason = canBreed(mine, partnerOwned, now);
+      if (reason) { res.status(400).json({ error: reason }); return; }
       mine.breedCount += 1; mine.lastBredAt = now;
       partnerOwned.breedCount += 1; partnerOwned.lastBredAt = now;
 
@@ -307,10 +315,20 @@ app.post('/api/pet/breed', (req, res) => {
       }
       await savePets(name, pets);
       if (!sameOwner) await savePets(partner.ownerName, ownerPets);
-      // 預けられている相手だけ、交配所の写しにも新しい履歴を反映する。
-      if (partnerOwned.boarded) {
-        await unboardPet(partner.ownerName, partner.id);
-        await boardPet(partner.ownerName, partner.id);
+      // ★ 交配所は本体とは別の写しを持っている。預けている親は、写しのほうにも
+      //   新しい履歴(交配回数・休憩の開始)を書き戻さないといけない。
+      //   忘れると、写しは古い履歴のままなので、20時間の休憩に入ったはずの鳥と
+      //   他の人がもう一度すぐ交配できてしまう。
+      //   仕掛けた側も預けたままでよくなったので、二羽とも見る。
+      //   (boardPet に時刻を渡さなければ boardedAt は据え置き。なじみの
+      //    3時間がやり直しにならない。)
+      for (const 親 of [
+        { 主: name, 個体: mine },
+        { 主: partner.ownerName, 個体: partnerOwned },
+      ]) {
+        if (!親.個体.boarded) continue;
+        await unboardPet(親.主, 親.個体.id);
+        await boardPet(親.主, 親.個体.id);
       }
       res.json({ ok: true, pet: maskPet(child, now), readyAt });
     });

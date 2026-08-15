@@ -6,7 +6,7 @@
 //   孵ったあとにしか使えない。
 import {
   BREED_MAX_COUNT, MAX_PETS, PET_SPECIES, PETS_PUBLIC, STAGE_NAME, WARM_INTERVAL_MS,
-  bonusOf, boardSettleMs, breedLeft,
+  bonusOf, boardSettleMs, breedLeft, countHeld,
   breedWaitMs, canBreed, chosenPetOf, isNest, lifetimeMsOf, nestLeftMs, petDisplayName, stageOf,
   wireDisplayName,
 } from '../shared/pets';
@@ -452,7 +452,12 @@ function petCard(pet: Pet, now: number, pets: WirePet[], board: WirePet[]): HTML
     });
     if (ok) await act('board', { petId: pet.id });
   }));
-  if (!pet.boarded) {
+  // ★ 預けている鳥からも仕掛けられる。
+  //   以前は !pet.boarded の時だけ交配のボタンを出していた。そのため
+  //   別々の人が♂と♀を預けると、どちらにもボタンが無く手詰まりになった
+  //   (2026-08-15に指摘)。預けた側にお礼の卵が届く仕組みは元からあるので、
+  //   預けたまま組めても筋は通る。
+  {
     const partners = [...pets, ...board].filter((p, i, all) => all.findIndex(q => q.id === p.id) === i);
     for (const wirePartner of partners) {
       if (wirePartner.id === pet.id) continue;
@@ -505,7 +510,26 @@ export async function renderPets(): Promise<void> {
     時計のずれ = now - Date.now();
     setBadge(actionableCount(pets, now));          // 同じ返事で印も直す
     控える(pets, now);                              // 戦闘へ渡す控えも直す
-    const mineTitle = document.createElement('h3'); mineTitle.textContent = '手持ち'; list.append(mineTitle);
+    // ★ 上限をいつでも見えるところに出す。
+    //   押してから「手持ちが上限です」と断られるまで気づけなかった。
+    //   卵も巣も1羽ぶんの枠を使うので、そのことも書いておく
+    //   (「卵は数に入らない」と思われやすい。2026-08-15に指摘)。
+    // ★ 数え方はサーバーと同じ countHeld を使う。ここで自前に数えると、
+    //   画面は「まだ空きがある」と言うのにサーバーが断る、という食い違いが出る。
+    //   卵は species を伏せて届くが、stageOf は hatchedAt<=0 を先に見て 'egg' を
+    //   返すので、種類が無くても安全に数えられる。
+    const 手持ち数 = countHeld(pets as unknown as Pet[], now);
+    const mineTitle = document.createElement('h3');
+    mineTitle.textContent = `手持ち ${手持ち数} / ${MAX_PETS}羽`;
+    if (手持ち数 >= MAX_PETS) mineTitle.classList.add('pet-full');
+    list.append(mineTitle);
+    const 上限note = document.createElement('p');
+    上限note.className = 手持ち数 >= MAX_PETS ? 'note pet-full' : 'note';
+    上限note.textContent = 手持ち数 >= MAX_PETS
+      ? `いっぱいです。これ以上は卵を受け取れません(ボスの卵も交配の卵も届きません)。`
+        + `手放すか、交配所へ預けると空きます。`
+      : `卵・巣も1羽として数えます。交配所へ預けている分は数に入りません。`;
+    list.append(上限note);
     if (!pets.length) {
       const empty = document.createElement('p'); empty.className = 'note';
       empty.textContent = 'まだペットはいません。'; list.append(empty);

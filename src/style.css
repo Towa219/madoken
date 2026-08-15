@@ -1258,6 +1258,10 @@ button.tab[data-badge]::after {
 /* 絵と文字を横に並べる見出し。絵の下端と文字の中心を揃える。 */
 .pet-head { display: flex; align-items: center; gap: 8px; }
 
+/* 手持ちが上限に達している時の注意書き。
+   押してから断られるのでは遅いので、埋まっていることを先に色で示す。 */
+.pet-full { color: #ffbb66; }
+
 /* 孵化演出の鳥は絵を入れる箱になったので、字送りの余白を消す。 */
 .hatch-bird { line-height: 0; }
 .hatch-bird .pet-bird, .hatch-bird .pet-bird-emoji {
