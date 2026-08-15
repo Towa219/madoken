@@ -5,6 +5,7 @@
 //   なので卵は必ず hint を見て描く。PET_SPECIES[pet.species] は
 //   孵ったあとにしか使えない。
 import {
+  BOARD_SETTLE_HOURS,
   BREED_MAX_COUNT, MAX_PETS, PET_SPECIES, PETS_PUBLIC, STAGE_NAME, WARM_INTERVAL_MS,
   bonusOf, boardSettleMs, breedLeft, countHeld,
   breedWaitMs, canBreed, chosenPetOf, isNest, lifetimeMsOf, nestLeftMs, petDisplayName, stageOf,
@@ -538,19 +539,94 @@ export async function renderPets(): Promise<void> {
       const born = grown(pet);
       list.append(born ? petCard(born, now, pets, board) : eggCard(pet, now));
     }
-    const boardTitle = document.createElement('h3'); boardTitle.textContent = '交配所'; list.append(boardTitle);
+    // ===== 交配所 =====
+    //
+    // ★ 一覧を並べるだけでは、何をすればいいのか分からない。
+    //   「♂と♀が居るのに何も起きない」と受け取られた(2026-08-15に指摘)。
+    //   やり方と、1羽ごとの今の状態(組めるか・駄目ならなぜか)を書く。
+    const boardTitle = document.createElement('h3');
+    boardTitle.textContent = '交配所';
+    list.append(boardTitle);
+
+    const 手引き = document.createElement('p'); 手引き.className = 'note';
+    手引き.innerHTML =
+      'ここに預けられた鳥は、<b>他の研究者が交配の相手に選べます</b>。'
+      + '<b>成立すると、預けた側にもお礼の卵が1つ届きます。</b><br>'
+      + '交配するには <b>自分の鳥のカードにある「〇〇と交配」を押します</b>'
+      + '（<b>交配所へ預けたままの自分の鳥からも押せます</b>ので、'
+      + '引き取る必要はありません）。<br>'
+      + `成立の条件は、二羽とも<b>成鳥</b>で、預けてから約${BOARD_SETTLE_HOURS}時間なじんでいて、`
+      + `<b>一生${BREED_MAX_COUNT}回</b>の残りがあり、産んだ後の休憩が明けていること。`
+      + '<b>押す側と相手の両方に手持ちの空きが要ります。</b>';
+    list.append(手引き);
+
+    if (!board.length) {
+      const 空 = document.createElement('p'); 空.className = 'note';
+      空.textContent = 'まだ誰も預けていません。'
+        + '自分の鳥を預けると、他の研究者が交配してくれるかもしれません。';
+      list.append(空);
+    }
+
+    // 自分の鳥のうち、相手になりうるもの(卵は除く)
+    const 自分の成鳥 = pets.map(grown).filter((p): p is Pet => p !== null);
+
     for (const pet of board) {
       const born = grown(pet);
       const p = document.createElement('p'); p.className = 'note';
-      if (born) {
-        p.className = 'note pet-head';
-        p.append(birdImg(born.species, 24));
-        const t = document.createElement('span');
-        t.textContent = `${petDisplayName(born)}（${born.ownerName}） `
-          + `${born.sex === 'm' ? '♂' : '♀'}・${STAGE_NAME[stageOf(born, now)]}`;
-        p.append(t);
-      } else {
+      if (!born) {
         p.textContent = `🥚 ${wireDisplayName(pet)}（${pet.ownerName}）・卵`;
+        list.append(p); continue;
+      }
+      p.className = 'note pet-head';
+      p.append(birdImg(born.species, 24));
+      const t = document.createElement('span');
+
+      // 1羽ごとの状態。「あと何回」「あと何時間」まで出す。
+      const 段階 = stageOf(born, now);
+      const 事情: string[] = [];
+      if (段階 !== 'adult') {
+        事情.push(段階 === 'elder' ? '年を取りすぎて産めない'
+          : 段階 === 'dead' ? 'もう天へ行った' : 'まだ成鳥ではない');
+      } else {
+        const なじみ = boardSettleMs(born, now);
+        const 休み = breedWaitMs(born, now);
+        if (なじみ > 0) 事情.push(`なじむまで あと約${Math.ceil(なじみ / 3600000)}時間`);
+        else if (休み > 0) 事情.push(`休んでいる あと約${Math.ceil(休み / 3600000)}時間`);
+        else if (breedLeft(born) <= 0) 事情.push('もう産めない(回数を使い切った)');
+        else 事情.push(`交配できる（あと${breedLeft(born)}回）`);
+      }
+
+      // 自分の鳥と組めるか。組めないなら、いちばん近い理由を出す。
+      const 自分のもの = born.ownerName === state.nickname;
+      let 組める合図 = '';
+      if (段階 === 'adult') {
+        const 相手候補 = 自分の成鳥.filter(m => m.id !== born.id);
+        const 組める = 相手候補.filter(m => canBreed(m, born, now) === null);
+        if (組める.length > 0) {
+          組める合図 = `✔ あなたの${組める.map(petDisplayName).join('・')}と組めます`;
+        } else if (!相手候補.length) {
+          事情.push('あなたには組める鳥がいない');
+        } else if (相手候補.every(m => m.sex === born.sex)) {
+          事情.push('あなたの鳥とは同じ性別');
+        } else {
+          // 性別が合う相手のうち、いちばん近い理由を1つだけ出す
+          const 異性 = 相手候補.filter(m => m.sex !== born.sex);
+          const 理由 = canBreed(異性[0], born, now) ?? '';
+          事情.push(理由.replace(/。$/, ''));
+        }
+      }
+
+      t.textContent = `${petDisplayName(born)}（${born.ownerName}${自分のもの ? '＝あなた' : ''}） `
+        + `${born.sex === 'm' ? '♂' : '♀'}・${STAGE_NAME[段階]}`
+        + (事情.length ? ` ― ${事情.join(' / ')}` : '');
+      p.append(t);
+      if (組める合図) {
+        // ★ ここだけ色を変える。一覧を眺めた時に「今すぐ押せる相手」が
+        //   目に飛び込むようにするため。
+        const 合図 = document.createElement('b');
+        合図.className = 'pet-ready';
+        合図.textContent = ` ${組める合図}`;
+        p.append(合図);
       }
       list.append(p);
     }

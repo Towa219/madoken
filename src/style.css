@@ -1262,6 +1262,10 @@ button.tab[data-badge]::after {
    押してから断られるのでは遅いので、埋まっていることを先に色で示す。 */
 .pet-full { color: #ffbb66; }
 
+/* 交配所で「今すぐ組める相手」だけ色を変える。
+   一覧が長くなっても、押せる相手が目に飛び込むように。 */
+.pet-ready { color: #88ddaa; }
+
 /* 孵化演出の鳥は絵を入れる箱になったので、字送りの余白を消す。 */
 .hatch-bird { line-height: 0; }
 .hatch-bird .pet-bird, .hatch-bird .pet-bird-emoji {
