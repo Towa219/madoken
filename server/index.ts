@@ -514,9 +514,15 @@ app.post('/api/name/release', (req, res) => {
 // 保存(ニックネーム+引き継ぎコードが本人のものであること)
 app.post('/api/save', (req, res) => {
   const b = req.body as {
-    name?: unknown; token?: unknown; data?: unknown; savedAt?: unknown; force?: unknown;
+    name?: unknown; token?: unknown; data?: unknown;
+    baseSavedAt?: unknown; force?: unknown;
   };
-  void putSave(b?.name, b?.token, b?.data, Number(b?.savedAt) || Date.now(), b?.force === true)
+  // ★ 時刻は端末から受け取らない(server/save.ts の説明を参照)。
+  //   baseSavedAt は「この端末が最後に見たサーバーの版」。
+  //   送ってこない古い端末は null にして、版の確認だけ飛ばす。
+  const 基点 = Number(b?.baseSavedAt);
+  void putSave(b?.name, b?.token, b?.data,
+    Number.isFinite(基点) && 基点 > 0 ? 基点 : null, b?.force === true)
     .then(r => res.json(r))
     .catch(() => res.json({ ok: false, error: '保存に失敗しました。' }));
 });

@@ -82,11 +82,14 @@ export function scheduleCloudSave(): void {
 // それでもこの端末を残すと本人が選んだ」場合だけ。
 export async function pushCloudSave(force = false): Promise<boolean> {
   if (!state.nickname || !state.nickToken) return false;
+  // ★ 保存時刻は送らない。サーバーが自分の時計で打つ。
+  //   代わりに「この端末が最後に見たサーバーの版」を送り、食い違えば
+  //   サーバーが止める(端末の時計を当てにしない)。
   const body = JSON.stringify({
     name: state.nickname,
     token: state.nickToken,
     data: toSlim(state),
-    savedAt: Date.now(),
+    baseSavedAt: lastSyncedAt(),
     force,
   });
   if (body === lastPushed) return true; // 変化なし
@@ -98,13 +101,16 @@ export async function pushCloudSave(force = false): Promise<boolean> {
       headers: { 'Content-Type': 'application/json' },
       body,
     });
-    const data = await res.json() as { ok: boolean; error?: string };
+    const data = await res.json() as { ok: boolean; error?: string; savedAt?: number };
     if (!data.ok) {
       setCloudMsg(data.error ?? 'クラウド保存に失敗した。', true);
       return false;
     }
     lastPushed = body;
-    lastSyncAt = Date.now();
+    // ★ サーバーが打った時刻をそのまま覚える。端末の時計を混ぜないこと。
+    //   ここで Date.now() を入れると、時計のずれぶんだけ版がずれて
+    //   次の保存が「食い違い」で弾かれる。
+    lastSyncAt = data.savedAt ?? Date.now();
     rememberSynced(lastSyncAt);
     void submitMagicRanking();  // 魔法が変わったら順位も更新する
     return true;
@@ -153,9 +159,12 @@ export async function submitMagicRanking(): Promise<void> {
 // データは壊れないが、そのままだと拒まれ続けて先に進めなくなる。
 // そこで接続時にサーバーの保存時刻を見て、こちらより新しければ知らせる。
 
+// この端末が最後に見たサーバーの版(サーバーが打った savedAt をそのまま入れる)。
+//
+// ★ 時計のずれを吸収する「余裕(SYNC_SLACK_MS)」は廃止した。
+//   余裕で誤魔化していたせいで、時刻だけ新しい古い記録に負けていた。
+//   今は版の一致だけを見るので、余裕そのものが要らない。
 const SYNC_KEY = 'madoken_synced_at';
-// 時計のずれや保存の行き違いで誤検知しないよう、この差までは「同じ」とみなす
-const SYNC_SLACK_MS = 60_000;
 
 function rememberSynced(at: number): void {
   try { localStorage.setItem(SYNC_KEY, String(at)); } catch { /* 使えなくても続行 */ }
@@ -176,7 +185,12 @@ export async function cloudNewerThanHere(): Promise<number | null> {
     });
     const data = await res.json() as { ok: boolean; savedAt?: number };
     if (!data.ok || !data.savedAt) return null;
-    return data.savedAt > lastSyncedAt() + SYNC_SLACK_MS ? data.savedAt : null;
+    // ★ 時刻の大小で比べない。版が一致するかだけを見る。
+    //   savedAt はサーバーの時計で打たれているので、こちらが最後に見た版と
+    //   同じなら「この端末が最新」。ずれていれば、どこかで別に書かれている。
+    //   大小で比べていた頃は、端末の時計や古いタブのせいで
+    //   「中身は古いのに時刻だけ新しい」記録に負けていた(2026-08-17の事故)。
+    return data.savedAt === lastSyncedAt() ? null : data.savedAt;
   } catch {
     return null;
   }

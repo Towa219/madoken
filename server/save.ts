@@ -33,33 +33,84 @@ interface Envelope {
   data: unknown;
 }
 
+// 「これより後戻りしたら異常」と言える項目。
+//
+// ★ researchP や spells の数を見てはいけない。研究Pは使えば減るし、
+//   魔法は分解すれば減る。正常な遊びで下がるものを後退と見なすと、
+//   まともな保存まで拒んでしまう。
+//   ここに並べるのは「増える一方のもの」だけ。
+function 進み具合(d: unknown): Record<string, number> {
+  const o = (d ?? {}) as Record<string, unknown>;
+  const n = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : 0);
+  const 数 = (v: unknown) => (Array.isArray(v) ? v.length : 0);
+  return {
+    到達ステージ: n(o.maxStage),
+    最高ステージ: n(o.bestStage),
+    発見した系統: 数(o.discovered),
+    倒したボス: 数(o.bossCleared),
+  };
+}
+
+// 後退している項目を並べて返す(空なら後退していない)。
+function 後退した項目(古い: unknown, 新しい: unknown): string[] {
+  const a = 進み具合(古い);
+  const b = 進み具合(新しい);
+  return Object.keys(a).filter(k => b[k] < a[k]).map(k => `${k} ${a[k]}→${b[k]}`);
+}
+
 // 保存(本人のトークンでのみ書き込める)
+//
+// ★ savedAt は端末から受け取らない。サーバーの時計で打つ。
+//   以前は端末の Date.now() をそのまま信じて新旧を比べていた。端末の時計が
+//   ずれていたり、古い状態を抱えたタブが後から保存したりすると、
+//   「中身は古いのに時刻だけ新しい」記録がサーバーに残る。すると本物の端末が
+//   「別の端末に新しい記録があります」と言われ続け、取り込むと進行が消える。
+//   2026-08-17、実際に研究Pが1/4に戻りチケットが0→5に増える事故が起きた。
+//
+// ★ 新旧の判定も時刻の大小をやめ、baseSavedAt(この端末が最後に見た版)が
+//   今の版と一致するかで見る。時計に依存しない。
 export async function putSave(
-  rawName: unknown, rawToken: unknown, data: unknown, savedAt: number,
+  rawName: unknown, rawToken: unknown, data: unknown, baseSavedAt: number | null,
   force = false,
 ): Promise<SaveResult> {
   const name = normalizeNickname(rawName);
   const owner = await claimName(name, rawToken); // 形式チェック+所有確認を兼ねる
   if (!owner.ok) return { ok: false, error: owner.error };
 
-  const env: Envelope = { savedAt: Number(savedAt) || Date.now(), data };
+  const env: Envelope = { savedAt: Date.now(), data };
   const body = JSON.stringify(env);
   if (body.length > MAX_BYTES) {
     return { ok: false, error: 'セーブデータが大きすぎます。' };
   }
 
   const key = nicknameKey(name);
-
-  // 既存より古いデータでの上書きは拒否(別端末の新しい記録を守る)。
-  // force は「別の端末に新しい記録があると知らせたうえで、それでもこの端末を
-  // 残すと本人が選んだ」場合だけ立つ。知らずに消えることはない。
   const cur = await readEnvelope(key);
-  if (!force && cur && cur.savedAt > env.savedAt + 60_000) {
+
+  // ① 版の食い違い。別の端末(や古いタブ)が後から書いていたら止める。
+  //    force は「別の記録があると知らせたうえで、それでもこの端末を残すと
+  //    本人が選んだ」場合だけ立つ。知らずに消えることはない。
+  //    baseSavedAt を送ってこない古い端末は、この確認を飛ばす(②で守る)。
+  if (!force && cur && baseSavedAt !== null && cur.savedAt !== baseSavedAt) {
     return {
       ok: false,
-      error: 'サーバーにもっと新しいセーブがあります。先に「復元」してください。',
+      error: 'サーバーの記録が別の場所で更新されています。先に「取り込む」を確かめてください。',
       savedAt: cur.savedAt,
     };
+  }
+
+  // ② 後退の歯止め。①をすり抜けても、進み具合が減る保存は拒む。
+  //    増える一方のものだけを見るので、正常な遊びで引っかかることはない。
+  if (!force && cur) {
+    const 後退 = 後退した項目(cur.data, env.data);
+    if (後退.length > 0) {
+      console.warn(`[クラウドセーブ] 後退する保存を拒否 ${name}: ${後退.join(' / ')}`);
+      return {
+        ok: false,
+        error: `進み具合が戻る保存だったので中止しました(${後退.join('・')})。`
+          + '古い画面が残っていないか確かめてください。',
+        savedAt: cur.savedAt,
+      };
+    }
   }
 
   if (!persistent) {
