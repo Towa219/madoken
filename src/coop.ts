@@ -730,14 +730,20 @@ export class CoopView {
     noteDrop(`戦闘中に切断 ${理由}`);
     showToast(`通信が切れた(${理由 || '理由不明'})。共闘への復帰を試みている…`);
 
+    const 試し始め = Date.now();
     const back = await this.tryReconnect();
     this.reconnecting = false;
     if (back) {
-      noteDrop('復帰した');
+      noteDrop(`復帰した (${this.復帰試行数}回目・${Math.round((Date.now() - 試し始め) / 1000)}秒)`);
       showToast('共闘に復帰した。');
       return;
     }
-    noteDrop(`復帰できなかった ${理由}`);
+    // ★ 何回・何秒・最後の断られ方まで残す。
+    //   「復帰できなかった」だけでは、席が埋まっていたのか回線が
+    //   死んでいたのかを後から区別できない(2026-08-18の調査で詰まった)。
+    noteDrop(`復帰できなかった ${理由}`
+      + ` [${this.復帰試行数}回試行 ${Math.round((Date.now() - 試し始め) / 1000)}秒`
+      + ` 最後の失敗: ${this.復帰の最後の失敗 || '(理由が返ってこない)'}]`);
     showToast(`共闘に復帰できなかった(${理由 || '理由不明'})。`
       + 'ロビーから入り直してほしい。設定の下に記録が残ります。');
     this.handleExit('復帰を諦めた');
@@ -745,11 +751,22 @@ export class CoopView {
 
   // 少し間を置いて何度か試す。
   //
-  // 粘る時間はサーバーが席を空けて待つ秒数(RECONNECT_SEC)に合わせること。
-  // 以前は2.5秒×6回=15秒で諦めていて、サーバーはまだ30秒待つ気なのに
-  // クライアントが先に投げ出していた。回線が20秒切れただけで戻れなくなる。
+  // 粘る時間は RECONNECT_CLIENT_SEC(240秒)。サーバーの RECONNECT_SEC(90秒)に
+  // 合わせてはいけない。サーバーの90秒は「サーバーが切断に気づいた時」から
+  // 始まるので、気づくのが遅れると端末の90秒はその前に尽きる。
+  // 2026-08-18、端末が諦めた5秒後にサーバーが気づいた実例がある
+  // (shared/data.ts の RECONNECT_CLIENT_SEC の説明を参照)。
+  // ★ 何回試して、最後になぜ断られたかを残す。
+  //   以前は console.warn だけだったので、送ってもらう記録には
+  //   「復帰できなかった」としか出ず、席が埋まっていたのか回線が
+  //   死んでいたのかを区別できなかった(2026-08-18)。
+  private 復帰試行数 = 0;
+  private 復帰の最後の失敗 = '';
+
   private async tryReconnect(): Promise<boolean> {
     if (!this.reconnect || !this.token) return false;
+    this.復帰試行数 = 0;
+    this.復帰の最後の失敗 = '';
 
     // 画面が隠れている間、ブラウザはタイマーを大きく間引く。
     // スマホで画面を消すと再試行がほとんど進まないまま待ち時間だけ過ぎるので、
@@ -768,9 +785,10 @@ export class CoopView {
           wake = () => { window.clearTimeout(timer); resolve(); };
         });
         if (this.exited) return false;
+        this.復帰試行数 += 1;
         try {
           const room = await this.reconnect(this.token);
-          if (!room) continue;
+          if (!room) { this.復帰の最後の失敗 = '部屋が返ってこない'; continue; }
           this.room = room;
           this.mySid = room.sessionId;
           this.token = room.reconnectionToken;
@@ -778,7 +796,9 @@ export class CoopView {
           return true;
         } catch (err) {
           // 失敗理由は残しておく。利用者からの報告を追えるようにするため。
-          console.warn('[共闘] 復帰に失敗:', (err as { message?: string })?.message ?? err);
+          const 訳 = String((err as { message?: string })?.message ?? err);
+          this.復帰の最後の失敗 = 訳.slice(0, 80);
+          console.warn('[共闘] 復帰に失敗:', 訳);
         }
       }
       return false;
