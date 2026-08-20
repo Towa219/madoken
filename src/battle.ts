@@ -1326,13 +1326,18 @@ export class BattleManager {
     const bst = boost ?? this.atkBoost;
     const hand = byAlly ? ALLY_DMG_MUL : 1;
     let dmg = st.power * mul * hand * (0.9 + Math.random() * 0.2) * (1 + bst / 100);
+    const grade = (e.def.affinity[st.attr] ?? 0) as AffinityGrade;
     // 継続ダメージを付与(上書き)
+    //
+    // ★ 相性(affinityMul)を必ず掛ける。掛け忘れると、火が「ほぼ無効」の
+    //   相手にも延焼だけ満額で入り続ける。2026-08-21 まで実際そうなっていて、
+    //   耐性持ちに火の継続ダメージが素通りしていた。
+    //   test/dot_affinity_check.ts が見張っている。
     if (st.dotTime > 0 && st.dotDps > 0) {
-      e.dotDps = st.dotDps * hand * (1 + bst / 100);
+      e.dotDps = st.dotDps * hand * (1 + bst / 100) * affinityMul(grade);
       e.dotT = st.dotTime;
       e.dotTick = 0;
     }
-    const grade = (e.def.affinity[st.attr] ?? 0) as AffinityGrade;
     dmg *= affinityMul(grade);
     let effNote = '';
     if (grade === 2) effNote = ' 大弱点!!';

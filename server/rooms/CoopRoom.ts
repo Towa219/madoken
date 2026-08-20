@@ -937,14 +937,18 @@ export class CoopRoom extends Room<CoopState> {
     const atkInternalPre = this.internals.get(sid);
     const boost = 1 + (atkInternalPre?.atkBoost ?? 0) / 100;
     let dmg = st.power * mul * (0.9 + Math.random() * 0.2) * boost;
+    const grade = (ei.def.affinity[st.attr] ?? 0) as AffinityGrade;
     // 継続ダメージを付与(上書き)
+    //
+    // ★ 相性(affinityMul)を必ず掛ける。ソロ(src/battle.ts)と同じ理由で、
+    //   掛け忘れると耐性持ちに継続ダメージだけ素通りする。
+    //   片方だけ直すとソロと共闘で数字が食い違うので、必ず両方そろえること。
     if (st.dotTime > 0 && st.dotDps > 0) {
-      ei.dotDps = st.dotDps * boost;
+      ei.dotDps = st.dotDps * boost * affinityMul(grade);
       ei.dotT = st.dotTime;
       ei.dotTick = 0;
       ei.dotOwner = sid;
     }
-    const grade = (ei.def.affinity[st.attr] ?? 0) as AffinityGrade;
     dmg *= affinityMul(grade);
     const crit = Math.random() * 100 < st.critRate;
     if (crit) dmg *= 2;
