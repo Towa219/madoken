@@ -530,15 +530,45 @@ button.tab:disabled { opacity: 0.4; cursor: not-allowed; }
   display: flex; gap: 8px; justify-content: center; margin-top: 8px; flex-wrap: wrap;
 }
 .spell-btn {
-  position: relative; min-width: 170px; text-align: left; padding: 8px 12px;
+  position: relative; min-width: 170px; text-align: left;
+  /* 下だけ広めに空けてある。残量バーを敷く場所で、詰めると発光が
+     「MP○○ / 詠唱○秒」の字にかぶって読みにくくなる(2026-08-21) */
+  padding: 8px 12px 12px;
   overflow: hidden;
 }
 .spell-btn .key { color: #ffdd66; font-weight: bold; margin-right: 6px; }
 .spell-btn .cost { font-size: 11px; color: #88aaff; display: block; margin-top: 2px; }
+/* 再使用時間の残量バー。幅が「あとどれくらいで撃てるか」を表す。
+   撃てるようになると幅0%になって消えるので、待っていない時は何も出ない。
+
+   ★ 暗い被せ(rgba(0,0,0,0.55))をやめて、発光する明るいバーにした
+     (2026-08-21)。前の作りは二重に見えなくなっていた。
+     ・攻撃魔法の再使用は2秒前後なので、暗い帯が走り抜けるのが
+       「動き」として見えていた。ところが封印は40秒(強化しても31秒)で、
+       170pxのボタンを毎秒4pxしか動かない。止まって見える。
+     ・そのうえ下の button:disabled の opacity は子にも掛かるため、
+       バーそのものが沈んで消えていた。
+     暗いボタンの上に暗い帯を薄くして置いていたことになる。
+
+   ★ 高さを持つ帯にして、ボタンの下端に敷く。文字の上に被せると
+     魔法名が読めなくなるし、長さで残りを測れるほうが分かりやすい。 */
 .spell-btn .cd-overlay {
-  position: absolute; left: 0; top: 0; bottom: 0; background: rgba(0,0,0,0.55);
+  position: absolute; left: 0; bottom: 0; height: 4px;
+  background: linear-gradient(90deg, #2fb8ee, #86e6ff);
+  box-shadow: 0 0 5px rgba(63, 208, 255, 0.85);
+  border-radius: 0 2px 2px 0;
   pointer-events: none; width: 0%;
 }
+/* ★ 魔法ボタンだけは全体を薄めない。
+   button:disabled の opacity: 0.4 は子の残量バーにも掛かってしまい、
+   せっかく明るくしたバーがまた沈む(opacity は描画結果ぜんぶに効く)。
+   押せないことは opacity ではなく色で伝え、バーは明るいまま残す。 */
+.spell-btn:disabled {
+  opacity: 1;
+  background: #1e1e34; border-color: #313150; color: #7e7e9c;
+}
+.spell-btn:disabled .key { color: #93875a; }
+.spell-btn:disabled .cost { color: #5d6b91; }
 /* 撤退/退出/棄権は魔法ボタンと押し間違えやすいので、必ず下の段に分ける。
    flex-basis:100% で強制的に改行させ、控えめな見た目にしておく。 */
 .escape-row {
