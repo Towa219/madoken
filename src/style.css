@@ -600,13 +600,27 @@ button.tab:disabled { opacity: 0.4; cursor: not-allowed; }
   background: #2a2a4a; margin: 2px; font-size: 13px;
 }
 
-/* トースト(発見通知) */
+/* トースト(発見通知)
+
+   ★ pointer-events: none は必須(2026-08-22)。
+     これが無いと、出ている3.2秒のあいだタブが押せなくなる。
+     トーストは画面の上に固定で出るうえ、文が長いと縦に伸びる。
+     実測すると 👑の討伐の知らせ(長文)で y60〜136 まで広がり、
+     y101〜135 にあるタブの列を丸ごと覆っていた。
+     クリックはトーストに吸われ、押した人には「反応しない」としか見えない。
+
+   ★ 知らせるだけのものは、絶対に操作を邪魔してはいけない。
+     位置や高さで避けようとしても、文の長さと画面の幅で変わるので
+     いつか必ずまた重なる。当たり判定そのものを外すのが確実。
+
+   test/toast_blocking_check.ts が見張っている。 */
 #toast {
   position: fixed; top: 60px; left: 50%; transform: translateX(-50%);
   background: linear-gradient(135deg, #5533aa, #8844cc);
   color: #fff; padding: 14px 28px; border-radius: 10px; font-size: 16px;
   font-weight: bold; box-shadow: 0 4px 24px rgba(136,68,204,0.5); z-index: 100;
   animation: toast-in 0.3s ease;
+  pointer-events: none;
 }
 @keyframes toast-in {
   from { opacity: 0; transform: translateX(-50%) translateY(-16px); }
