@@ -8,7 +8,8 @@ import {
   BOARD_SETTLE_HOURS,
   BREED_MAX_COUNT, MAX_EGGS, MAX_PETS, PET_SPECIES, PETS_PUBLIC, STAGE_NAME, WARM_INTERVAL_MS,
   bonusOf, boardSettleMs, breedLeft, countBirds, countEggs, whyCannotHatch,
-  breedWaitMs, canBreed, chosenPetOf, isNest, lifetimeMsOf, nestLeftMs, petDisplayName, stageOf,
+  breedOptions, breedWaitMs, canBreed, chosenPetOf, isNest, lifetimeMsOf, nestLeftMs,
+  petDisplayName, stageOf,
   wireDisplayName,
 } from '../shared/pets';
 import type { EggHint, Pet, WirePet } from '../shared/pets';
@@ -480,15 +481,24 @@ function petCard(pet: Pet, now: number, pets: WirePet[], board: WirePet[]): HTML
   //   別々の人が♂と♀を預けると、どちらにもボタンが無く手詰まりになった
   //   (2026-08-15に指摘)。預けた側にお礼の卵が届く仕組みは元からあるので、
   //   預けたまま組めても筋は通る。
+  // ★ 組めない相手のボタンは出さない(2026-08-21)。
+  //   どれを出すかの判断は shared/pets.ts の breedOptions にある
+  //   (ブラウザ無しで確かめられるように切り出してある)。
   {
-    const partners = [...pets, ...board].filter((p, i, all) => all.findIndex(q => q.id === p.id) === i);
-    for (const wirePartner of partners) {
-      if (wirePartner.id === pet.id) continue;
-      const partner = grown(wirePartner);
-      if (!partner) continue;   // 相手が卵なら交配の相手にならない
-      const reason = canBreed(pet, partner, now);
+    const partners = [...pets, ...board]
+      .filter((p, i, all) => all.findIndex(q => q.id === p.id) === i)
+      .map(grown)
+      .filter((p): p is Pet => p !== null);   // 卵は相手にならない
+    const { 相手, 案内 } = breedOptions(pet, partners, now);
+    for (const partner of 相手) {
       actions.append(button(`${petDisplayName(partner)}と交配`,
-        () => act('breed', { petId: pet.id, partnerId: partner.id }), Boolean(reason), reason ?? ''));
+        () => act('breed', { petId: pet.id, partnerId: partner.id })));
+    }
+    if (案内) {
+      const note = document.createElement('p');
+      note.className = 'note';
+      note.textContent = 案内;
+      actions.append(note);
     }
   }
   box.append(actions); return box;
@@ -587,7 +597,9 @@ export async function renderPets(): Promise<void> {
       + '<b>成立すると、預けた側にもお礼の卵が1つ届きます。</b><br>'
       + '交配するには <b>自分の鳥のカードにある「〇〇と交配」を押します</b>'
       + '（<b>交配所へ預けたままの自分の鳥からも押せます</b>ので、'
-      + '引き取る必要はありません）。<br>'
+      + '引き取る必要はありません）。'
+      + '<b>ボタンは今すぐ組める相手のぶんだけ出ます</b>'
+      + '（♂♀が合わない・まだ雛・休憩中などの相手は並びません）。<br>'
       + `成立の条件は、二羽とも<b>成鳥</b>で、預けてから約${BOARD_SETTLE_HOURS}時間なじんでいて、`
       + `<b>一生${BREED_MAX_COUNT}回</b>の残りがあり、産んだ後の休憩が明けていること。`
       + '<b>押す側と相手の両方に手持ちの空きが要ります。</b>';
