@@ -206,13 +206,32 @@ export function hasSound(): boolean {
 
 // ---- 起動 ----
 
+// 素材の目録を読むのを、いつまでも待たない上限(ミリ秒)。
+//
+// ★ 上限が無いと、返事が来ない回線で initSound() が永久に終わらない。
+//   fetch は「拒否される」なら下の catch が拾って先へ進めるが、
+//   「返事が来ない」場合は待ち続ける。版を出した直後はサーバーが
+//   起動し直した後でいちばん重く(無料プランはスリープから数十秒)、
+//   携帯回線だと現実に起こる。2026-08-21、これで音量つまみが
+//   効かなくなる不具合の原因になっていた。
+const MANIFEST_TIMEOUT_MS = 10000;
+
 // 起動時に1回だけ呼ぶ。素材が無くてもエラーにはしない。
+//
+// ★ この関数の完了を、画面の組み立ての前提にしないこと。
+//   音量つまみは initSoundUI() が別に結び付ける(素材と関係なく効く)。
 export async function initSound(): Promise<void> {
   loadPrefs();
   try {
-    const res = await fetch(url('manifest.json'), { cache: 'no-store' });
-    if (!res.ok) return;               // 素材未導入 = 無音のまま
-    manifest = await res.json() as Manifest;
+    const ac = new AbortController();
+    const timer = window.setTimeout(() => ac.abort(), MANIFEST_TIMEOUT_MS);
+    try {
+      const res = await fetch(url('manifest.json'), { cache: 'no-store', signal: ac.signal });
+      if (!res.ok) return;             // 素材未導入 = 無音のまま
+      manifest = await res.json() as Manifest;
+    } finally {
+      window.clearTimeout(timer);
+    }
   } catch {
     manifest = null;
     return;
@@ -510,8 +529,25 @@ function renderBgmNow(): void {
   }, 1000);
 }
 
+// つまみに操作を結び付ける。二度呼んでも二重には付けない。
+let soundUiReady = false;
+
+// ★ 音の素材の読み込みを待ってから呼んではいけない(2026-08-21)。
+//   以前は main.ts が
+//     void initSound().then(() => { initSoundUI(); ... });
+//   と書いており、素材の読み込みが返ってこないと、つまみに操作が
+//   結び付かないままになっていた。つまみは指で動くので動いたように
+//   見えるが、setBgmVolume が呼ばれず何も保存されない。
+//   「音量が保存されない」という指摘の正体がこれ。
+//   版を出した直後はサーバーが起動し直した後でいちばん重いため、
+//   「バージョンが上がったあと」に集中して起きていた。
+//   test/sound_ui_stall_check.ts が見張っている。
 export function initSoundUI(): void {
   if (!document.querySelector('#sound-panel')) return;
+  if (soundUiReady) return;
+  soundUiReady = true;
+  // 素材より先に呼ばれても、つまみに正しい値を出せるようにする
+  loadPrefs();
   $<HTMLInputElement>('#bgm-volume').addEventListener('input', ev => {
     setBgmVolume(Number((ev.target as HTMLInputElement).value) / 100);
   });

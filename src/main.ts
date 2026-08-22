@@ -399,8 +399,14 @@ function main(): void {
     if (!$('#battle-setup').classList.contains('hidden')) renderSetup();
   });
 
-  // 音は素材が無ければ無音のまま。読み込めたら設定画面を作る
-  void initSound().then(() => { initSoundUI(); playBgm('lobby'); });
+  // ★ 音量つまみは素材の読み込みを待たずに結び付ける(2026-08-21)。
+  //   以前は initSound().then() の中で initSoundUI() を呼んでいたため、
+  //   素材の読み込みが返ってこないとつまみに操作が結び付かず、
+  //   動かしても何も保存されなかった。素材の有無と、つまみが効くことは
+  //   別の話なので分ける。
+  initSoundUI();
+  // 音は素材が無ければ無音のまま。読めたら表示を更新して曲を鳴らす
+  void initSound().then(() => { renderSoundUI(); playBgm('lobby'); });
 
   window.setInterval(updateTabLock, 400);
 
