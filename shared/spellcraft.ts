@@ -270,8 +270,15 @@ export function recipesEqual(a: ElementCounts, b: ElementCounts): boolean {
 // (ガチャでチケットだけ減る不具合になった)。作れる系統に当たるまで
 // 順に試す。作れるものが1つも無いことは、素材2個で成立する系統が
 // ある限り起こらない。
+// avoid を渡すと、それが true を返す構成は飛ばす。
+//
+// ★ 授ける側が「すでに持っている構成」を避けるために使う。避けきれない
+//   (どれも持っている)時は null が返るので、呼ぶ側は avoid 無しでもう一度
+//   引くこと。null をそのまま「何も授けない」に繋いではいけない ―
+//   条件を満たしたのに手ぶらで終わる(ガチャを作った時に一度やっている)。
 export function randomComposition(
   maxElements: number, rnd: () => number = Math.random,
+  avoid?: (counts: ElementCounts) => boolean,
 ): { recipeId: string; counts: ElementCounts } | null {
   const order = RECIPES.map(r => r.id);
   for (let i = order.length - 1; i > 0; i--) {   // 偏りの出ない混ぜ方
@@ -280,7 +287,9 @@ export function randomComposition(
   }
   for (const recipeId of order) {
     const counts = bestCompositionFor(recipeId, maxElements);
-    if (counts) return { recipeId, counts };
+    if (!counts) continue;
+    if (avoid?.(counts)) continue;
+    return { recipeId, counts };
   }
   return null;
 }

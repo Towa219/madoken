@@ -19,7 +19,10 @@ import {
   hasBossCleared, loadoutIsCurrent, notify, playerMagicTotal, renameLoadout, save, saveLoadout,
   sortSpells, spendElements, state, toggleEquip, totalInventory, withCharBonus,
 } from './state';
-import type { ElementCounts, ElementId, Spell, SpellSort } from '../shared/types';
+import type { ElementCounts, ElementId, Rarity, Spell, SpellSort } from '../shared/types';
+// ★ 授ける魔法の扱い(新規か強化か)は、ガチャと同じ判断を使う。
+//   別々に書いたせいで同じ魔法が2本並ぶ不具合が出た(2026-08-22)。
+import { applyEnhance, grantOutcomeFor } from '../shared/gacha';
 import { playSfx, startSfxLoop, stopSfxLoop } from './sound';
 
 const $ = <T extends HTMLElement = HTMLElement>(sel: string) =>
@@ -904,6 +907,56 @@ function disassemble(sp: Spell): void {
 
 // ---- 発見図鑑 ----
 
+// 魔法を1本授ける。ボスの報酬も図鑑コンプの報酬もここを通す。
+//
+// ★ 素の addSpell で持ち物へ押し込んではいけない(2026-08-22)。
+//   以前は両方とも addSpell を直に呼んでいて、たまたま手持ちと同じ構成を
+//   引き当てると同じ魔法が2本並んだ。実データで確認している ―
+//   ステージ30のボス報酬が、すでに持っていた
+//   「光の陰陽輪・極〈水光2闇2〉+6」と同じ構成を引き、
+//   ノーマル+6 とレア+0 が魔導書に並んでいた。
+//
+// ★ 二段構えにしてある。
+//   ① そもそも手持ちに無い構成を選ぶ(randomComposition の avoid)。
+//      持っていない魔法が増えるのが、報酬としていちばん嬉しい。
+//   ② それでも当たってしまったら、増やさずに強化+品質上げにする
+//      (調合・ガチャと同じ扱い。判断は shared/gacha.ts に集約)。
+//
+// 戻り値は画面に出す一言。
+function 授ける(rarity: Rarity, id: string): string | null {
+  const 枠 = Math.max(3, state.slots);
+  const 手持ちにある = (c: ElementCounts) =>
+    state.spells.some(sp => recipesEqual(sp.recipe, c));
+  // ★ avoid で全滅した時に null をそのまま返してはいけない。
+  //   条件を満たしたのに手ぶらで終わってしまう。避け無しで引き直す。
+  const picked = randomComposition(枠, Math.random, 手持ちにある)
+    ?? randomComposition(枠);
+  if (!picked) return null;
+  const counts = picked.counts;
+
+  const o = grantOutcomeFor(state.spells, counts, rarity);
+  if (o.kind === 'new') {
+    const { matched } = computeSpell(counts);
+    const name = spellNameFor(counts, rarity);   // 上位品質はカタカナの真名
+    addSpell({
+      id, name, recipe: counts,
+      stats: finalStats(counts, 0, rarity),
+      discoveries: matched.map(r => r.id),
+      level: 0, equipCount: 0, rarity,
+    });
+    return `【${RARITIES[rarity].name}】「${name}」を授かった!`;
+  }
+  if (o.kind === 'max') {
+    // 最大強化で品質も上がらない。せめて何が起きたかは伝える。
+    return `すでに持っている「${spellDisplayName(o.owned)}」と同じ構成だった`
+      + `(すでに最大強化で、品質も上がらなかった)。`;
+  }
+  const 前 = spellDisplayName(o.owned);
+  applyEnhance(o);
+  return `すでに持っている「${前}」と同じ構成だった → `
+    + `「${spellDisplayName(o.owned)}」に強くなった!`;
+}
+
 // 深いボスを初めて倒したら、その品質の魔法を1つだけ授ける(最深部の報酬)。
 //
 // どのステージで何をもらえるかは shared/data.ts の BOSS_REWARDS に集めてある。
@@ -918,30 +971,11 @@ export function grantBossReward(stage: number): void {
   // 古い端末と行き来しても二重取得にならないよう、旧い形式にも書いておく
   if (stage === LEGEND_BOSS_STAGE) state.legendRewarded = true;
 
-  // 系統を1つ選ぶだけでは駄目。素材の数が足りない系統を引くと構成が作れず、
-  // 条件を満たしたのに何も授からずに終わる(ガチャを作った時に表面化した)。
-  const picked = randomComposition(Math.max(3, state.slots));
-  if (!picked) { save(); return; }
-  const counts = picked.counts;
-
-  const { matched } = computeSpell(counts);
-  const rewardName = spellNameFor(counts, reward.rarity); // カタカナの真名
-  const spell: Spell = {
-    id: `sp_boss${stage}_${Date.now()}`,
-    name: rewardName,
-    recipe: counts,
-    stats: finalStats(counts, 0, reward.rarity),
-    discoveries: matched.map(r => r.id),
-    level: 0, equipCount: 0,
-    rarity: reward.rarity,
-  };
-  addSpell(spell);
+  const 一言 = 授ける(reward.rarity, `sp_boss${stage}_${Date.now()}`);
+  if (!一言) { save(); return; }
   save();
   notify();   // 図鑑の案内・魔導書・戦闘力をその場で描き直す
-  showToast(
-    `👑 ステージ${stage}のボスを討伐! `
-    + `【${RARITIES[reward.rarity].name}】「${rewardName}」を授かった!`,
-  );
+  showToast(`👑 ステージ${stage}のボスを討伐! ${一言}`);
 }
 
 // 全系統を発見していたら、その証としてエピック品質の魔法を1つだけ授ける。
@@ -952,26 +986,10 @@ function grantCodexRewardIfDue(): void {
 
   state.codexRewarded = true; // 先に立てて二重取得を防ぐ
 
-  // 系統を1つ選ぶだけでは駄目。素材の数が足りない系統を引くと構成が作れず、
-  // 条件を満たしたのに何も授からずに終わる(ガチャを作った時に表面化した)。
-  const picked = randomComposition(Math.max(3, state.slots));
-  if (!picked) { save(); return; }
-  const counts = picked.counts;
-
-  const { matched } = computeSpell(counts);
-  const rewardName = spellNameFor(counts, 'epic'); // カタカナの真名
-  const spell: Spell = {
-    id: `sp_codex_${Date.now()}`,
-    name: rewardName,
-    recipe: counts,
-    stats: finalStats(counts, 0, 'epic'),
-    discoveries: matched.map(r => r.id),
-    level: 0, equipCount: 0,
-    rarity: 'epic',
-  };
-  addSpell(spell);
+  const 一言 = 授ける('epic', `sp_codex_${Date.now()}`);
+  if (!一言) { save(); return; }
   save();
-  showToast(`📚 発見図鑑コンプリート! 【${RARITIES.epic.name}】「${rewardName}」を授かった!`);
+  showToast(`📚 発見図鑑コンプリート! ${一言}`);
 }
 
 function renderRecipes(): void {

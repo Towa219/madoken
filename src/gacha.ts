@@ -21,7 +21,7 @@ import {
 import { addSpell, notify, save, state } from './state';
 import { showToast } from './lab';
 import { playBgm, playSfx } from './sound';
-import { gachaOutcomeFor } from '../shared/gacha';
+import { applyEnhance, gachaOutcomeFor } from '../shared/gacha';
 import type { GachaOutcome } from '../shared/gacha';
 import type { ElementCounts, Rarity, Spell } from '../shared/types';
 
@@ -84,14 +84,9 @@ function applyOutcome(o: GachaOutcome): void {
   if (o.kind === 'rp') { state.researchP += o.amount; return; }
   if (o.kind === 'new') { addSpell(newSpellOf(o.counts, o.rarity)); return; }
   if (o.kind === 'max') return;
-  const sp = o.owned;
-  if (o.rarityUp) {
-    sp.rarity = o.rarity;
-    // 品質が変わると上位品質の真名に変わる(同じ構成なら名前は一意に決まる)
-    sp.name = spellNameFor(sp.recipe, sp.rarity);
-  }
-  sp.level = o.level;
-  sp.stats = finalStats(sp.recipe, sp.level, sp.rarity);
+  // 反映そのものは shared/gacha.ts に置いてある。
+  // 最深部の報酬・図鑑コンプの報酬と同じ手順を通すため(別々に書くと必ずずれる)。
+  applyEnhance(o);
 }
 
 // ===== 演出 =====
