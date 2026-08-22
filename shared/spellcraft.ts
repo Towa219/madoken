@@ -555,6 +555,39 @@ function upTime(s: SpellStats): number {
   return Math.min(1, dur / (s.castTime + spellCooldown(s)));
 }
 
+// 瞑想(MP自然回復UP)が、実際にどれだけ手数を増やすかの見積もり。
+// 自分のDPSの何倍ぶんの働きに相当するか、を返す。
+//
+// ★ 線形にしてはいけない(2026-08-22)。以前は
+//     v = REF_DPS * (mpRegenBonus / BASE_MP_REGEN) * 12 * upTime * all * 1.5
+//   と書いていて、MP回復量をそのまま攻撃力に換算していた。
+//   いちばん強い +9/秒(基礎6の1.5倍)が「自分の全火力の2.25倍」と
+//   見積もられ、瞑想だけ魔導値が突出していた
+//   ― 上位1割 674 に対し、他の種類は 370〜553。
+//
+//   MPが潤沢になっても手数が無限に増えることはない。詠唱時間と
+//   再使用時間が残るので、必ずどこかで頭打ちになる。だから
+//   頭打ちのある形にする。
+//
+//     CAP  … いくらMPが増えても、これ以上の値打ちにはならない上限
+//     HALF … 上限の半分に届くMP回復の倍率
+//
+//   いちばん強い +9/秒 で 1.04倍 ≒「手数がおよそ倍になる」。
+//   MP回復が 6→15/秒 なら理屈のうえでも2.5倍が上限で、そこから
+//   詠唱と再使用のぶんを差し引けば妥当な線。
+//
+// ★ 効果そのもの(mpRegenBonusOf)は touched していない。
+//   2026-08-11 に「長期戦を支える系統なのに差が出ない」として
+//   意図的に1.5倍へ強めたもので、遊びの側は変えない。
+//   直すのは見積もりだけ。test/balance_check.ts が水準を見張る。
+const FOCUS_VALUE_CAP = 1.6;
+const FOCUS_VALUE_HALF = 0.8;
+function focusValue(mpRegenBonus: number): number {
+  const r = mpRegenBonus / BASE_MP_REGEN;
+  if (r <= 0) return 0;
+  return FOCUS_VALUE_CAP * r / (r + FOCUS_VALUE_HALF);
+}
+
 export function spellMagicValue(raw: SpellStats): number {
   const s = normalizeStats(raw);
   const cycle = s.castTime + spellCooldown(s) * 0.6; // 1発に要する実時間
@@ -605,7 +638,8 @@ export function spellMagicValue(raw: SpellStats): number {
     v = REF_DPS * (s.atkBoost / 100) * 12 * upTime(s) * all * 3.3;
   } else if (s.kind === 'focus') {
     // MP回復の上乗せ。MPが尽きて詠唱できない時間が減る = そのぶん手数が増える。
-    v = REF_DPS * (s.mpRegenBonus / BASE_MP_REGEN) * 12 * upTime(s) * all * 1.5;
+    // ただし増え方は頭打ちになる(focusValue の説明を参照)。
+    v = REF_DPS * focusValue(s.mpRegenBonus) * 12 * upTime(s) * all;
   } else {
     // 挑発: 敵の狙いを引き受ける。仲間が殴られない時間を作る役目。
     // 味方の被弾を丸ごと肩代わりするので、他の支援と同じ水準まで見てよい。
