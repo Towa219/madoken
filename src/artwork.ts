@@ -47,12 +47,51 @@ function url(file: string): string {
   return `${BASE}${file}`;
 }
 
+// 目録と絵を、いつまでも待たない上限(ミリ秒)。
+//
+// ★ 上限が無いと loadArtwork() が永久に終わらない。穴は2つある。
+//   ① fetch は「拒否される」なら catch が拾って先へ進めるが、
+//     「返事が来ない」場合は待ち続ける。
+//   ② 絵は Promise.all でまとめて待っているので、24枚のうち
+//     たった1枚が止まっただけで全部が止まる。
+//
+//   版を出した直後はサーバーが起動し直した後でいちばん重く
+//   (無料プランはスリープから起きるのに数十秒)、携帯回線ならなおさら。
+//   2026-08-21、音(src/sound.ts)でこれと同じ形の不具合が実際に出て、
+//   音量つまみが効かなくなっていた。
+//
+// ★ 諦めた絵は図形描画に落ちるだけで、遊びは続く(元からの作り)。
+const MANIFEST_TIMEOUT_MS = 10000;
+const IMAGE_TIMEOUT_MS = 15000;
+
+// 決めた時間で諦める。1枚が諦めても、他の絵の読み込みは続く。
+function 時間切れ付き<T>(p: Promise<T>, ms: number, 何: string): Promise<T> {
+  return new Promise<T>((res, rej) => {
+    const t = window.setTimeout(
+      () => rej(new Error(`${何} が${ms / 1000}秒で読めなかった`)), ms);
+    p.then(
+      v => { window.clearTimeout(t); res(v); },
+      e => { window.clearTimeout(t); rej(e as Error); },
+    );
+  });
+}
+
 // 起動時に1回だけ呼ぶ。素材が無くてもエラーにはしない。
+//
+// ★ この関数の完了を、画面の組み立ての前提にしないこと。
+//   キャラ選択欄は initCharPicker() が絵なしで先に出し、
+//   絵が届いたら renderCharPickers() で描き直す作りになっている。
 export async function loadArtwork(): Promise<void> {
   try {
-    const res = await fetch(url('manifest.json'), { cache: 'no-store' });
-    if (!res.ok) return;                       // 素材未導入 = 図形のまま
-    manifest = await res.json() as Manifest;
+    const ac = new AbortController();
+    const timer = window.setTimeout(() => ac.abort(), MANIFEST_TIMEOUT_MS);
+    try {
+      const res = await fetch(url('manifest.json'), { cache: 'no-store', signal: ac.signal });
+      if (!res.ok) return;                     // 素材未導入 = 図形のまま
+      manifest = await res.json() as Manifest;
+    } finally {
+      window.clearTimeout(timer);
+    }
   } catch {
     manifest = null;
     return;
@@ -67,16 +106,22 @@ export async function loadArtwork(): Promise<void> {
   for (const f of Object.values(manifest.projectiles ?? {})) if (f) files.push(f);
   for (const f of Object.values(manifest.pets ?? {})) if (f) files.push(f);
 
+  let 諦めた = 0;
   await Promise.all(files.map(async f => {
     try {
-      textures.set(f, await Assets.load(url(f)) as Texture);
+      textures.set(f, await 時間切れ付き(
+        Assets.load(url(f)) as Promise<Texture>, IMAGE_TIMEOUT_MS, f));
     } catch {
       // 1枚欠けても他は使う(その形状だけ図形にフォールバック)
+      諦めた += 1;
     }
   }));
 
   const n = textures.size;
   if (n > 0) console.log(`[素材] 画像を${n}枚読み込みました`);
+  // ★ 黙って減らさない。何枚落ちたかを出しておかないと、
+  //   「たまに絵が出ない」の原因が回線なのか素材なのか分からない。
+  if (諦めた > 0) console.warn(`[素材] ${諦めた}枚は読めなかった(その分は図形で描く)`);
 
   // ポーズの絵は待ってから始めない。
   //
@@ -95,14 +140,19 @@ async function loadPoses(): Promise<void> {
     }
   }
   if (files.length === 0) return;
+  let 読めた = 0;
   await Promise.all(files.map(async f => {
     try {
-      textures.set(f, await Assets.load(url(f)) as Texture);
+      textures.set(f, await 時間切れ付き(
+        Assets.load(url(f)) as Promise<Texture>, IMAGE_TIMEOUT_MS, f));
+      読めた += 1;
     } catch {
       // 1枚欠けても他は使う(その絵だけ待機のまま)
     }
   }));
-  console.log(`[素材] ポーズの絵を${files.length}枚読み込みました`);
+  // ★ files.length(試した枚数)を出してはいけない。1枚も読めていなくても
+  //   「24枚読み込みました」と出てしまい、記録が嘘をつく(2026-08-22に修正)。
+  console.log(`[素材] ポーズの絵を${読めた}/${files.length}枚読み込みました`);
 }
 
 export function hasArtwork(): boolean {
